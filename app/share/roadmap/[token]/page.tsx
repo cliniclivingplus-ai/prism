@@ -39,7 +39,7 @@ export default async function PatientDashboardPage({ params }: { params: Promise
       .select('*, patients(full_name, gender, primary_concern, nutritionists(id, full_name, designation, bio, response_note, photo_url)), sessions(case_summary)')
       .eq('id', roadmapId)
       .single(),
-    supabaseAdmin.from('roadmap_checkins').select('week_number, action_index, checkin_date').eq('roadmap_id', roadmapId),
+    supabaseAdmin.from('roadmap_checkins').select('week_number, action_index, checkin_date, item_id, item_text_snapshot').eq('roadmap_id', roadmapId),
     supabaseAdmin.from('recipe_bank').select('*'),
     supabaseAdmin.from('guide_images').select('id, label, tags, image_url'),
   ])

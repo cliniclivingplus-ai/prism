@@ -41,7 +41,7 @@ export default async function LiveEditPage({ params }: { params: Promise<{ id: s
 
   const { data: checkins } = await supabaseAdmin
     .from('roadmap_checkins')
-    .select('week_number, action_index, checkin_date')
+    .select('week_number, action_index, checkin_date, item_id, item_text_snapshot')
     .eq('roadmap_id', roadmapId)
 
   const backHref = `/compass/patients/${patientId}`
