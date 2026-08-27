@@ -629,8 +629,13 @@ export default function WeekTemplate({ shareToken, data, initialCheckins, editab
     })
   }
 
+  // Shopping list — null override means "keep computing it live from this
+  // patient's real matched recipes" (see lib/groceryList.ts); once a coach
+  // edits anything, the whole list becomes their own persisted content,
+  // same "override wins" pattern as lifestyle/meals/schedule above.
+  const [groceryOverride, setGroceryOverride] = useState<GroceryCategory[] | null>(data.groceryListOverride)
   useEffect(() => {
-    if (!week) return
+    if (!week || groceryOverride) return
     const wn = week.week_number
     if (aiGroceryCache[wn]) return
     const weekRecipes = getSlotRecipes(wn, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
@@ -645,7 +650,48 @@ export default function WeekTemplate({ shareToken, data, initialCheckins, editab
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [week, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [week, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  const weekGroceryRecipes = useMemo(() => {
+    if (!week) return []
+    return getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
+      .flatMap((s) => s.matches).map((mm) => mm.recipe)
+  }, [week, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  const groceryCats = useMemo(() => {
+    if (groceryOverride) return groceryOverride
+    if (!week) return []
+    const computed = aiGroceryCache[week.week_number] ?? buildGroceryList(weekGroceryRecipes)
+    return computed.length > 0 ? computed : GROCERY_CATEGORIES
+  }, [groceryOverride, week, aiGroceryCache, weekGroceryRecipes])
+  function saveGroceryList(next: GroceryCategory[]) {
+    setGroceryOverride(next)
+    patchRoadmap({ guide_overrides: { grocery_list_override: next } })
+  }
+  function saveGroceryItemText(catHead: string, itemIndex: number, next: string) {
+    saveGroceryList(groceryCats.map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.map((it, i) => (i === itemIndex ? next : it)) } : cat)))
+  }
+  function removeGroceryItem(catHead: string, itemIndex: number) {
+    saveGroceryList(
+      groceryCats
+        .map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.filter((_, i) => i !== itemIndex) } : cat))
+        .filter((cat) => cat.items.length > 0),
+    )
+  }
+  function addGroceryItem(catHead: string) {
+    saveGroceryList(groceryCats.map((cat) => (cat.head === catHead ? { ...cat, items: [...cat.items, 'New item'] } : cat)))
+  }
+  function saveGroceryCategoryName(oldHead: string, next: string) {
+    saveGroceryList(groceryCats.map((cat) => (cat.head === oldHead ? { ...cat, head: next } : cat)))
+  }
+  function removeGroceryCategory(head: string) {
+    saveGroceryList(groceryCats.filter((cat) => cat.head !== head))
+  }
+  function addGroceryCategory() {
+    saveGroceryList([...groceryCats, { head: 'New category', items: ['New item'] }])
+  }
+  function resetGroceryList() {
+    setGroceryOverride(null)
+    patchRoadmap({ guide_overrides: { grocery_list_override: null } })
+  }
 
   const [openService, setOpenService] = useState<number | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
@@ -1434,48 +1480,93 @@ function clpToggleGroceryCat(head){
       {/* Shopping list */}
       <section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <Eyebrow>What to buy</Eyebrow>
-          <SecTitle icon={<ShoppingCart size={26} />} sectionId="grocery" open={isSectionOpen('grocery')} onToggle={() => toggleSection('grocery')}>Your Shopping List</SecTitle>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <Eyebrow>What to buy</Eyebrow>
+              <SecTitle icon={<ShoppingCart size={26} />} sectionId="grocery" open={isSectionOpen('grocery')} onToggle={() => toggleSection('grocery')}>Your Shopping List</SecTitle>
+            </div>
+            {editable && groceryOverride && (
+              <button type="button" onClick={resetGroceryList}
+                style={{ fontSize: '0.75rem', fontWeight: 700, padding: '7px 12px', borderRadius: 10, border: `1px solid ${PALETTE.line}`, background: PALETTE.paper1, color: PALETTE.berry, cursor: 'pointer' }}>
+                Reset to auto-generated list
+              </button>
+            )}
+          </div>
           <div data-section-body="grocery" style={{ display: isSectionOpen('grocery') ? 'block' : 'none' }}>
-          <p style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: 16, marginBottom: 20 }}>Pulled straight from the ingredients of your matched recipes. Tap a category to see its items.</p>
+          <p style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: 16, marginBottom: 20 }}>
+            {editable ? 'Pulled from your matched recipes — edit any item, or add your own.' : 'Pulled straight from the ingredients of your matched recipes. Tap a category to see its items.'}
+          </p>
           {!week ? (
             <p style={{ fontSize: '0.9rem', opacity: 0.6 }}>Not planned yet, check back once your coach generates your roadmap.</p>
-          ) : (() => {
-            const weekRecipes = getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
-            const cats = aiGroceryCache[week.week_number] ?? buildGroceryList(weekRecipes)
-            const finalCats = cats.length > 0 ? cats : GROCERY_CATEGORIES
-            return (
+          ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20 }}>
-                {finalCats.map((cat) => {
+                {groceryCats.map((cat) => {
                   const catOpen = openGroceryCats.has(cat.head)
                   return (
                   <div key={cat.head}>
                     <button data-grocery-cat-trigger={cat.head} onClick={() => toggleGroceryCat(cat.head)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', gap: 6 }}>
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }}>{cat.head} · {cat.items.length}</span>
-                      <ChevronDown data-grocery-cat-chevron size={14} color={PALETTE.berry}
-                        style={{ opacity: 0.7, flexShrink: 0, transition: 'transform 0.2s ease', transform: catOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
+                      {editable ? (
+                        <InlineEditableText editable value={cat.head} onSave={(next) => saveGroceryCategoryName(cat.head, next)}
+                          style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }} />
+                      ) : (
+                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }}>{cat.head} · {cat.items.length}</span>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        {editable && (
+                          <span role="button" onClick={(e) => { e.stopPropagation(); removeGroceryCategory(cat.head) }} title="Remove category"
+                            style={{ display: 'inline-flex', color: PALETTE.berry, opacity: 0.6, cursor: 'pointer' }}><X size={13} /></span>
+                        )}
+                        <ChevronDown data-grocery-cat-chevron size={14} color={PALETTE.berry}
+                          style={{ opacity: 0.7, transition: 'transform 0.2s ease', transform: catOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
+                      </div>
                     </button>
                     <ul data-grocery-cat-body={cat.head} style={{ display: catOpen ? 'block' : 'none', listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                      {cat.items.map((item) => {
+                      {cat.items.map((item, itemIndex) => {
                         const itemKey = `${week.week_number}:${cat.head}:${item}`
                         const bought = boughtItems.has(itemKey)
                         return (
-                          <li key={item} data-grocery-item={itemKey} onClick={() => toggleBought(itemKey)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', opacity: bought ? 0.45 : 0.8, padding: '3px 0', cursor: 'pointer' }}>
-                            <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={PALETTE.berry} /></span>
-                            <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} opacity={0.5} /></span>
-                            <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                          <li key={itemIndex} data-grocery-item={itemKey} onClick={() => { if (!editable) toggleBought(itemKey) }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', opacity: bought ? 0.45 : 0.8, padding: '3px 0', cursor: editable ? 'default' : 'pointer' }}>
+                            {!editable && (
+                              <>
+                                <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={PALETTE.berry} /></span>
+                                <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} opacity={0.5} /></span>
+                              </>
+                            )}
+                            {editable ? (
+                              <>
+                                <InlineEditableText editable value={item} onSave={(next) => saveGroceryItemText(cat.head, itemIndex, next)}
+                                  style={{ flex: 1 }} />
+                                <span role="button" onClick={() => removeGroceryItem(cat.head, itemIndex)} title="Remove"
+                                  style={{ display: 'inline-flex', color: PALETTE.berry, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={12} /></span>
+                              </>
+                            ) : (
+                              <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                            )}
                           </li>
                         )
                       })}
+                      {editable && (
+                        <li>
+                          <button type="button" onClick={() => addGroceryItem(cat.head)}
+                            style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.76rem', fontWeight: 700, padding: 0, border: 'none', background: 'none', color: PALETTE.berry, cursor: 'pointer', opacity: 0.8 }}>
+                            + Add item
+                          </button>
+                        </li>
+                      )}
                     </ul>
                   </div>
                   )
                 })}
+                {editable && (
+                  <button type="button" onClick={addGroceryCategory}
+                    style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+                    + Add category
+                  </button>
+                )}
               </div>
-            )
-          })()}
+          )}
           </div>
         </div>
       </section>

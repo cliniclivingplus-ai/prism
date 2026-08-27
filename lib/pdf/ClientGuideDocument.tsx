@@ -12,6 +12,7 @@ import { groupBulletsByLabel } from '../periodBullets'
 import { MARKDOWN_TOKEN, LINK_TOKEN } from '../renderMarkdownBold'
 import type { ChecklistPageBlock } from '../blocks/types'
 import type { ChecklistItem } from '../dailyChecklist'
+import type { GroceryCategory } from '../groceryList'
 
 export type KbSource = { title: string; source_type: string; chunk_preview: string }
 
@@ -78,6 +79,12 @@ export type GuideData = {
   // after. Falls back to a deterministic same-grounding list when no
   // AI-generated version exists yet.
   dailyChecklistItems: ChecklistItem[]
+  // "Your Shopping List" — null until a coach edits it, at which point it's
+  // the coach's own category/item list verbatim (same "override wins, else
+  // compute a real default" pattern as everything else here). Until then
+  // WeekTemplate computes it live from the patient's actual matched recipes
+  // (see lib/groceryList.ts) rather than defaulting to anything stored here.
+  groceryListOverride: GroceryCategory[] | null
 }
 
 const cover = StyleSheet.create({
