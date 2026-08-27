@@ -31,6 +31,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roa
     return NextResponse.json({ error: 'Missing or invalid week_number/item_id/action_index, or date' }, { status: 400 })
   }
 
+  // Same self-healing lookup as the share-route twin — see it for why
+  // .maybeSingle() had to go (its discarded error turned a duplicated row
+  // into a check-in that could never be un-ticked).
   let existingQuery = supabaseAdmin
     .from('roadmap_checkins')
     .select('id')
@@ -38,10 +41,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roa
     .eq('week_number', weekNumber)
     .eq('checkin_date', checkinDate)
   existingQuery = itemId ? existingQuery.eq('item_id', itemId) : existingQuery.eq('action_index', actionIndex)
-  const { data: existing } = await existingQuery.maybeSingle()
+  const { data: existing, error: lookupError } = await existingQuery
+  if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 500 })
 
-  if (existing) {
-    const { error } = await supabaseAdmin.from('roadmap_checkins').delete().eq('id', existing.id)
+  if (existing && existing.length > 0) {
+    const { error } = await supabaseAdmin.from('roadmap_checkins').delete().in('id', existing.map((r) => r.id))
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ checked: false })
   }
@@ -51,6 +55,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roa
     roadmap_id: roadmapId, week_number: weekNumber, action_index: actionIndex, checkin_date: checkinDate,
     item_id: itemId, item_text_snapshot: itemTextSnapshot,
   })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // 23505 = unique violation: a racing request already created this exact
+  // row, which is the state this one wanted anyway.
+  if (error && error.code !== '23505') return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ checked: true })
 }

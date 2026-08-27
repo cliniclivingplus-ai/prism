@@ -44,6 +44,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: 'Missing or invalid week_number/item_id/action_index, or date' }, { status: 400 })
   }
 
+  // Selects every matching row, not `.maybeSingle()`. maybeSingle() errors
+  // when more than one row comes back, and that error used to be discarded —
+  // so a duplicated check-in read as "not checked", took the insert branch,
+  // and added yet another copy. The item could then never be un-ticked.
+  // Reading the full set instead makes the toggle self-healing: duplicates
+  // left over from before migration_v40 are all removed on the next tap.
   let existingQuery = supabaseAdmin
     .from('roadmap_checkins')
     .select('id')
@@ -51,10 +57,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     .eq('week_number', weekNumber)
     .eq('checkin_date', checkinDate)
   existingQuery = itemId ? existingQuery.eq('item_id', itemId) : existingQuery.eq('action_index', actionIndex)
-  const { data: existing } = await existingQuery.maybeSingle()
+  const { data: existing, error: lookupError } = await existingQuery
+  if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 500 })
 
-  if (existing) {
-    const { error } = await supabaseAdmin.from('roadmap_checkins').delete().eq('id', existing.id)
+  if (existing && existing.length > 0) {
+    const { error } = await supabaseAdmin.from('roadmap_checkins').delete().in('id', existing.map((r) => r.id))
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ checked: false })
   }
@@ -64,6 +71,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     roadmap_id: roadmapId, week_number: weekNumber, action_index: actionIndex, checkin_date: checkinDate,
     item_id: itemId, item_text_snapshot: itemTextSnapshot,
   })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // 23505 = unique violation: the racing request won and the row now exists,
+  // which is exactly the state this one wanted. Report it as checked rather
+  // than failing the tap.
+  if (error && error.code !== '23505') return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ checked: true })
 }
