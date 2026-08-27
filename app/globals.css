@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════
+   CLP — SHARED DESIGN SYSTEM
+
+   Tokens taken literally from design-reference/home.html and
+   clp-patient-workspace.html. Teal + gold + paper.
+
+   NOTE: this supersedes the earlier "MicrobiomeRx token architecture
+   re-skinned with --clp-green" decision recorded in CLAUDE.md. The
+   mockups are the spec. --clp-green survives as --pista-600 (#538A22),
+   which the mockups use for the MicrobiomeRx tool accent.
+
+   The mockups define no dark mode, so neither does this file.
+   Never hardcode hex outside here.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Paper + ink */
+  --paper: #FAF6EE;
+  --paper-raised: #FFFFFF;
+  --ink: #1C2B29;
+  --ink-soft: #5B6664;
+  --ink-faint: #8C948F;
+  --line: #E3DAC6;
+  --line-soft: #EEE7D6;
+
+  /* Teal — primary brand / CLP Compass accent */
+  --teal-950: #0A2C28;
+  --teal-900: #0E3B36;
+  --teal-800: #123F39;
+  --teal-700: #155048;
+  --teal-600: #1F6E63;
+  --teal-100: #E4EFEA;
+
+  /* Gold — brand mark, active nav, review states */
+  --gold-500: #C9A227;
+  --gold-400: #DDBE4E;
+  --gold-100: #F5EDD3;
+
+  /* Pista — MicrobiomeRx accent (the former --clp-green).
+     The mockups define 100/500/600. MicrobiomeRx's report pages
+     (neurotransmitters, nutrition, vitamins) additionally reference
+     --pista-50/200/400/700, which were defined nowhere in the source repo —
+     those elements rendered with no colour at all. The ramp is completed
+     here, interpolated around the three values the mockups fix. */
+  --pista-50:  #F2FAE9;
+  --pista-100: #E2F3D0;
+  --pista-200: #C9E8AC;
+  --pista-400: #8CC155;
+  --pista-500: #6EA832;
+  --pista-600: #538A22;
+  --pista-700: #3F6B19;
+
+  /* Rust — Blood Panel accent */
+  --rust-600: #9A452F;
+  --rust-500: #B5533C;
+  --rust-100: #F3E1D8;
+
+  --amber-600: #B07A17;
+
+  --sidebar-w: 248px;
+
+  /* Semantic aliases so previously-written components keep working */
+  --background: var(--paper);
+  --card: var(--paper-raised);
+  --card-secondary: var(--paper);
+  --primary: var(--teal-700);
+  --primary-hover: var(--teal-800);
+  --primary-light: var(--teal-100);
+  --foreground: var(--ink);
+  --foreground-secondary: var(--ink-soft);
+  --foreground-muted: var(--ink-faint);
+  --border: var(--line-soft);
+  --border-light: var(--line-soft);
+  --success: var(--pista-600);
+  --warning: var(--amber-600);
+  --danger: var(--rust-600);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+
+  --color-teal-950: var(--teal-950);
+  --color-teal-900: var(--teal-900);
+  --color-teal-700: var(--teal-700);
+  --color-teal-600: var(--teal-600);
+  --color-teal-100: var(--teal-100);
+
+  --color-gold-500: var(--gold-500);
+  --color-gold-100: var(--gold-100);
+  --color-pista-50: var(--pista-50);
+  --color-pista-100: var(--pista-100);
+  --color-pista-200: var(--pista-200);
+  --color-pista-400: var(--pista-400);
+  --color-pista-500: var(--pista-500);
+  --color-pista-600: var(--pista-600);
+  --color-pista-700: var(--pista-700);
+  --color-rust-600: var(--rust-600);
+  --color-rust-100: var(--rust-100);
+  --color-amber-600: var(--amber-600);
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-inter), 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--gold-100); }
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+
+/* Shared type helpers straight from the mockups */
+.font-display { font-family: var(--font-fraunces), Georgia, serif; }
+.font-mono-clp { font-family: var(--font-jetbrains), ui-monospace, monospace; }
+
+/* ── Roster + stat grid, responsive rules from the mockups ───────── */
+.stat-grid { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 920px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.roster-row { cursor: pointer; transition: background .12s ease; }
+.roster-row:hover { background: var(--paper); }
+.roster-row:last-of-type { border-bottom: none !important; }
+
+@media (max-width: 760px) {
+  .roster-head { display: none !important; }
+  .col-hide { display: none !important; }
+  .roster-row { grid-template-columns: 2fr 1fr 32px !important; }
+}
+
+/* ── Patient workspace grids, from clp-patient-workspace.html ────── */
+.detail-grid { grid-template-columns: repeat(4, auto); }
+@media (max-width: 900px) { .detail-grid { grid-template-columns: repeat(2, auto); } }
+
+.tool-grid { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) { .tool-grid { grid-template-columns: 1fr; } }
+
+.tool-card { transition: transform .16s ease, box-shadow .16s ease; }
+.tool-card:hover { transform: translateY(-2px); box-shadow: 0 14px 26px -16px rgba(14,59,54,.25); }
+
+.panel-grid-2 { grid-template-columns: 1.3fr 1fr; }
+@media (max-width: 920px) { .panel-grid-2 { grid-template-columns: 1fr; } }
+
+/* Grid children default to min-width:auto, so one long unbreakable string
+   (some blood ref_range values are whole sentences) can blow a column out
+   and push the page into horizontal scroll. */
+.panel-grid-2 > *, .tool-grid > *, .stat-grid > * { min-width: 0; }

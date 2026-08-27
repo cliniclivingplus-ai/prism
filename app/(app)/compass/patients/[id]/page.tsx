@@ -1,0 +1,567 @@
+'use client'
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { renderMarkdownBold } from '@/lib/renderMarkdownBold'
+import { ArrowLeft, Plus, Pencil, FileText, StickyNote, LayoutDashboard, Calendar, ChevronRight, Microscope, Trash2, X, Link2, Check, Dna, FileCheck2, Droplets, History, CheckSquare } from 'lucide-react'
+import ReportsTab from '@/components/ReportsTab'
+import MicrobiomeLinkTab from '@/components/MicrobiomeLinkTab'
+import BloodLinkTab from '@/components/BloodLinkTab'
+import ChecklistTab from '@/components/ChecklistTab'
+
+// ── Design tokens ────────────────────────────────────────────────────
+const C = {
+  green: '#538A22',
+  greenDeep: '#2F5214',
+  greenSoft: '#F2F9EC',
+  greenBorder: '#C8E9A8',
+  amber: '#D98A2B',
+  amberSoft: '#FBF1E3',
+  ink: '#1A2417',
+  muted: '#6b7280',
+  faint: '#8A9284',
+  line: '#ECEBE3',
+  card: '#FFFFFF',
+}
+
+type Patient = {
+  id: string
+  clinic_patient_id?: string
+  full_name: string
+  gender?: string
+  primary_concern?: string
+  medical_history?: string
+  assigned_nutritionist?: string
+  created_at?: string
+}
+type Session = {
+  id: string
+  session_type?: string
+  session_date?: string
+  created_at?: string
+  status?: string
+  qa_pairs?: unknown[]
+  pre_meeting_notes?: string
+  post_meeting_notes?: string
+  gemini_doc_raw?: string
+}
+type Roadmap = {
+  id: string
+  /** Capability token for the patient-facing view. Null once revoked. */
+  share_token?: string | null
+  share_revoked_at?: string | null
+  session_id?: string
+  overview?: string
+  duration_months?: number
+  status?: string
+  created_at?: string
+}
+
+const TABS = [
+  { key: 'sessions', label: 'Sessions', icon: FileText },
+  { key: 'reports', label: 'Reports', icon: Microscope },
+  { key: 'notes', label: 'Notes', icon: StickyNote },
+  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { key: 'microbiome', label: 'MicrobiomeRX', icon: Dna },
+  { key: 'blood', label: 'Blood Report', icon: Droplets },
+  { key: 'checklist', label: 'Checklist', icon: FileCheck2 },
+] as const
+type TabKey = (typeof TABS)[number]['key']
+
+function fmtDate(d?: string) {
+  if (!d) return ''
+  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+function daysAgo(d?: string) {
+  if (!d) return null
+  const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
+  if (diff <= 0) return 'today'
+  if (diff === 1) return 'yesterday'
+  if (diff < 30) return `${diff}d ago`
+  return fmtDate(d)
+}
+
+export default function PatientPage() {
+  const params = useParams()
+  const router = useRouter()
+  const patientId = params.id as string
+
+  const [patient, setPatient] = useState<Patient | null>(null)
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [roadmaps, setRoadmaps] = useState<Roadmap[]>([])
+  const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<TabKey>('sessions')
+  const [showDelete, setShowDelete] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    async function load() {
+      const safe = async (url: string) => {
+        try {
+          const r = await fetch(url)
+          const j = await r.json()
+          return j
+        } catch {
+          return null
+        }
+      }
+      const [p, s, r] = await Promise.all([
+        safe(`/api/patients/${patientId}`),
+        safe(`/api/compass/sessions?patient_id=${patientId}`),
+        safe(`/api/compass/roadmaps?patient_id=${patientId}`),
+      ])
+      if (!alive) return
+      setPatient(p && !p.error ? p : null)
+      setSessions(Array.isArray(s) ? s : [])
+      setRoadmaps(Array.isArray(r) ? r : [])
+      setLoading(false)
+    }
+    load()
+    return () => {
+      alive = false
+    }
+  }, [patientId])
+
+  const lastSession = sessions
+    .map(s => s.session_date || s.created_at)
+    .filter(Boolean)
+    .sort()
+    .reverse()[0]
+
+  if (loading) {
+    return (
+      <div style={{ maxWidth: 1040, margin: '0 auto' }}>
+        <div style={{ height: 120, background: C.card, borderRadius: 16, border: `1px solid ${C.line}`, opacity: 0.6 }} />
+      </div>
+    )
+  }
+
+  if (!patient) {
+    return (
+      <div style={{ maxWidth: 1040, margin: '0 auto', textAlign: 'center', paddingTop: 80 }}>
+        <p style={{ color: C.muted }}>This patient could not be found.</p>
+        <Link href="/compass/patients" style={{ color: C.green, fontWeight: 600 }}>Back to patients</Link>
+      </div>
+    )
+  }
+
+  const counts = { sessions: sessions.length, roadmaps: roadmaps.length }
+
+  return (
+    <div style={{ maxWidth: 1040, margin: '0 auto' }}>
+      <Link href="/compass/patients" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: C.faint, textDecoration: 'none', marginBottom: 18, fontWeight: 500 }}>
+        <ArrowLeft size={14} /> All patients
+      </Link>
+
+      {/* ── Patient summary header ── */}
+      <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.line}`, padding: '22px 24px', boxShadow: '0 1px 3px rgba(26,36,23,0.04)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center', minWidth: 0 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: C.greenSoft, border: `1px solid ${C.greenBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700, color: C.greenDeep, flexShrink: 0 }}>
+              {patient.full_name?.trim()?.charAt(0)?.toUpperCase() || '?'}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: 21, fontWeight: 700, color: C.ink, margin: 0, letterSpacing: '-0.02em' }}>{patient.full_name}</h1>
+                {patient.clinic_patient_id && (
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: C.greenDeep, background: C.greenSoft, border: `1px solid ${C.greenBorder}`, borderRadius: 20, padding: '2px 9px' }}>
+                    {patient.clinic_patient_id}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 5, fontSize: 12.5, color: C.muted }}>
+                {patient.gender && <span style={{ textTransform: 'capitalize' }}>{patient.gender}</span>}
+                {patient.primary_concern && <><span>·</span><span style={{ color: C.greenDeep, fontWeight: 600 }}>{patient.primary_concern}</span></>}
+                {patient.assigned_nutritionist && <><span>·</span><span>Coach: {patient.assigned_nutritionist}</span></>}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <Link
+              href={`/compass/patients/${patientId}/edit`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 9, border: `1px solid ${C.line}`, background: C.card, color: C.muted, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
+            >
+              <Pencil size={13} /> Edit
+            </Link>
+            <button
+              onClick={() => setShowDelete(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 9, border: '1px solid #F3D6D6', background: C.card, color: '#B3261E', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            >
+              <Trash2 size={13} /> Delete
+            </button>
+            <Link
+              href={`/compass/patients/${patientId}/sessions/new`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 9, border: 'none', background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none', boxShadow: '0 2px 6px rgba(83,138,34,0.25)' }}
+            >
+              <Plus size={14} /> New session
+            </Link>
+          </div>
+        </div>
+
+        {/* stat strip */}
+        <div style={{ display: 'flex', gap: 28, marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.line}` }}>
+          <Stat label="Sessions" value={String(counts.sessions)} />
+          <Stat label="Roadmaps" value={String(counts.roadmaps)} />
+          <Stat label="Last seen" value={daysAgo(lastSession) || 'Not yet'} />
+          <Stat label="Since" value={fmtDate(patient.created_at)} />
+        </div>
+      </div>
+
+      {/* ── Tabs ── */}
+      <div style={{ display: 'flex', gap: 4, marginTop: 22, borderBottom: `1px solid ${C.line}`, overflowX: 'auto' }}>
+        {TABS.map(t => {
+          const Icon = t.icon
+          const active = tab === t.key
+          const badge = t.key === 'sessions' ? counts.sessions : t.key === 'dashboard' ? counts.roadmaps : null
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                padding: '11px 16px',
+                background: 'none',
+                border: 'none',
+                borderBottom: active ? `2px solid ${C.green}` : '2px solid transparent',
+                marginBottom: -1,
+                cursor: 'pointer',
+                fontSize: 13.5,
+                fontWeight: active ? 700 : 500,
+                color: active ? C.greenDeep : C.muted,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Icon size={15} />
+              {t.label}
+              {badge != null && badge > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 700, background: active ? C.greenSoft : '#F1F0EB', color: active ? C.greenDeep : C.faint, borderRadius: 20, padding: '1px 7px' }}>{badge}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── Tab panels ── */}
+      <div style={{ marginTop: 22 }}>
+        {tab === 'sessions' && <SessionsTab sessions={sessions} roadmaps={roadmaps} patientId={patientId} router={router} />}
+        {tab === 'reports' && <ReportsTab patientId={patientId} />}
+        {tab === 'notes' && <NotesTab sessions={sessions} />}
+        {tab === 'dashboard' && <DashboardTab roadmaps={roadmaps} patientId={patientId} />}
+        {tab === 'microbiome' && <MicrobiomeLinkTab patientId={patientId} />}
+        {tab === 'blood' && <BloodLinkTab patientId={patientId} />}
+        {tab === 'checklist' && <ChecklistTab patientId={patientId} />}
+      </div>
+
+      {showDelete && (
+        <DeleteConfirmModal
+          patient={patient}
+          counts={counts}
+          onClose={() => setShowDelete(false)}
+          onDeleted={() => router.push('/compass/patients')}
+        />
+      )}
+    </div>
+  )
+}
+
+function DeleteConfirmModal({ patient, counts, onClose, onDeleted }: { patient: Patient; counts: { sessions: number; roadmaps: number }; onClose: () => void; onDeleted: () => void }) {
+  const [confirmText, setConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState('')
+  const canDelete = confirmText.trim() === patient.full_name.trim()
+
+  async function handleDelete() {
+    if (!canDelete) return
+    setDeleting(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/patients/${patient.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const j = await res.json().catch(() => null)
+        setError(j?.error || 'Delete failed — try again.')
+        setDeleting(false)
+        return
+      }
+      onDeleted()
+    } catch {
+      setError('Network error — try again.')
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(26,36,23,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 100 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.card, borderRadius: 16, padding: '24px 26px', maxWidth: 440, width: '100%', position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={18} /></button>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#FBEAEA', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+          <Trash2 size={20} color="#B3261E" />
+        </div>
+        <h2 style={{ fontSize: 17, fontWeight: 700, color: C.ink, margin: '0 0 6px' }}>Delete {patient.full_name}?</h2>
+        <p style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.55, margin: '0 0 16px' }}>
+          This permanently deletes this patient and everything tied to them — {counts.sessions} session{counts.sessions === 1 ? '' : 's'}, {counts.roadmaps} roadmap{counts.roadmaps === 1 ? '' : 's'}{' '}(including any shared dashboard links), reports, and check-in history. This can&apos;t be undone.
+        </p>
+        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+          Type &ldquo;{patient.full_name}&rdquo; to confirm
+        </label>
+        <input
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          placeholder={patient.full_name}
+          style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, color: C.ink, boxSizing: 'border-box', marginBottom: 16 }}
+        />
+        {error && <p style={{ fontSize: 12.5, color: '#B3261E', margin: '0 0 12px' }}>{error}</p>}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 9, border: `1px solid ${C.line}`, background: C.card, color: C.muted, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+          <button
+            onClick={handleDelete}
+            disabled={!canDelete || deleting}
+            style={{ padding: '9px 16px', borderRadius: 9, border: 'none', background: canDelete ? '#B3261E' : '#E8B4B0', color: '#fff', fontSize: 13, fontWeight: 700, cursor: canDelete && !deleting ? 'pointer' : 'not-allowed' }}
+          >
+            {deleting ? 'Deleting…' : 'Delete permanently'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Sub-components ───────────────────────────────────────────────────
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 17, fontWeight: 700, color: C.ink }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: C.faint, marginTop: 1 }}>{label}</div>
+    </div>
+  )
+}
+
+function StatusChip({ status }: { status?: string }) {
+  const map: Record<string, { bg: string; fg: string; label: string }> = {
+    interpreted: { bg: C.greenSoft, fg: C.greenDeep, label: 'Roadmap ready' },
+    'notes-added': { bg: C.amberSoft, fg: C.amber, label: 'In progress' },
+    pending: { bg: '#F1F0EB', fg: C.faint, label: 'Pending' },
+  }
+  const s = map[status || 'pending'] || map.pending
+  return <span style={{ fontSize: 11, fontWeight: 700, background: s.bg, color: s.fg, borderRadius: 20, padding: '3px 9px' }}>{s.label}</span>
+}
+
+function EmptyState({ icon: Icon, title, body, cta }: { icon: any; title: string; body: string; cta?: React.ReactNode }) {
+  return (
+    <div style={{ background: C.card, borderRadius: 14, border: `1px dashed ${C.greenBorder}`, padding: '44px 24px', textAlign: 'center' }}>
+      <div style={{ width: 46, height: 46, borderRadius: 12, background: C.greenSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+        <Icon size={22} color={C.green} />
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{title}</div>
+      <div style={{ fontSize: 13, color: C.muted, marginTop: 5, maxWidth: 360, marginLeft: 'auto', marginRight: 'auto' }}>{body}</div>
+      {cta && <div style={{ marginTop: 16 }}>{cta}</div>}
+    </div>
+  )
+}
+
+function SessionsTab({ sessions, roadmaps, patientId, router }: { sessions: Session[]; roadmaps: Roadmap[]; patientId: string; router: ReturnType<typeof useRouter> }) {
+  if (sessions.length === 0) {
+    return (
+      <EmptyState
+        icon={FileText}
+        title="No sessions yet"
+        body="Import a Meet transcript from Drive or paste the meeting doc to start this patient's first session."
+        cta={
+          <Link href={`/compass/patients/${patientId}/sessions/new`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 9, background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+            <Plus size={14} /> Start first session
+          </Link>
+        }
+      />
+    )
+  }
+
+  const ordered = [...sessions].sort((a, b) => new Date(b.session_date || b.created_at || 0).getTime() - new Date(a.session_date || a.created_at || 0).getTime())
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {ordered.map((s, i) => {
+        const linkedRoadmap = roadmaps.find(r => r.session_id === s.id)
+        const qaCount = Array.isArray(s.qa_pairs) ? s.qa_pairs.length : 0
+        return (
+          <button
+            key={s.id}
+            onClick={() => router.push(`/compass/patients/${patientId}/sessions/${s.id}`)}
+            style={{ textAlign: 'left', background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 1px 2px rgba(26,36,23,0.03)' }}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: 11, background: i === 0 ? C.greenSoft : '#F6F5F0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Calendar size={17} color={i === 0 ? C.green : C.faint} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>Session {ordered.length - i}</span>
+                <StatusChip status={s.status} />
+                {i === 0 && <span style={{ fontSize: 10.5, fontWeight: 700, color: C.green, background: C.greenSoft, borderRadius: 20, padding: '2px 8px' }}>LATEST</span>}
+              </div>
+              <div style={{ fontSize: 12.5, color: C.muted, marginTop: 3, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span>{fmtDate(s.session_date || s.created_at)}</span>
+                {qaCount > 0 && <><span>·</span><span>{qaCount} Q&amp;A</span></>}
+                {linkedRoadmap && <><span>·</span><span style={{ color: C.greenDeep, fontWeight: 600 }}>Roadmap generated</span></>}
+              </div>
+            </div>
+            <ChevronRight size={18} color={C.faint} style={{ flexShrink: 0 }} />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function NotesTab({ sessions }: { sessions: Session[] }) {
+  const withNotes = sessions.filter(s => (s.pre_meeting_notes && s.pre_meeting_notes.trim()) || (s.post_meeting_notes && s.post_meeting_notes.trim()))
+  if (withNotes.length === 0) {
+    return <EmptyState icon={StickyNote} title="No notes recorded" body="Pre- and post-session notes you add on any session are collected here, so a patient's full clinical narrative stays in one place across visits." />
+  }
+  const ordered = [...withNotes].sort((a, b) => new Date(b.session_date || b.created_at || 0).getTime() - new Date(a.session_date || a.created_at || 0).getTime())
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {ordered.map(s => (
+        <div key={s.id} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: C.greenDeep, marginBottom: 10 }}>
+            {fmtDate(s.session_date || s.created_at)}
+          </div>
+          {s.pre_meeting_notes?.trim() && (
+            <div style={{ marginBottom: s.post_meeting_notes?.trim() ? 12 : 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Before session</div>
+              <p style={{ fontSize: 13.5, color: C.ink, margin: 0, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{renderMarkdownBold(s.pre_meeting_notes)}</p>
+            </div>
+          )}
+          {s.post_meeting_notes?.trim() && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>After session</div>
+              <p style={{ fontSize: 13.5, color: C.ink, margin: 0, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{renderMarkdownBold(s.post_meeting_notes)}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DashboardTab({ roadmaps, patientId }: { roadmaps: Roadmap[]; patientId: string }) {
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [progressOpenId, setProgressOpenId] = useState<string | null>(null)
+  // The dashboard link is the thing to actually send a patient — a public,
+  // no-login page (see src/app/dashboard/[roadmapId]/page.tsx) that never
+  // exposes any coach-side app access, unlike sending the downloaded HTML
+  // file itself. Copies the full absolute URL so it's paste-ready for
+  // WhatsApp/email/SMS.
+  // The share link is addressed by share_token, not by the roadmap's row id.
+  // This used to copy `/dashboard/<roadmapId>`, which is no longer a route at
+  // all in the merged app (/dashboard is the clinician roster), so every link
+  // handed to a patient was dead.
+  function copyLink(r: Roadmap) {
+    const token = r.share_revoked_at ? null : r.share_token
+    if (!token) return
+    const url = `${window.location.origin}/share/roadmap/${token}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(r.id)
+      setTimeout(() => setCopiedId((prev) => (prev === r.id ? null : prev)), 2000)
+    })
+  }
+  if (roadmaps.length === 0) {
+    return <EmptyState icon={LayoutDashboard} title="No dashboard yet" body="Generate a dashboard from any session to build the patient's personalised plan. It'll appear here for easy reference across visits." />
+  }
+  // A patient can accumulate a roadmap per session over time — list every
+  // one rather than only ever opening the latest, so a coach can pick the
+  // specific plan they actually want the shareable dashboard link for.
+  const ordered = [...roadmaps].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {ordered.map((r, i) => (
+        <div key={r.id} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 2px rgba(26,36,23,0.03)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>
+                {r.duration_months ? `${r.duration_months >= 1 ? r.duration_months : Math.round(r.duration_months * 4)}${r.duration_months >= 1 ? '-month' : '-week'} plan` : 'Roadmap'}
+              </span>
+              {i === 0 && <span style={{ fontSize: 10.5, fontWeight: 700, color: C.green, background: C.greenSoft, borderRadius: 20, padding: '2px 8px' }}>CURRENT</span>}
+              <span style={{ fontSize: 12, color: C.faint }}>{fmtDate(r.created_at)}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button onClick={() => copyLink(r)} disabled={!r.share_token || !!r.share_revoked_at}
+                title={r.share_revoked_at ? 'This share link has been revoked' : !r.share_token ? 'No share link for this roadmap yet' : 'Copy the patient link'}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12.5, fontWeight: 700, cursor: (!r.share_token || r.share_revoked_at) ? 'not-allowed' : 'pointer', opacity: (!r.share_token || r.share_revoked_at) ? 0.5 : 1 }}>
+                {copiedId === r.id ? <><Check size={13} color={C.green} /> Copied</> : <><Link2 size={13} /> Copy link</>}
+              </button>
+              <Link href={`/compass/patients/${patientId}/roadmap-history/${r.id}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>
+                <History size={13} /> History
+              </Link>
+              <button onClick={() => setProgressOpenId((prev) => (prev === r.id ? null : r.id))}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: progressOpenId === r.id ? C.greenSoft : '#fff', color: progressOpenId === r.id ? C.greenDeep : C.ink, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                <CheckSquare size={13} /> Daily progress
+              </button>
+              {r.share_token && !r.share_revoked_at ? (
+                <Link href={`/share/roadmap/${r.share_token}`} target="_blank" rel="noopener noreferrer"
+                  title="Opens exactly what the patient sees"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: C.green, color: '#fff', fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>
+                  <LayoutDashboard size={13} /> Open dashboard
+                </Link>
+              ) : (
+                <span title={r.share_revoked_at ? 'This share link has been revoked' : 'No share link for this roadmap yet'}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: C.line, color: C.muted, fontSize: 12.5, fontWeight: 700 }}>
+                  <LayoutDashboard size={13} /> {r.share_revoked_at ? 'Link revoked' : 'No link'}
+                </span>
+              )}
+            </div>
+          </div>
+          {r.overview && <p style={{ fontSize: 13, color: C.muted, margin: '8px 0 0', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.overview}</p>}
+          {progressOpenId === r.id && <DailyProgressPanel roadmapId={r.id} />}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+type DailyProgressDay = { date: string; items: { item_id: string; text: string }[]; mood: string | null }
+
+// The coach's view of a patient's Daily Health Check-in history — what they
+// actually struck off, per real date, plus that day's reflection note if
+// any. Item text is the snapshot captured when the patient checked it, so
+// this stays accurate even after the checklist's current wording changes.
+function DailyProgressPanel({ roadmapId }: { roadmapId: string }) {
+  const [days, setDays] = useState<DailyProgressDay[] | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/compass/roadmaps/${roadmapId}/daily-progress`)
+      .then((r) => r.json())
+      .then((j) => { if (alive) { if (j.error) setError(j.error); else setDays(j.days ?? []) } })
+      .catch(() => { if (alive) setError('Could not load daily progress.') })
+    return () => { alive = false }
+  }, [roadmapId])
+
+  return (
+    <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.line}` }}>
+      {error && <p style={{ fontSize: 12.5, color: '#B3261E' }}>{error}</p>}
+      {!error && days === null && <p style={{ fontSize: 12.5, color: C.faint }}>Loading…</p>}
+      {!error && days?.length === 0 && <p style={{ fontSize: 12.5, color: C.faint }}>No check-ins yet — nothing struck off, no reflections logged.</p>}
+      {!error && days && days.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 420, overflowY: 'auto' }}>
+          {days.map((d) => (
+            <div key={d.date} style={{ background: C.greenSoft, border: `1px solid ${C.greenBorder}`, borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.greenDeep, marginBottom: d.items.length > 0 || d.mood ? 6 : 0 }}>{fmtDate(d.date)}</div>
+              {d.items.map((it) => (
+                <div key={it.item_id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: C.ink, marginBottom: 3 }}>
+                  <CheckSquare size={12} color={C.green} style={{ flexShrink: 0 }} /> {it.text}
+                </div>
+              ))}
+              {d.mood && (
+                <div style={{ fontSize: 12, color: C.muted, marginTop: d.items.length > 0 ? 6 : 0, fontStyle: 'italic' }}>&ldquo;{d.mood}&rdquo;</div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
