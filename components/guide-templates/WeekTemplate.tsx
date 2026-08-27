@@ -567,10 +567,10 @@ export default function WeekTemplate({ shareToken, data, initialCheckins, editab
   }
 
   const [checkinDate, setCheckinDate] = useState(today)
-  const checkinDoneCount = useMemo(
-    () => checklistItems.filter((it) => checkedSet.has(`0:item:${it.id}:${checkinDate}`)).length,
-    [checklistItems, checkedSet, checkinDate],
-  )
+  // Plain count, not memoized — the list is capped at 8 items, so a filter
+  // per render is cheaper than the memo bookkeeping, and wrapping it made
+  // the React Compiler bail on preserving the surrounding memoization.
+  const checkinDoneCount = checklistItems.filter((it) => checkedSet.has(`0:item:${it.id}:${checkinDate}`)).length
   const checkinAllDone = checklistItems.length > 0 && checkinDoneCount === checklistItems.length
   const checkinNoneDone = checkinDoneCount === 0
 

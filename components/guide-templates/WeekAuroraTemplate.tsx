@@ -172,8 +172,10 @@ function GrowthMascot({ pct, cheering }: { pct: number; cheering: boolean }) {
         style={{ animation: cheering ? 'clpMascotCheer 0.7s ease' : 'clpMascotBob 3.2s ease-in-out infinite', transformOrigin: '56px 90px' }}>
         <path d="M20 62 Q18 40 40 32 Q56 26 74 34 Q94 42 92 62" fill="none" stroke={PALETTE.berry} strokeWidth="2.2" strokeLinecap="round" />
         <path d="M18 62 Q56 78 94 62 Q90 84 56 86 Q22 84 18 62 Z" fill={PALETTE.gold2} stroke={PALETTE.berry} strokeWidth="2.2" />
-        <circle cx="44" cy="58" r="3" fill={PALETTE.ink} />
-        <circle cx="68" cy="58" r="3" fill={PALETTE.ink} />
+        <g data-mascot-eyes style={{ transformOrigin: '56px 58px', animation: 'clpMascotBlink 5.4s ease-in-out infinite' }}>
+          <circle cx="44" cy="58" r="3" fill={PALETTE.ink} />
+          <circle cx="68" cy="58" r="3" fill={PALETTE.ink} />
+        </g>
         <path data-mascot-mouth d={mouthD} fill="none" stroke={PALETTE.ink} strokeWidth="2" strokeLinecap="round" style={{ transition: 'd 0.3s ease' }} />
         <path d="M40 30 Q38 18 30 12" fill="none" stroke={PALETTE.dusk1} strokeWidth="2" strokeLinecap="round" />
         <path d="M30 12 Q26 8 30 4 Q34 8 30 12" fill={PALETTE.dusk1} />
@@ -194,6 +196,79 @@ function GrowthMascot({ pct, cheering }: { pct: number; cheering: boolean }) {
         </g>
       </svg>
     </div>
+  )
+}
+
+// A small, face-only cut of GrowthMascot's character — same head/ear
+// shapes and palette so it reads as the same mascot at any size, just
+// without the plant. Meant to be dropped into section headers and empty
+// states for a bit of personality, with an expression that reacts to real
+// patient progress rather than being purely decorative.
+function MascotFace({ expression, size = 40, blinkDelay = 0 }: { expression: 'happy' | 'proud' | 'thinking'; size?: number; blinkDelay?: number }) {
+  const mouthD = expression === 'proud' ? 'M43 65 Q56 79 69 65' : expression === 'thinking' ? 'M47 67 Q56 69 65 67' : 'M46 66 Q56 74 66 66'
+  return (
+    <svg data-mascot-face width={size} height={size * 0.9} viewBox="0 0 112 100" style={{ flexShrink: 0, animation: 'clpMascotBob 3.6s ease-in-out infinite', transformOrigin: '56px 90px' }}>
+      <path d="M20 62 Q18 40 40 32 Q56 26 74 34 Q94 42 92 62" fill="none" stroke={PALETTE.berry} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M18 62 Q56 78 94 62 Q90 84 56 86 Q22 84 18 62 Z" fill={PALETTE.gold2} stroke={PALETTE.berry} strokeWidth="2.2" />
+      <g data-mascot-eyes style={{ transformOrigin: '56px 58px', animation: `clpMascotBlink 5.4s ease-in-out ${blinkDelay}s infinite` }}>
+        {expression === 'proud' ? (
+          <>
+            <path d="M39 59 Q44 53 49 59" fill="none" stroke={PALETTE.ink} strokeWidth="2.4" strokeLinecap="round" />
+            <path d="M63 59 Q68 53 73 59" fill="none" stroke={PALETTE.ink} strokeWidth="2.4" strokeLinecap="round" />
+          </>
+        ) : (
+          <>
+            <circle cx="44" cy="58" r="3" fill={PALETTE.ink} />
+            <circle cx="68" cy="58" r="3" fill={PALETTE.ink} />
+          </>
+        )}
+      </g>
+      {expression === 'thinking' && <path d="M38 49 Q43 45 49 47" fill="none" stroke={PALETTE.ink} strokeWidth="1.6" strokeLinecap="round" opacity={0.6} />}
+      <path data-mascot-mouth d={mouthD} fill="none" stroke={PALETTE.ink} strokeWidth="2" strokeLinecap="round" style={{ transition: 'd 0.3s ease' }} />
+      <path d="M40 30 Q38 18 30 12" fill="none" stroke={PALETTE.dusk1} strokeWidth="2" strokeLinecap="round" />
+      <path d="M30 12 Q26 8 30 4 Q34 8 30 12" fill={PALETTE.dusk1} />
+      <path d="M76 30 Q80 16 90 10" fill="none" stroke={PALETTE.dusk1} strokeWidth="2" strokeLinecap="round" />
+      <path d="M90 10 Q86 6 90 2 Q94 6 90 10" fill={PALETTE.dusk1} />
+    </svg>
+  )
+}
+
+// Purely decorative, static (no animation, unlike MascotFace/GrowthMascot)
+// hand-drawn food doodles — same original line-art language and PALETTE
+// tokens as the rest of this file, no external image assets. Meant to sit
+// behind hero copy or beside a food-related section header for a bit of
+// warmth without competing for attention the way an animated element would.
+function FoodDoodle({ kind, size = 48, style }: { kind: 'citrus' | 'leaf' | 'bowl'; size?: number; style?: CSSProperties }) {
+  const common = { width: size, height: size, viewBox: '0 0 64 64', 'aria-hidden': true, style }
+  if (kind === 'citrus') {
+    return (
+      <svg {...common}>
+        <circle cx="32" cy="32" r="23" fill={PALETTE.gold2} stroke={PALETTE.berry} strokeWidth="2" />
+        <g stroke={PALETTE.berry} strokeWidth="1.3" strokeLinecap="round">
+          <path d="M32 11 L32 53" />
+          <path d="M13 21 L51 43" />
+          <path d="M13 43 L51 21" />
+        </g>
+        <circle cx="32" cy="32" r="23" fill="none" stroke={PALETTE.berry} strokeWidth="2" />
+      </svg>
+    )
+  }
+  if (kind === 'leaf') {
+    return (
+      <svg {...common}>
+        <path d="M14 50 Q10 22 40 12 Q52 34 30 50 Q22 52 14 50 Z" fill={PALETTE.gold1} stroke={PALETTE.berry} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M16 48 Q30 34 40 14" fill="none" stroke={PALETTE.berry} strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    )
+  }
+  return (
+    <svg {...common}>
+      <path d="M10 28 Q32 40 54 28 L50 42 Q32 50 14 42 Z" fill={PALETTE.gold2} stroke={PALETTE.berry} strokeWidth="2" strokeLinejoin="round" />
+      <ellipse cx="32" cy="27" rx="22" ry="7" fill={PALETTE.dusk1} opacity={0.35} />
+      <circle cx="24" cy="24" r="3" fill={PALETTE.berry} />
+      <circle cx="34" cy="21" r="2.4" fill={PALETTE.berry} />
+      <circle cx="41" cy="25" r="2.8" fill={PALETTE.berry} />
+    </svg>
   )
 }
 
@@ -331,6 +406,24 @@ export default function WeekAuroraTemplate({ shareToken, data, initialCheckins }
   }, [data.confirmedSupplements, lifestyleBullets])
 
   const [checkinDate, setCheckinDate] = useState(today)
+  // Daily Health Check-in progress for the selected date — drives both the
+  // mascot's expression in the section header and the encouragement line
+  // above the list, off the same action_index keying the toggles use.
+  const checkinDoneCount = dailyChecklist.filter((_, i) => checkedSet.has(`0:${i}:${checkinDate}`)).length
+  const checkinAllDone = dailyChecklist.length > 0 && checkinDoneCount === dailyChecklist.length
+  const checkinNoneDone = checkinDoneCount === 0
+  // Ticking a Daily Health Check-in item goes through here rather than
+  // straight to toggleGoal, so completing the last one for the day fires
+  // the same celebration the weekly goals already get.
+  function toggleDailyItem(index: number) {
+    const wasChecked = checkedSet.has(`0:${index}:${checkinDate}`)
+    if (!wasChecked && dailyChecklist.length > 0 && checkinDoneCount === dailyChecklist.length - 1) {
+      setCheering(true)
+      if (cheerTimeoutRef.current) clearTimeout(cheerTimeoutRef.current)
+      cheerTimeoutRef.current = setTimeout(() => setCheering(false), 900)
+    }
+    toggleGoal(0, index, checkinDate)
+  }
 
   // Water/energy/mood are small per-day numbers/text, not boolean
   // check-offs — stored on the roadmap row itself (guide_overrides.daily_metrics)
@@ -388,7 +481,7 @@ export default function WeekAuroraTemplate({ shareToken, data, initialCheckins }
   }
 
   useEffect(() => {
-    if (!week) return
+    if (!week || data.groceryListOverride) return
     const wn = week.week_number
     if (aiGroceryCache[wn]) return
     const weekRecipes = getSlotRecipes(wn, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
@@ -403,7 +496,7 @@ export default function WeekAuroraTemplate({ shareToken, data, initialCheckins }
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [week, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [week, data.groceryListOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
 
   const [openService, setOpenService] = useState<number | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
@@ -580,7 +673,8 @@ function clpToggleGroceryCat(head){
         @keyframes clpMascotBob { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(-1.5deg); } }
         @keyframes clpMascotCheer { 0% { transform: translateY(0) scale(1) rotate(0deg); } 30% { transform: translateY(-14px) scale(1.08) rotate(-4deg); } 55% { transform: translateY(-6px) scale(1.04) rotate(3deg); } 100% { transform: translateY(0) scale(1) rotate(0deg); } }
         @keyframes clpFlamePop { 0% { transform: scale(1); } 40% { transform: scale(1.22) rotate(-4deg); } 100% { transform: scale(1) rotate(0deg); } }
-        @media (prefers-reduced-motion: reduce) { [data-mascot-idle], [data-streak-flame] { animation: none !important; } }
+        @keyframes clpMascotBlink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
+        @media (prefers-reduced-motion: reduce) { [data-mascot-idle], [data-mascot-face], [data-mascot-eyes], [data-streak-flame] { animation: none !important; } }
       `}</style>
 
       <div style={{ position: 'sticky', top: 0, zIndex: 30, background: 'rgba(13,15,24,0.92)', backdropFilter: 'blur(6px)', borderBottom: `1px solid ${PALETTE.line}`, padding: '10px 1.5rem' }}>
@@ -601,8 +695,11 @@ function clpToggleGroceryCat(head){
       </div>
 
       {/* Hero */}
-      <section style={{ padding: '5rem 1.5rem 3rem', textAlign: 'center' }}>
-        <div style={{ maxWidth: 920, margin: '0 auto' }}>
+      <section style={{ padding: '5rem 1.5rem 3rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+        <FoodDoodle kind="citrus" size={54} style={{ position: 'absolute', top: 28, left: '6%', opacity: 0.5, transform: 'rotate(-12deg)', pointerEvents: 'none' }} />
+        <FoodDoodle kind="leaf" size={46} style={{ position: 'absolute', top: 60, right: '7%', opacity: 0.5, transform: 'rotate(10deg)', pointerEvents: 'none' }} />
+        <FoodDoodle kind="bowl" size={50} style={{ position: 'absolute', bottom: 14, left: '11%', opacity: 0.45, transform: 'rotate(-6deg)', pointerEvents: 'none' }} />
+        <div style={{ maxWidth: 920, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ width: 48, height: 48, borderRadius: 24, background: PALETTE.berry, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>LP</div>
           <Eyebrow>Living Plus · One week</Eyebrow>
           <h1 style={{ fontFamily: "'Outfit', serif", fontWeight: 500, fontSize: 'clamp(2.2rem,6vw,3.6rem)', lineHeight: 1.05, letterSpacing: '-0.01em', margin: 0 }}>
@@ -626,21 +723,33 @@ function clpToggleGroceryCat(head){
       <section id="checkin" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('checkin') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <Eyebrow>Daily accountability</Eyebrow>
-              <SecTitle icon={<CheckCircle2 size={26} />} sectionId="checkin" open={isSectionOpen('checkin')} onToggle={() => toggleSection('checkin')}>Daily Health Check-in</SecTitle>
+            <div style={{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <MascotFace expression={checkinAllDone ? 'proud' : checkinNoneDone ? 'thinking' : 'happy'} size={44} blinkDelay={0.7} />
+              <div>
+                <Eyebrow>Daily accountability</Eyebrow>
+                <SecTitle icon={<CheckCircle2 size={26} />} sectionId="checkin" open={isSectionOpen('checkin')} onToggle={() => toggleSection('checkin')}>Daily Health Check-in</SecTitle>
+              </div>
             </div>
             <input data-checkin-date type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
               style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem', background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, padding: '9px 12px', borderRadius: 10, color: PALETTE.ink, fontWeight: 600 }} />
           </div>
 
           <div data-section-body="checkin" style={{ display: isSectionOpen('checkin') ? 'block' : 'none' }}>
+          {dailyChecklist.length > 0 && (
+            <p style={{ fontSize: '0.82rem', color: PALETTE.berry, opacity: 0.85, fontWeight: 600, margin: '-6px 0 16px' }}>
+              {checkinAllDone
+                ? 'Everything checked off for today — nice work.'
+                : checkinNoneDone
+                ? 'Nothing logged yet today — tap an item below to check in.'
+                : `${checkinDoneCount} of ${dailyChecklist.length} done so far today.`}
+            </p>
+          )}
           {dailyChecklist.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
               {dailyChecklist.map((item, i) => {
                 const checked = checkedSet.has(`0:${i}:${checkinDate}`)
                 return (
-                  <div key={i} data-goal-toggle={`0:${i}:${checkinDate}`} onClick={() => toggleGoal(0, i, checkinDate)}
+                  <div key={i} data-goal-toggle={`0:${i}:${checkinDate}`} onClick={() => toggleDailyItem(i)}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 16px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${checked ? PALETTE.berry : PALETTE.line}`, background: checked ? 'rgba(255,42,133,0.08)' : 'rgba(255,255,255,0.4)', transition: 'background 0.15s ease' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span data-goal-icon-done style={{ display: checked ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={18} color={PALETTE.berry} /></span>
@@ -829,8 +938,13 @@ function clpToggleGroceryCat(head){
       {data.mealGuidelines.trim() && (
         <section id="meals" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('meals') }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
-            <Eyebrow>On the plate</Eyebrow>
-            <SecTitle icon={<Utensils size={26} />} sectionId="meals" open={isSectionOpen('meals')} onToggle={() => toggleSection('meals')}>Breakfast, Lunch &amp; Dinner</SecTitle>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <FoodDoodle kind="bowl" size={40} />
+              <div>
+                <Eyebrow>On the plate</Eyebrow>
+                <SecTitle icon={<Utensils size={26} />} sectionId="meals" open={isSectionOpen('meals')} onToggle={() => toggleSection('meals')}>Breakfast, Lunch &amp; Dinner</SecTitle>
+              </div>
+            </div>
             <div data-section-body="meals" style={{ display: isSectionOpen('meals') ? 'block' : 'none' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}>
                 {groupBulletsByLabel(data.mealGuidelines, ['Breakfast', 'Lunch', 'Dinner']).map((g) => (
@@ -1098,7 +1212,11 @@ function clpToggleGroceryCat(head){
           ) : (() => {
             const weekRecipes = getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
             const cats = aiGroceryCache[week.week_number] ?? buildGroceryList(weekRecipes)
-            const finalCats = cats.length > 0 ? cats : GROCERY_CATEGORIES
+            // A coach-edited list (guide_overrides.grocery_list_override,
+            // set from the Week template's live editor) wins over the
+            // computed one, so an edit made there shows up on whichever
+            // skin the patient actually sees.
+            const finalCats = data.groceryListOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
             return (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20 }}>
                 {finalCats.map((cat) => {

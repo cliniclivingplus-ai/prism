@@ -677,7 +677,9 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
                   {m.weeks.map((w) => {
                     const weekRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
                     const cats = buildGroceryList(weekRecipes)
-                    const finalCats: GroceryCategory[] = cats.length > 0 ? cats : GROCERY_CATEGORIES
+                    // A coach-edited list (guide_overrides.grocery_list_override)
+                    // wins over the computed one.
+                    const finalCats: GroceryCategory[] = data.groceryListOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
                     return (
                       <div key={w.week_number} data-grocery-week-body={w.week_number} style={{ display: openGroceryWeek === w.week_number ? 'grid' : 'none', borderTop: `1px solid ${V.line}`, paddingTop: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16 }}>
                         {finalCats.map((cat) => (

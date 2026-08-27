@@ -319,7 +319,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
   // on it — the regex-based list shows immediately and this quietly
   // replaces it when ready, or stays as-is if the call fails.
   useEffect(() => {
-    if (openGroceryWeek == null || aiGroceryCache[openGroceryWeek]) return
+    if (openGroceryWeek == null || data.groceryListOverride || aiGroceryCache[openGroceryWeek]) return
     const weekRecipes = getSlotRecipes(openGroceryWeek, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
     const candidateItems = buildGroceryList(weekRecipes).flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
     if (candidateItems.length === 0) return
@@ -332,7 +332,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [openGroceryWeek, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [openGroceryWeek, data.groceryListOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
 
   const [openService, setOpenService] = useState<number | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
@@ -800,7 +800,9 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
                   {m.weeks.map((w) => {
                     const weekRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
                     const cats = aiGroceryCache[w.week_number] ?? buildGroceryList(weekRecipes)
-                    const finalCats = cats.length > 0 ? cats : GROCERY_CATEGORIES
+                    // A coach-edited list (guide_overrides.grocery_list_override)
+                    // wins over the computed one.
+                    const finalCats = data.groceryListOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
                     return (
                       <div key={w.week_number} data-grocery-week-body={w.week_number} style={{ display: openGroceryWeek === w.week_number ? 'grid' : 'none', borderTop: `1px solid ${ONYX.border}`, paddingTop: 18, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 18 }}>
                         {finalCats.map((cat) => (

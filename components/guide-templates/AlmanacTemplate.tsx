@@ -210,8 +210,10 @@ function GrowthMascot({ pct, cheering }: { pct: number; cheering: boolean }) {
         style={{ animation: cheering ? 'clpMascotCheer 0.7s ease' : 'clpMascotBob 3.2s ease-in-out infinite', transformOrigin: '56px 90px' }}>
         <path d="M20 62 Q18 40 40 32 Q56 26 74 34 Q94 42 92 62" fill="none" stroke={PALETTE.berry} strokeWidth="2.2" strokeLinecap="round" />
         <path d="M18 62 Q56 78 94 62 Q90 84 56 86 Q22 84 18 62 Z" fill={PALETTE.gold2} stroke={PALETTE.berry} strokeWidth="2.2" />
-        <circle cx="44" cy="58" r="3" fill={PALETTE.ink} />
-        <circle cx="68" cy="58" r="3" fill={PALETTE.ink} />
+        <g data-mascot-eyes style={{ transformOrigin: '56px 58px', animation: 'clpMascotBlink 5.4s ease-in-out infinite' }}>
+          <circle cx="44" cy="58" r="3" fill={PALETTE.ink} />
+          <circle cx="68" cy="58" r="3" fill={PALETTE.ink} />
+        </g>
         <path data-mascot-mouth d={mouthD} fill="none" stroke={PALETTE.ink} strokeWidth="2" strokeLinecap="round" style={{ transition: 'd 0.3s ease' }} />
         <path d="M40 30 Q38 18 30 12" fill="none" stroke={PALETTE.dusk1} strokeWidth="2" strokeLinecap="round" />
         <path d="M30 12 Q26 8 30 4 Q34 8 30 12" fill={PALETTE.dusk1} />
@@ -399,7 +401,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
   // on it — the regex-based list shows immediately and this quietly
   // replaces it when ready, or stays as-is if the call fails.
   useEffect(() => {
-    if (openGroceryWeek == null || aiGroceryCache[openGroceryWeek]) return
+    if (openGroceryWeek == null || data.groceryListOverride || aiGroceryCache[openGroceryWeek]) return
     const weekRecipes = getSlotRecipes(openGroceryWeek, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
     const candidateItems = buildGroceryList(weekRecipes).flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
     if (candidateItems.length === 0) return
@@ -412,7 +414,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [openGroceryWeek, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [openGroceryWeek, data.groceryListOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
 
   // What's included in your care — same coach-entered tiles as Classic.
   const [openService, setOpenService] = useState<number | null>(null)
@@ -520,7 +522,8 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
         @keyframes clpMascotBob { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(-1.5deg); } }
         @keyframes clpMascotCheer { 0% { transform: translateY(0) scale(1) rotate(0deg); } 30% { transform: translateY(-14px) scale(1.08) rotate(-4deg); } 55% { transform: translateY(-6px) scale(1.04) rotate(3deg); } 100% { transform: translateY(0) scale(1) rotate(0deg); } }
         @keyframes clpFlamePop { 0% { transform: scale(1); } 40% { transform: scale(1.22) rotate(-4deg); } 100% { transform: scale(1) rotate(0deg); } }
-        @media (prefers-reduced-motion: reduce) { [data-mascot-idle], [data-streak-flame] { animation: none !important; } }
+        @keyframes clpMascotBlink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
+        @media (prefers-reduced-motion: reduce) { [data-mascot-idle], [data-mascot-face], [data-mascot-eyes], [data-streak-flame] { animation: none !important; } }
       `}</style>
 
       {/* Jump-to-section — a single dropdown rather than a row of links, so
@@ -949,7 +952,9 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
                   {m.weeks.map((w) => {
                     const weekRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
                     const cats = aiGroceryCache[w.week_number] ?? buildGroceryList(weekRecipes)
-                    const finalCats = cats.length > 0 ? cats : GROCERY_CATEGORIES
+                    // A coach-edited list (guide_overrides.grocery_list_override)
+                    // wins over the computed one.
+                    const finalCats = data.groceryListOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
                     return (
                       <div key={w.week_number} data-grocery-week-body={w.week_number} style={{ display: openGroceryWeek === w.week_number ? 'grid' : 'none', borderTop: `1px solid ${PALETTE.line}`, paddingTop: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20 }}>
                         {finalCats.map((cat) => (
