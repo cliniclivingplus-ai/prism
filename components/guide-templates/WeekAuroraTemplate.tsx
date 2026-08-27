@@ -20,7 +20,7 @@ import {
   Droplet, Zap, Sun, Moon, Footprints, Wind, Link as LinkIcon, type LucideIcon,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
-import { parseBullets, splitKV, groupBulletsByLabel, parseScheduleLines } from '@/lib/periodBullets'
+import { groupBulletsByLabel, parseScheduleLines } from '@/lib/periodBullets'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
 import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
@@ -64,7 +64,7 @@ function dateForWeekDay(createdAtISO: string, weekNumber: number, dayIndex: numb
   return shiftDateISO(weekSundayISO(createdAtISO), (weekNumber - 1) * 7 + dayIndex)
 }
 
-type Checkin = { week_number: number; action_index: number; checkin_date: string }
+type Checkin = { week_number: number; action_index: number | null; checkin_date: string; item_id?: string | null; item_text_snapshot?: string | null }
 
 // Keyword hints for the schedule timeline's per-item icon (see the
 // "Daily schedule" section) — a real signal beats a generic dot, same
@@ -287,7 +287,6 @@ export default function WeekAuroraTemplate({ shareToken, data, initialCheckins }
   const hiddenStyle = (id: string): CSSProperties => ((data.hiddenSections ?? []).includes(id) ? { display: 'none' } : {})
   const isHidden = (id: string) => (data.hiddenSections ?? []).includes(id)
   const parsed = useMemo(() => parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines), [data.roadmap.nutritionist_guidelines])
-  const lifestyleBullets = useMemo(() => parseBullets(data.roadmap.lifestyle_guidelines), [data.roadmap.lifestyle_guidelines])
 
   // This template only ever shows ONE week — the first one the plan has —
   // no month/week tabs, "Your roadmap" goes straight to its 7 days.
@@ -325,7 +324,17 @@ export default function WeekAuroraTemplate({ shareToken, data, initialCheckins }
 
   const today = todayISO()
 
-  const checkedSet = useMemo(() => new Set(checkins.map((c) => `${c.week_number}:${c.action_index}:${c.checkin_date}`)), [checkins])
+  // Weekly goals stay keyed by action_index; Daily Health Check-in items
+  // additionally get an item_id-based key so a coach editing or reordering
+  // the checklist never reattaches a tick to a different item.
+  const checkedSet = useMemo(() => {
+    const set = new Set<string>()
+    for (const c of checkins) {
+      set.add(`${c.week_number}:${c.action_index}:${c.checkin_date}`)
+      if (c.item_id) set.add(`${c.week_number}:item:${c.item_id}:${c.checkin_date}`)
+    }
+    return set
+  }, [checkins])
 
   // Real, week-scoped adherence — same "no real match beats a fabricated
   // one" derivation every other template uses, just against one week
@@ -342,7 +351,7 @@ export default function WeekAuroraTemplate({ shareToken, data, initialCheckins }
       const validDates = new Set(DAY_LABELS.map((_, i) => dateForWeekDay(data.createdAt, week.week_number, i)))
       const perDay = week.days[0]?.length ?? week.actions?.length ?? 0
       total = week.days.reduce((n, d) => n + d.length, 0)
-      done = checkins.filter((c) => c.week_number === week.week_number && c.action_index < perDay && validDates.has(c.checkin_date)).length
+      done = checkins.filter((c) => c.week_number === week.week_number && c.action_index != null && c.action_index < perDay && validDates.has(c.checkin_date)).length
     } else {
       total = week.actions?.length ?? 0
       const doneKeys = new Set(checkins.map((c) => `${c.week_number}:${c.action_index}`))
@@ -393,36 +402,46 @@ export default function WeekAuroraTemplate({ shareToken, data, initialCheckins }
   // lines, never a generic placeholder list. Persists like every other
   // goal: real checkins table, week_number 0 sentinel, so the coach can see
   // exactly which days a patient actually did each one.
-  const dailyChecklist = useMemo(() => {
-    const items: string[] = []
-    data.confirmedSupplements.slice(0, 4).forEach((s) => {
-      items.push(`Take ${s.name}${s.timing ? ` — ${s.timing}` : ''}`)
-    })
-    lifestyleBullets.slice(0, 4).forEach((b) => {
-      const { v } = splitKV(b)
-      items.push(v.length > 80 ? v.slice(0, 77) + '…' : v)
-    })
-    return items.slice(0, 8)
-  }, [data.confirmedSupplements, lifestyleBullets])
+  // The real Daily Health Check-in list (lib/dailyChecklist.ts): AI-selected
+  // at generation from this patient's confirmed supplements and lifestyle
+  // guidelines, then coach-editable. Read from data rather than re-derived
+  // here, so an edit a coach makes shows up on every template, not just Week.
+  const checklistItems = data.dailyChecklistItems
 
   const [checkinDate, setCheckinDate] = useState(today)
   // Daily Health Check-in progress for the selected date — drives both the
   // mascot's expression in the section header and the encouragement line
-  // above the list, off the same action_index keying the toggles use.
-  const checkinDoneCount = dailyChecklist.filter((_, i) => checkedSet.has(`0:${i}:${checkinDate}`)).length
-  const checkinAllDone = dailyChecklist.length > 0 && checkinDoneCount === dailyChecklist.length
+  // above the list.
+  const checkinDoneCount = checklistItems.filter((it) => checkedSet.has(`0:item:${it.id}:${checkinDate}`)).length
+  const checkinAllDone = checklistItems.length > 0 && checkinDoneCount === checklistItems.length
   const checkinNoneDone = checkinDoneCount === 0
-  // Ticking a Daily Health Check-in item goes through here rather than
-  // straight to toggleGoal, so completing the last one for the day fires
-  // the same celebration the weekly goals already get.
-  function toggleDailyItem(index: number) {
-    const wasChecked = checkedSet.has(`0:${index}:${checkinDate}`)
-    if (!wasChecked && dailyChecklist.length > 0 && checkinDoneCount === dailyChecklist.length - 1) {
+  // Same sentinel week_number 0 and same endpoint as the weekly goals, but
+  // keyed by the item's stable id rather than its position. Completing the
+  // last item of the day fires the celebration the weekly goals already get.
+  async function toggleDailyItem(item: { id: string; text: string }) {
+    const key = `0:item:${item.id}:${checkinDate}`
+    const wasChecked = checkedSet.has(key)
+    if (!wasChecked && checklistItems.length > 0 && checkinDoneCount === checklistItems.length - 1) {
       setCheering(true)
       if (cheerTimeoutRef.current) clearTimeout(cheerTimeoutRef.current)
       cheerTimeoutRef.current = setTimeout(() => setCheering(false), 900)
     }
-    toggleGoal(0, index, checkinDate)
+    const entry: Checkin = { week_number: 0, action_index: null, checkin_date: checkinDate, item_id: item.id, item_text_snapshot: item.text }
+    const revert = () => setCheckins((prev) => wasChecked
+      ? [...prev, entry]
+      : prev.filter((c) => !(c.week_number === 0 && c.item_id === item.id && c.checkin_date === checkinDate)))
+    setCheckins((prev) => wasChecked
+      ? prev.filter((c) => !(c.week_number === 0 && c.item_id === item.id && c.checkin_date === checkinDate))
+      : [...prev, entry])
+    try {
+      const r = await fetch(`/api/share/roadmap/${shareToken}/checkins`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week_number: 0, item_id: item.id, item_text: item.text, date: checkinDate }),
+      })
+      if (!r.ok) revert()
+    } catch {
+      revert()
+    }
   }
 
   // Water/energy/mood are small per-day numbers/text, not boolean
@@ -566,7 +585,7 @@ export default function WeekAuroraTemplate({ shareToken, data, initialCheckins }
       colors: { ink: PALETTE.ink, inkSoft: PALETTE.ink, muted: 'rgba(241,245,249,0.55)', accent: PALETTE.berry, accentSoft: 'rgba(255,42,133,0.08)', border: PALETTE.line, onAccent: '#fff' },
     })
     const dailyMetricsJson = JSON.stringify(metricsCache).replace(/</g, '\\u003c')
-    const weekMetaJson = JSON.stringify({ weekNumber: week?.week_number ?? 1, checklistCount: dailyChecklist.length, todayISO: today }).replace(/</g, '\\u003c')
+    const weekMetaJson = JSON.stringify({ weekNumber: week?.week_number ?? 1, checklistCount: checklistItems.length, todayISO: today }).replace(/</g, '\\u003c')
     const title = (data.patient?.full_name || 'Your') + "'s Week Plan, Living Plus"
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -735,26 +754,26 @@ function clpToggleGroceryCat(head){
           </div>
 
           <div data-section-body="checkin" style={{ display: isSectionOpen('checkin') ? 'block' : 'none' }}>
-          {dailyChecklist.length > 0 && (
+          {checklistItems.length > 0 && (
             <p style={{ fontSize: '0.82rem', color: PALETTE.berry, opacity: 0.85, fontWeight: 600, margin: '-6px 0 16px' }}>
               {checkinAllDone
                 ? 'Everything checked off for today — nice work.'
                 : checkinNoneDone
                 ? 'Nothing logged yet today — tap an item below to check in.'
-                : `${checkinDoneCount} of ${dailyChecklist.length} done so far today.`}
+                : `${checkinDoneCount} of ${checklistItems.length} done so far today.`}
             </p>
           )}
-          {dailyChecklist.length > 0 ? (
+          {checklistItems.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
-              {dailyChecklist.map((item, i) => {
-                const checked = checkedSet.has(`0:${i}:${checkinDate}`)
+              {checklistItems.map((item) => {
+                const checked = checkedSet.has(`0:item:${item.id}:${checkinDate}`)
                 return (
-                  <div key={i} data-goal-toggle={`0:${i}:${checkinDate}`} onClick={() => toggleDailyItem(i)}
+                  <div key={item.id} data-goal-toggle={`0:item:${item.id}:${checkinDate}`} onClick={() => toggleDailyItem(item)}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 16px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${checked ? PALETTE.berry : PALETTE.line}`, background: checked ? 'rgba(255,42,133,0.08)' : 'rgba(255,255,255,0.4)', transition: 'background 0.15s ease' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span data-goal-icon-done style={{ display: checked ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={18} color={PALETTE.berry} /></span>
                       <span data-goal-icon-undone style={{ display: checked ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={18} opacity={0.4} /></span>
-                      <span data-goal-text style={{ fontSize: '0.88rem', fontWeight: 500, color: checked ? PALETTE.berry : PALETTE.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item}</span>
+                      <span data-goal-text style={{ fontSize: '0.88rem', fontWeight: 500, color: checked ? PALETTE.berry : PALETTE.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
                     </div>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? PALETTE.berry : 'rgba(255,42,133,0.08)', color: checked ? '#fff' : PALETTE.berry, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
                   </div>
