@@ -232,6 +232,45 @@ function MascotFace({ expression, size = 40, blinkDelay = 0 }: { expression: 'ha
   )
 }
 
+// Purely decorative, static (no animation, unlike MascotFace/GrowthMascot)
+// hand-drawn food doodles — same original line-art language and PALETTE
+// tokens as the rest of this file, no external image assets. Meant to sit
+// behind hero copy or beside a food-related section header for a bit of
+// warmth without competing for attention the way an animated element would.
+function FoodDoodle({ kind, size = 48, style }: { kind: 'citrus' | 'leaf' | 'bowl'; size?: number; style?: CSSProperties }) {
+  const common = { width: size, height: size, viewBox: '0 0 64 64', 'aria-hidden': true, style }
+  if (kind === 'citrus') {
+    return (
+      <svg {...common}>
+        <circle cx="32" cy="32" r="23" fill={PALETTE.gold2} stroke={PALETTE.berry} strokeWidth="2" />
+        <g stroke={PALETTE.berry} strokeWidth="1.3" strokeLinecap="round">
+          <path d="M32 11 L32 53" />
+          <path d="M13 21 L51 43" />
+          <path d="M13 43 L51 21" />
+        </g>
+        <circle cx="32" cy="32" r="23" fill="none" stroke={PALETTE.berry} strokeWidth="2" />
+      </svg>
+    )
+  }
+  if (kind === 'leaf') {
+    return (
+      <svg {...common}>
+        <path d="M14 50 Q10 22 40 12 Q52 34 30 50 Q22 52 14 50 Z" fill={PALETTE.gold1} stroke={PALETTE.berry} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M16 48 Q30 34 40 14" fill="none" stroke={PALETTE.berry} strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    )
+  }
+  return (
+    <svg {...common}>
+      <path d="M10 28 Q32 40 54 28 L50 42 Q32 50 14 42 Z" fill={PALETTE.gold2} stroke={PALETTE.berry} strokeWidth="2" strokeLinejoin="round" />
+      <ellipse cx="32" cy="27" rx="22" ry="7" fill={PALETTE.dusk1} opacity={0.35} />
+      <circle cx="24" cy="24" r="3" fill={PALETTE.berry} />
+      <circle cx="34" cy="21" r="2.4" fill={PALETTE.berry} />
+      <circle cx="41" cy="25" r="2.8" fill={PALETTE.berry} />
+    </svg>
+  )
+}
+
 function StreakFlame({ lit, pop }: { lit: boolean; pop: boolean }) {
   return (
     <svg data-streak-flame width="14" height="14" viewBox="0 0 24 24" style={{ animation: pop ? 'clpFlamePop 0.5s ease' : undefined }}>
@@ -805,8 +844,11 @@ function clpToggleGroceryCat(head){
       </div>
 
       {/* Hero */}
-      <section style={{ padding: '5rem 1.5rem 3rem', textAlign: 'center' }}>
-        <div style={{ maxWidth: 920, margin: '0 auto' }}>
+      <section style={{ padding: '5rem 1.5rem 3rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+        <FoodDoodle kind="citrus" size={54} style={{ position: 'absolute', top: 28, left: '6%', opacity: 0.5, transform: 'rotate(-12deg)', pointerEvents: 'none' }} />
+        <FoodDoodle kind="leaf" size={46} style={{ position: 'absolute', top: 60, right: '7%', opacity: 0.5, transform: 'rotate(10deg)', pointerEvents: 'none' }} />
+        <FoodDoodle kind="bowl" size={50} style={{ position: 'absolute', bottom: 14, left: '11%', opacity: 0.45, transform: 'rotate(-6deg)', pointerEvents: 'none' }} />
+        <div style={{ maxWidth: 920, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ width: 48, height: 48, borderRadius: 24, background: PALETTE.berry, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", fontSize: 13 }}>LP</div>
           <Eyebrow>Living Plus · One week</Eyebrow>
           <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: 'clamp(2.2rem,6vw,3.6rem)', lineHeight: 1.05, letterSpacing: '-0.01em', margin: 0 }}>
@@ -1093,8 +1135,13 @@ function clpToggleGroceryCat(head){
       {MEAL_PERIODS.some((label) => parseBullets(mealsByPeriod[label] || '').length > 0) && (
         <section id="meals" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('meals') }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
-            <Eyebrow>On the plate</Eyebrow>
-            <SecTitle icon={<Utensils size={26} />} sectionId="meals" open={isSectionOpen('meals')} onToggle={() => toggleSection('meals')}>Breakfast, Lunch &amp; Dinner</SecTitle>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <FoodDoodle kind="bowl" size={40} />
+              <div>
+                <Eyebrow>On the plate</Eyebrow>
+                <SecTitle icon={<Utensils size={26} />} sectionId="meals" open={isSectionOpen('meals')} onToggle={() => toggleSection('meals')}>Breakfast, Lunch &amp; Dinner</SecTitle>
+              </div>
+            </div>
             <div data-section-body="meals" style={{ display: isSectionOpen('meals') ? 'block' : 'none' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}>
                 {MEAL_PERIODS.map((label) => {
