@@ -1824,13 +1824,13 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   <Download size={15} /> Download plan
                 </a>
               )}
-              {/* Phase 1 of inline editing (WeekTemplate only so far) — lets
-                  the coach edit lifestyle/meal/schedule points directly on
-                  the real patient-facing layout instead of this generic
-                  editor + a separate preview tab. Only offered for the
-                  'week' template, the only one WeekTemplate supports
-                  editing on right now. */}
-              {template === 'week' && patientId && (
+              {/* Inline editing — lets the coach edit lifestyle/meal/schedule
+                  points, weekly goals, the daily checklist and the shopping
+                  list directly on the real patient-facing layout instead of
+                  this generic editor + a separate preview tab. Offered for
+                  every Week-family skin; the other templates still use this
+                  editor, so the live-edit route sends them back here. */}
+              {WEEK_FAMILY_TEMPLATES.includes(template) && patientId && (
                 <a href={`/compass/patients/${patientId}/roadmap/${rid}/live-edit`}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.paper, color: C.ink, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
                   <Sparkles size={15} /> Edit live on your plan

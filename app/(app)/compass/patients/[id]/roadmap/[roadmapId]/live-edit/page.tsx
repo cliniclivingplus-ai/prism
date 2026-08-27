@@ -5,6 +5,26 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { buildGuideData } from '@/lib/pdf/buildGuideData'
 import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplements'
 import WeekTemplate from '@/components/guide-templates/WeekTemplate'
+import WeekAuroraTemplate from '@/components/guide-templates/WeekAuroraTemplate'
+import WeekBloomTemplate from '@/components/guide-templates/WeekBloomTemplate'
+import WeekBrutalTemplate from '@/components/guide-templates/WeekBrutalTemplate'
+import WeekCareTemplate from '@/components/guide-templates/WeekCareTemplate'
+import WeekEarthTemplate from '@/components/guide-templates/WeekEarthTemplate'
+import WeekEditorialTemplate from '@/components/guide-templates/WeekEditorialTemplate'
+import WeekNeonTemplate from '@/components/guide-templates/WeekNeonTemplate'
+
+// Every Week-family skin supports inline editing, so the coach edits on the
+// exact template the patient sees rather than on a stand-in.
+const WEEK_FAMILY = {
+  'week': WeekTemplate,
+  'week-aurora': WeekAuroraTemplate,
+  'week-bloom': WeekBloomTemplate,
+  'week-brutal': WeekBrutalTemplate,
+  'week-care': WeekCareTemplate,
+  'week-earth': WeekEarthTemplate,
+  'week-editorial': WeekEditorialTemplate,
+  'week-neon': WeekNeonTemplate,
+} as const
 
 // Phase 1 of inline editing: a coach edits directly on the same component
 // the patient sees (WeekTemplate), instead of the generic Classic editor +
@@ -47,11 +67,12 @@ export default async function LiveEditPage({ params }: { params: Promise<{ id: s
   const backHref = `/compass/patients/${patientId}`
   const classicEditorHref = roadmap.session_id ? `/compass/patients/${patientId}/sessions/${roadmap.session_id}/interpret` : backHref
 
-  if (guideData.template !== 'week') {
+  const Template = WEEK_FAMILY[guideData.template as keyof typeof WEEK_FAMILY]
+  if (!Template) {
     return (
       <div style={{ maxWidth: 560, margin: '80px auto', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
         <p style={{ fontSize: 14, color: '#5A5548' }}>
-          Inline editing is available for the Week template only right now. This plan uses &quot;{guideData.template}&quot; —
+          Inline editing is available for the Week-family templates. This plan uses &quot;{guideData.template}&quot; —
           edit it in the Classic editor instead.
         </p>
         <Link href={classicEditorHref} style={{ color: '#8A3B2E', fontWeight: 700, textDecoration: 'underline' }}>
@@ -69,7 +90,7 @@ export default async function LiveEditPage({ params }: { params: Promise<{ id: s
           <ArrowLeft size={11} style={{ display: 'inline', verticalAlign: -1 }} /> Classic editor
         </Link>
       </div>
-      <WeekTemplate
+      <Template
         editable
         roadmapId={roadmapId}
         shareToken={roadmap.share_revoked_at ? '' : (roadmap.share_token ?? '')}

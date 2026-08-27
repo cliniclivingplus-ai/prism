@@ -20,7 +20,9 @@ import {
   Droplet, Zap, Sun, Moon, Footprints, Wind, Link as LinkIcon, type LucideIcon,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
-import { groupBulletsByLabel, parseScheduleLines } from '@/lib/periodBullets'
+import { parseBullets, splitIntoPeriods, joinPeriods, parseScheduleLines } from '@/lib/periodBullets'
+import InlineEditableText from '@/components/InlineEditableText'
+import type { ChecklistItem } from '@/lib/dailyChecklist'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
 import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
@@ -281,19 +283,101 @@ function StreakFlame({ lit, pop }: { lit: boolean; pop: boolean }) {
   )
 }
 
-export default function WeekNeonTemplate({ shareToken, data, initialCheckins }: { shareToken: string; data: GuideData; initialCheckins: Checkin[] }) {
+const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
+const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
+
+export default function WeekNeonTemplate({ shareToken, data, initialCheckins, editable = false, roadmapId }: {
+  shareToken: string
+  data: GuideData
+  initialCheckins: Checkin[]
+  // Inline coach editing, same contract as WeekTemplate: defaults closed,
+  // and only the authenticated live-edit route ever opts in.
+  editable?: boolean
+  roadmapId?: string
+}) {
   const firstName = data.patient.full_name?.split(' ')[0] || 'there'
   const coachFirst = data.coach?.full_name?.split(' ')[0] || 'your coach'
   const hiddenStyle = (id: string): CSSProperties => ((data.hiddenSections ?? []).includes(id) ? { display: 'none' } : {})
   const isHidden = (id: string) => (data.hiddenSections ?? []).includes(id)
   const parsed = useMemo(() => parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines), [data.roadmap.nutritionist_guidelines])
 
+  // Best-effort, fire-and-forget — local state already reflects the edit
+  // optimistically, the same tolerance the grocery AI-cleanup fetch uses.
+  function patchRoadmap(body: Record<string, unknown>) {
+    if (!roadmapId) return
+    fetch(`/api/compass/roadmaps/${roadmapId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }).catch(() => {})
+  }
+
+  // Local editable copies, seeded once from the real data — the same
+  // per-period split/join round trip WeekTemplate and the Classic editor
+  // use, so every editor serializes back to one storage format.
+  const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS))
+  const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS))
+  const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule)
+  function saveLifestyleItem(label: string, itemIndex: number, next: string) {
+    setLifestyleByPeriod((prev) => {
+      const items = parseBullets(prev[label] || '')
+      items[itemIndex] = next
+      const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      return updated
+    })
+  }
+  function saveMealItem(label: string, itemIndex: number, next: string) {
+    setMealsByPeriod((prev) => {
+      const items = parseBullets(prev[label] || '')
+      items[itemIndex] = next
+      const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      return updated
+    })
+  }
+  // Time and activity edit as two separate single-line fields, and a
+  // pasted newline is stripped — one schedule entry must stay one line in
+  // storage or parseScheduleLines would split it and shift every index.
+  function saveScheduleField(lineIndex: number, field: 'time' | 'text', nextValue: string) {
+    const clean = nextValue.replace(/\s*\n\s*/g, ' ').trim()
+    setDailyScheduleText((prev) => {
+      const lines = parseScheduleLines(prev)
+      const current = lines[lineIndex] ?? { time: '', text: '' }
+      const nextEntry = field === 'time' ? { ...current, time: clean } : { ...current, text: clean }
+      const updated = lines.map((item, i) => {
+        const e = i === lineIndex ? nextEntry : item
+        return e.time ? `${e.time} — ${e.text}` : e.text
+      }).join('\n')
+      patchRoadmap({ guide_overrides: { daily_schedule: updated } })
+      return updated
+    })
+  }
+
   // This template only ever shows ONE week — the first one the plan has —
   // no month/week tabs, "Your roadmap" goes straight to its 7 days.
+  const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
   const week = useMemo(() => {
-    const weeks = [...(data.roadmap.weekly_schedule ?? [])].sort((a, b) => a.week_number - b.week_number)
+    const weeks = [...weeklySchedule].sort((a, b) => a.week_number - b.week_number)
     return weeks[0] ?? null
-  }, [data.roadmap.weekly_schedule])
+  }, [weeklySchedule])
+  // A week with no per-day breakdown shares one `actions` list across all
+  // 7 days, so editing any day there edits that shared list — matching what
+  // is actually displayed rather than silently forking a per-day copy.
+  function saveScheduleAction(dayIndex: number, actionIndex: number, next: string) {
+    if (!week) return
+    setWeeklySchedule((prev) => {
+      const updated = prev.map((w) => {
+        if (w.week_number !== week.week_number) return w
+        if (w.days && w.days.length > 0) {
+          const days = w.days.map((d, i) => (i === dayIndex ? d.map((a, j) => (j === actionIndex ? next : a)) : d))
+          return { ...w, days }
+        }
+        const actions = (w.actions ?? []).map((a, j) => (j === actionIndex ? next : a))
+        return { ...w, actions }
+      })
+      patchRoadmap({ weekly_schedule: updated })
+      return updated
+    })
+  }
 
   const [checkins, setCheckins] = useState<Checkin[]>(initialCheckins)
 
@@ -406,7 +490,32 @@ export default function WeekNeonTemplate({ shareToken, data, initialCheckins }: 
   // at generation from this patient's confirmed supplements and lifestyle
   // guidelines, then coach-editable. Read from data rather than re-derived
   // here, so an edit a coach makes shows up on every template, not just Week.
-  const checklistItems = data.dailyChecklistItems
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(data.dailyChecklistItems)
+  const [regenerating, setRegenerating] = useState(false)
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
+  function saveChecklist(next: ChecklistItem[]) {
+    setChecklistItems(next)
+    patchRoadmap({ guide_overrides: { daily_checklist_items: next } })
+  }
+  function saveChecklistItemText(id: string, next: string) {
+    saveChecklist(checklistItems.map((it) => (it.id === id ? { ...it, text: next } : it)))
+  }
+  function addChecklistItem() {
+    saveChecklist([...checklistItems, { id: crypto.randomUUID(), text: 'New task', source: 'coach' }])
+  }
+  function removeChecklistItem(id: string) {
+    saveChecklist(checklistItems.filter((it) => it.id !== id))
+  }
+  async function regenerateChecklist() {
+    setConfirmRegenerate(false)
+    setRegenerating(true)
+    try {
+      const res = await fetch(`/api/compass/roadmaps/${roadmapId}/regenerate-checklist`, { method: 'POST' })
+      const j = await res.json().catch(() => null)
+      if (res.ok && Array.isArray(j?.items)) saveChecklist(j.items)
+    } catch { /* keep the current list on failure */ }
+    finally { setRegenerating(false) }
+  }
 
   const [checkinDate, setCheckinDate] = useState(today)
   // Daily Health Check-in progress for the selected date — drives both the
@@ -499,8 +608,9 @@ export default function WeekNeonTemplate({ shareToken, data, initialCheckins }: 
     })
   }
 
+  const [groceryOverride, setGroceryOverride] = useState<GroceryCategory[] | null>(data.groceryListOverride)
   useEffect(() => {
-    if (!week || data.groceryListOverride) return
+    if (!week || groceryOverride) return
     const wn = week.week_number
     if (aiGroceryCache[wn]) return
     const weekRecipes = getSlotRecipes(wn, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
@@ -515,7 +625,48 @@ export default function WeekNeonTemplate({ shareToken, data, initialCheckins }: 
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [week, data.groceryListOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [week, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  const weekGroceryRecipes = useMemo(() => {
+    if (!week) return []
+    return getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
+      .flatMap((s) => s.matches).map((mm) => mm.recipe)
+  }, [week, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  // A coach-edited list wins over the computed one, so an edit made in any
+  // template shows up on whichever skin the patient actually sees.
+  const groceryCats = useMemo(() => {
+    if (groceryOverride) return groceryOverride
+    if (!week) return []
+    const computed = aiGroceryCache[week.week_number] ?? buildGroceryList(weekGroceryRecipes)
+    return computed.length > 0 ? computed : GROCERY_CATEGORIES
+  }, [groceryOverride, week, aiGroceryCache, weekGroceryRecipes])
+  function saveGroceryList(next: GroceryCategory[]) {
+    setGroceryOverride(next)
+    patchRoadmap({ guide_overrides: { grocery_list_override: next } })
+  }
+  function saveGroceryItemText(catHead: string, itemIndex: number, next: string) {
+    saveGroceryList(groceryCats.map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.map((it, i) => (i === itemIndex ? next : it)) } : cat)))
+  }
+  function removeGroceryItem(catHead: string, itemIndex: number) {
+    saveGroceryList(groceryCats
+      .map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.filter((_, i) => i !== itemIndex) } : cat))
+      .filter((cat) => cat.items.length > 0))
+  }
+  function addGroceryItem(catHead: string) {
+    saveGroceryList(groceryCats.map((cat) => (cat.head === catHead ? { ...cat, items: [...cat.items, 'New item'] } : cat)))
+  }
+  function saveGroceryCategoryName(oldHead: string, next: string) {
+    saveGroceryList(groceryCats.map((cat) => (cat.head === oldHead ? { ...cat, head: next } : cat)))
+  }
+  function removeGroceryCategory(head: string) {
+    saveGroceryList(groceryCats.filter((cat) => cat.head !== head))
+  }
+  function addGroceryCategory() {
+    saveGroceryList([...groceryCats, { head: 'New category', items: ['New item'] }])
+  }
+  function resetGroceryList() {
+    setGroceryOverride(null)
+    patchRoadmap({ guide_overrides: { grocery_list_override: null } })
+  }
 
   const [openService, setOpenService] = useState<number | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
@@ -749,10 +900,29 @@ function clpToggleGroceryCat(head){
                 <SecTitle icon={<CheckCircle2 size={26} />} sectionId="checkin" open={isSectionOpen('checkin')} onToggle={() => toggleSection('checkin')}>Daily Health Check-in</SecTitle>
               </div>
             </div>
-            <input data-checkin-date type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
-              style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.8rem', background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, padding: '9px 12px', borderRadius: 10, color: PALETTE.ink, fontWeight: 600 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {editable && (
+                <button type="button" onClick={() => setConfirmRegenerate(true)} disabled={regenerating}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', fontWeight: 700, padding: '8px 12px', borderRadius: 10, border: `1px solid ${PALETTE.line}`, background: PALETTE.paper1, color: PALETTE.berry, cursor: regenerating ? 'default' : 'pointer', opacity: regenerating ? 0.6 : 1 }}>
+                  <Sparkles size={13} /> {regenerating ? 'Regenerating…' : 'Ask AI to regenerate'}
+                </button>
+              )}
+              <input data-checkin-date type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
+                style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.8rem', background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, padding: '9px 12px', borderRadius: 10, color: PALETTE.ink, fontWeight: 600 }} />
+            </div>
           </div>
 
+          {confirmRegenerate && (
+            <div style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${PALETTE.berry}`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.82rem' }}>Regenerate from this patient&apos;s current supplements and lifestyle guidelines? Any manual edits to the checklist will be overwritten.</span>
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button type="button" onClick={() => setConfirmRegenerate(false)}
+                  style={{ fontSize: '0.78rem', fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: `1px solid ${PALETTE.line}`, background: 'transparent', color: PALETTE.ink, cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={regenerateChecklist}
+                  style={{ fontSize: '0.78rem', fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', background: PALETTE.berry, color: '#fff', cursor: 'pointer' }}>Regenerate</button>
+              </div>
+            </div>
+          )}
           <div data-section-body="checkin" style={{ display: isSectionOpen('checkin') ? 'block' : 'none' }}>
           {checklistItems.length > 0 && (
             <p style={{ fontSize: '0.82rem', color: PALETTE.berry, opacity: 0.85, fontWeight: 600, margin: '-6px 0 16px' }}>
@@ -768,20 +938,36 @@ function clpToggleGroceryCat(head){
               {checklistItems.map((item) => {
                 const checked = checkedSet.has(`0:item:${item.id}:${checkinDate}`)
                 return (
-                  <div key={item.id} data-goal-toggle={`0:item:${item.id}:${checkinDate}`} onClick={() => toggleDailyItem(item)}
+                  <div key={item.id} data-goal-toggle={`0:item:${item.id}:${checkinDate}`} onClick={() => { if (!editable) toggleDailyItem(item) }}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 16px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${checked ? PALETTE.berry : PALETTE.line}`, background: checked ? 'rgba(0,240,254,0.08)' : 'rgba(255,255,255,0.4)', transition: 'background 0.15s ease' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span data-goal-icon-done style={{ display: checked ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={18} color={PALETTE.berry} /></span>
                       <span data-goal-icon-undone style={{ display: checked ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={18} opacity={0.4} /></span>
-                      <span data-goal-text style={{ fontSize: '0.88rem', fontWeight: 500, color: checked ? PALETTE.berry : PALETTE.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                      {editable ? (
+                        <InlineEditableText editable value={item.text} onSave={(next) => saveChecklistItemText(item.id, next)}
+                          style={{ fontSize: '0.88rem', fontWeight: 500, color: PALETTE.ink, flex: 1 }} />
+                      ) : (
+                        <span data-goal-text style={{ fontSize: '0.88rem', fontWeight: 500, color: checked ? PALETTE.berry : PALETTE.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                      )}
                     </div>
-                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? PALETTE.berry : 'rgba(0,240,254,0.08)', color: checked ? '#fff' : PALETTE.berry, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                    {editable ? (
+                      <span role="button" onClick={(e) => { e.stopPropagation(); removeChecklistItem(item.id) }} title="Remove"
+                        style={{ display: 'inline-flex', color: PALETTE.berry, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={15} /></span>
+                    ) : (
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? PALETTE.berry : 'rgba(0,240,254,0.08)', color: checked ? '#fff' : PALETTE.berry, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                    )}
                   </div>
                 )
               })}
             </div>
           ) : (
             <p style={{ fontSize: '0.9rem', opacity: 0.6 }}>Once {coachFirst} confirms your supplements or lifestyle guidelines, your daily checklist will show up here.</p>
+          )}
+          {editable && (
+            <button type="button" onClick={addChecklistItem}
+              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+              + Add task
+            </button>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 20 }}>
@@ -925,21 +1111,27 @@ function clpToggleGroceryCat(head){
           lifestyle_guidelines text so it's never empty on a plan that
           already has guidance. Groups into Morning/Afternoon/Evening cards
           when the text uses those labels, otherwise one flat list. */}
-      {data.dailyLifestyleGuidelines.trim() && (
+      {LIFESTYLE_PERIODS.some((label) => parseBullets(lifestyleByPeriod[label] || '').length > 0) && (
         <section id="lifestyle" style={{ background: PALETTE.paper3, padding: '4rem 1.5rem', ...hiddenStyle('lifestyle') }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Eyebrow>Morning · Afternoon · Evening</Eyebrow>
             <SecTitle icon={<Sun size={26} />} sectionId="lifestyle" open={isSectionOpen('lifestyle')} onToggle={() => toggleSection('lifestyle')}>Daily Lifestyle Guidelines</SecTitle>
             <div data-section-body="lifestyle" style={{ display: isSectionOpen('lifestyle') ? 'block' : 'none' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}>
-                {groupBulletsByLabel(data.dailyLifestyleGuidelines, ['Morning', 'Afternoon', 'Evening']).map((g) => (
+                {LIFESTYLE_PERIODS.map((label) => ({ label, items: parseBullets(lifestyleByPeriod[label] || '') })).filter((g) => g.items.length > 0).map((g) => (
                   <div key={g.label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
                     <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{g.label}</span>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
                       {g.items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                           <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
-                          <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          {editable ? (
+                            <InlineEditableText editable value={item}
+                              onSave={(next) => (LIFESTYLE_PERIODS.includes(g.label) ? saveLifestyleItem(g.label, i, next) : saveMealItem(g.label, i, next))}
+                              style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
+                          ) : (
+                            <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -954,7 +1146,7 @@ function clpToggleGroceryCat(head){
       {/* Breakfast, Lunch & Dinner — same pattern as lifestyle above,
           defaults to the real "Diet protocol" bullets already parsed out
           of nutritionist_guidelines. */}
-      {data.mealGuidelines.trim() && (
+      {MEAL_PERIODS.some((label) => parseBullets(mealsByPeriod[label] || '').length > 0) && (
         <section id="meals" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('meals') }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -966,14 +1158,20 @@ function clpToggleGroceryCat(head){
             </div>
             <div data-section-body="meals" style={{ display: isSectionOpen('meals') ? 'block' : 'none' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}>
-                {groupBulletsByLabel(data.mealGuidelines, ['Breakfast', 'Lunch', 'Dinner']).map((g) => (
+                {MEAL_PERIODS.map((label) => ({ label, items: parseBullets(mealsByPeriod[label] || '') })).filter((g) => g.items.length > 0).map((g) => (
                   <div key={g.label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
                     <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{g.label}</span>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
                       {g.items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                           <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
-                          <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          {editable ? (
+                            <InlineEditableText editable value={item}
+                              onSave={(next) => (LIFESTYLE_PERIODS.includes(g.label) ? saveLifestyleItem(g.label, i, next) : saveMealItem(g.label, i, next))}
+                              style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
+                          ) : (
+                            <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -989,7 +1187,7 @@ function clpToggleGroceryCat(head){
           default from (a real time-blocked day is genuinely new
           information), so it just doesn't render until the coach writes
           one or clicks Ask AI. */}
-      {data.dailySchedule.trim() && (
+      {(dailyScheduleText.trim() || editable) && (
         <section id="schedule" style={{ background: PALETTE.dusk1, padding: '4rem 1.5rem', ...hiddenStyle('schedule') }}>
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <Eyebrow dark>Your one day</Eyebrow>
@@ -1001,17 +1199,17 @@ function clpToggleGroceryCat(head){
                     per activity type (meal/walk/breath/sleep/etc.), not
                     just a plain circle per row. */}
                 <div style={{ position: 'absolute', left: 15, top: 8, bottom: 8, width: 2, background: 'rgba(232,236,244,0.22)' }} />
-                {parseScheduleLines(data.dailySchedule).map((item, i, arr) => {
+                {parseScheduleLines(dailyScheduleText).map((item, i, arr) => {
                   const Icon = iconForScheduleItem(item.text)
                   return (
                     <div key={i} style={{ position: 'relative', marginBottom: i < arr.length - 1 ? 26 : 0 }}>
                       <span style={{ position: 'absolute', left: -40, top: 0, width: 32, height: 32, borderRadius: 16, background: PALETTE.gold1, color: PALETTE.dusk1, border: `2px solid ${PALETTE.dusk1}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
                         <Icon size={15} />
                       </span>
-                      {item.time && (
-                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.78rem', fontWeight: 700, color: PALETTE.gold1 }}>{item.time}</div>
+                      {(item.time || editable) && (
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.78rem', fontWeight: 700, color: PALETTE.gold1 }}>{editable ? <InlineEditableText editable value={item.time} placeholder="Time" onSave={(next) => saveScheduleField(i, 'time', next)} /> : item.time}</div>
                       )}
-                      <div style={{ color: PALETTE.cream, opacity: 0.92, fontSize: '0.92rem', lineHeight: 1.5, marginTop: 2 }}>{item.text}</div>
+                      <div style={{ color: PALETTE.cream, opacity: 0.92, fontSize: '0.92rem', lineHeight: 1.5, marginTop: 2 }}>{editable ? <InlineEditableText editable value={item.text} placeholder="Activity" onSave={(next) => saveScheduleField(i, 'text', next)} /> : item.text}</div>
                     </div>
                   )
                 })}
@@ -1075,7 +1273,7 @@ function clpToggleGroceryCat(head){
                             {(week.days?.[dayIndex] ?? week.actions ?? []).map((action, ai) => {
                               const checked = checkedSet.has(`${week.week_number}:${ai}:${dayDate}`)
                               return (
-                                <li key={ai} data-goal-toggle={`${week.week_number}:${ai}:${dayDate}`} onClick={() => toggleGoal(week.week_number, ai, dayDate)}
+                                <li key={ai} data-goal-toggle={`${week.week_number}:${ai}:${dayDate}`} onClick={() => { if (!editable) toggleGoal(week.week_number, ai, dayDate) }}
                                   style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', marginBottom: 8, padding: '2px 0' }}>
                                   <svg width="16" height="16" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: 2 }}>
                                     <circle data-goal-check-track data-on-color={PALETTE.gold1} data-off-color="rgba(232,236,244,0.4)" cx="12" cy="12" r="10" fill="none" stroke={checked ? PALETTE.gold1 : 'rgba(232,236,244,0.4)'} strokeWidth="2" style={{ transition: 'stroke 0.25s ease' }} />
@@ -1083,7 +1281,12 @@ function clpToggleGroceryCat(head){
                                     <path data-goal-check-tick d="M7 12.5 10.5 16 17 8" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
                                       strokeDasharray="16" style={{ strokeDashoffset: checked ? 0 : 16, transition: 'stroke-dashoffset 0.35s ease 0.05s' }} />
                                   </svg>
-                                  <span data-goal-text style={{ color: PALETTE.cream, opacity: checked ? 0.55 : 0.9, fontSize: '0.92rem', lineHeight: 1.6, textDecoration: checked ? 'line-through' : 'none', transition: 'opacity 0.2s ease' }}>{action}</span>
+                                  {editable ? (
+                                    <InlineEditableText editable value={action} onSave={(next) => saveScheduleAction(dayIndex, ai, next)}
+                                      style={{ color: PALETTE.cream, fontSize: '0.92rem', lineHeight: 1.6, flex: 1 }} />
+                                  ) : (
+                                    <span data-goal-text style={{ color: PALETTE.cream, opacity: checked ? 0.55 : 0.9, fontSize: '0.92rem', lineHeight: 1.6, textDecoration: checked ? 'line-through' : 'none', transition: 'opacity 0.2s ease' }}>{action}</span>
+                                  )}
                                 </li>
                               )
                             })}
@@ -1225,49 +1428,80 @@ function clpToggleGroceryCat(head){
           <Eyebrow>What to buy</Eyebrow>
           <SecTitle icon={<ShoppingCart size={26} />} sectionId="grocery" open={isSectionOpen('grocery')} onToggle={() => toggleSection('grocery')}>Your Shopping List</SecTitle>
           <div data-section-body="grocery" style={{ display: isSectionOpen('grocery') ? 'block' : 'none' }}>
-          <p style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: 16, marginBottom: 20 }}>Pulled straight from the ingredients of your matched recipes. Tap a category to see its items.</p>
+          {editable && groceryOverride && (
+            <button type="button" onClick={resetGroceryList}
+              style={{ marginTop: 14, fontSize: '0.75rem', fontWeight: 700, padding: '7px 12px', borderRadius: 10, border: `1px solid ${PALETTE.line}`, background: 'transparent', color: PALETTE.berry, cursor: 'pointer' }}>
+              Reset to auto-generated list
+            </button>
+          )}
+          <p style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: 16, marginBottom: 20 }}>{editable ? 'Pulled from your matched recipes — edit any item, or add your own.' : 'Pulled straight from the ingredients of your matched recipes. Tap a category to see its items.'}</p>
           {!week ? (
             <p style={{ fontSize: '0.9rem', opacity: 0.6 }}>Not planned yet, check back once your coach generates your roadmap.</p>
-          ) : (() => {
-            const weekRecipes = getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
-            const cats = aiGroceryCache[week.week_number] ?? buildGroceryList(weekRecipes)
-            // A coach-edited list (guide_overrides.grocery_list_override,
-            // set from the Week template's live editor) wins over the
-            // computed one, so an edit made there shows up on whichever
-            // skin the patient actually sees.
-            const finalCats = data.groceryListOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
-            return (
+          ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20 }}>
-                {finalCats.map((cat) => {
+                {groceryCats.map((cat) => {
                   const catOpen = openGroceryCats.has(cat.head)
                   return (
                   <div key={cat.head}>
                     <button data-grocery-cat-trigger={cat.head} onClick={() => toggleGroceryCat(cat.head)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', gap: 6 }}>
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }}>{cat.head} · {cat.items.length}</span>
-                      <ChevronDown data-grocery-cat-chevron size={14} color={PALETTE.berry}
-                        style={{ opacity: 0.7, flexShrink: 0, transition: 'transform 0.2s ease', transform: catOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
+                      {editable ? (
+                        <InlineEditableText editable value={cat.head} onSave={(next) => saveGroceryCategoryName(cat.head, next)}
+                          style={{ fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }} />
+                      ) : (
+                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }}>{cat.head} · {cat.items.length}</span>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        {editable && (
+                          <span role="button" onClick={(e) => { e.stopPropagation(); removeGroceryCategory(cat.head) }} title="Remove category"
+                            style={{ display: 'inline-flex', color: PALETTE.berry, opacity: 0.6, cursor: 'pointer' }}><X size={13} /></span>
+                        )}
+                        <ChevronDown data-grocery-cat-chevron size={14} color={PALETTE.berry}
+                          style={{ opacity: 0.7, transition: 'transform 0.2s ease', transform: catOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
+                      </div>
                     </button>
                     <ul data-grocery-cat-body={cat.head} style={{ display: catOpen ? 'block' : 'none', listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                      {cat.items.map((item) => {
+                      {cat.items.map((item, itemIndex) => {
                         const itemKey = `${week.week_number}:${cat.head}:${item}`
                         const bought = boughtItems.has(itemKey)
                         return (
-                          <li key={item} data-grocery-item={itemKey} onClick={() => toggleBought(itemKey)}
+                          <li key={itemIndex} data-grocery-item={itemKey} onClick={() => { if (!editable) toggleBought(itemKey) }}
                             style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', opacity: bought ? 0.45 : 0.8, padding: '3px 0', cursor: 'pointer' }}>
                             <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={PALETTE.berry} /></span>
                             <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} opacity={0.5} /></span>
-                            <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                            {editable ? (
+                              <>
+                                <InlineEditableText editable value={item} onSave={(next) => saveGroceryItemText(cat.head, itemIndex, next)}
+                                  style={{ flex: 1 }} />
+                                <span role="button" onClick={() => removeGroceryItem(cat.head, itemIndex)} title="Remove"
+                                  style={{ display: 'inline-flex', color: PALETTE.berry, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={12} /></span>
+                              </>
+                            ) : (
+                              <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                            )}
                           </li>
                         )
                       })}
+                      {editable && (
+                        <li>
+                          <button type="button" onClick={() => addGroceryItem(cat.head)}
+                            style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.76rem', fontWeight: 700, padding: 0, border: 'none', background: 'none', color: PALETTE.berry, cursor: 'pointer', opacity: 0.8 }}>
+                            + Add item
+                          </button>
+                        </li>
+                      )}
                     </ul>
                   </div>
                   )
                 })}
+                {editable && (
+                  <button type="button" onClick={addGroceryCategory}
+                    style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+                    + Add category
+                  </button>
+                )}
               </div>
-            )
-          })()}
+          )}
           </div>
         </div>
       </section>
