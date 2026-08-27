@@ -171,8 +171,10 @@ function GrowthMascot({ pct, cheering }: { pct: number; cheering: boolean }) {
         style={{ animation: cheering ? 'clpMascotCheer 0.7s ease' : 'clpMascotBob 3.2s ease-in-out infinite', transformOrigin: '56px 90px' }}>
         <path d="M20 62 Q18 40 40 32 Q56 26 74 34 Q94 42 92 62" fill="none" stroke={PALETTE.berry} strokeWidth="2.2" strokeLinecap="round" />
         <path d="M18 62 Q56 78 94 62 Q90 84 56 86 Q22 84 18 62 Z" fill={PALETTE.gold2} stroke={PALETTE.berry} strokeWidth="2.2" />
-        <circle cx="44" cy="58" r="3" fill={PALETTE.ink} />
-        <circle cx="68" cy="58" r="3" fill={PALETTE.ink} />
+        <g data-mascot-eyes style={{ transformOrigin: '56px 58px', animation: 'clpMascotBlink 5.4s ease-in-out infinite' }}>
+          <circle cx="44" cy="58" r="3" fill={PALETTE.ink} />
+          <circle cx="68" cy="58" r="3" fill={PALETTE.ink} />
+        </g>
         <path data-mascot-mouth d={mouthD} fill="none" stroke={PALETTE.ink} strokeWidth="2" strokeLinecap="round" style={{ transition: 'd 0.3s ease' }} />
         <path d="M40 30 Q38 18 30 12" fill="none" stroke={PALETTE.dusk1} strokeWidth="2" strokeLinecap="round" />
         <path d="M30 12 Q26 8 30 4 Q34 8 30 12" fill={PALETTE.dusk1} />
@@ -193,6 +195,40 @@ function GrowthMascot({ pct, cheering }: { pct: number; cheering: boolean }) {
         </g>
       </svg>
     </div>
+  )
+}
+
+// A small, face-only cut of GrowthMascot's character — same head/ear
+// shapes and palette so it reads as the same mascot at any size, just
+// without the plant. Meant to be dropped into section headers and empty
+// states for a bit of personality, with an expression that reacts to real
+// patient progress rather than being purely decorative.
+function MascotFace({ expression, size = 40, blinkDelay = 0 }: { expression: 'happy' | 'proud' | 'thinking'; size?: number; blinkDelay?: number }) {
+  const mouthD = expression === 'proud' ? 'M43 65 Q56 79 69 65' : expression === 'thinking' ? 'M47 67 Q56 69 65 67' : 'M46 66 Q56 74 66 66'
+  return (
+    <svg data-mascot-face width={size} height={size * 0.9} viewBox="0 0 112 100" style={{ flexShrink: 0, animation: 'clpMascotBob 3.6s ease-in-out infinite', transformOrigin: '56px 90px' }}>
+      <path d="M20 62 Q18 40 40 32 Q56 26 74 34 Q94 42 92 62" fill="none" stroke={PALETTE.berry} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M18 62 Q56 78 94 62 Q90 84 56 86 Q22 84 18 62 Z" fill={PALETTE.gold2} stroke={PALETTE.berry} strokeWidth="2.2" />
+      <g data-mascot-eyes style={{ transformOrigin: '56px 58px', animation: `clpMascotBlink 5.4s ease-in-out ${blinkDelay}s infinite` }}>
+        {expression === 'proud' ? (
+          <>
+            <path d="M39 59 Q44 53 49 59" fill="none" stroke={PALETTE.ink} strokeWidth="2.4" strokeLinecap="round" />
+            <path d="M63 59 Q68 53 73 59" fill="none" stroke={PALETTE.ink} strokeWidth="2.4" strokeLinecap="round" />
+          </>
+        ) : (
+          <>
+            <circle cx="44" cy="58" r="3" fill={PALETTE.ink} />
+            <circle cx="68" cy="58" r="3" fill={PALETTE.ink} />
+          </>
+        )}
+      </g>
+      {expression === 'thinking' && <path d="M38 49 Q43 45 49 47" fill="none" stroke={PALETTE.ink} strokeWidth="1.6" strokeLinecap="round" opacity={0.6} />}
+      <path data-mascot-mouth d={mouthD} fill="none" stroke={PALETTE.ink} strokeWidth="2" strokeLinecap="round" style={{ transition: 'd 0.3s ease' }} />
+      <path d="M40 30 Q38 18 30 12" fill="none" stroke={PALETTE.dusk1} strokeWidth="2" strokeLinecap="round" />
+      <path d="M30 12 Q26 8 30 4 Q34 8 30 12" fill={PALETTE.dusk1} />
+      <path d="M76 30 Q80 16 90 10" fill="none" stroke={PALETTE.dusk1} strokeWidth="2" strokeLinecap="round" />
+      <path d="M90 10 Q86 6 90 2 Q94 6 90 10" fill={PALETTE.dusk1} />
+    </svg>
   )
 }
 
@@ -433,6 +469,11 @@ export default function WeekTemplate({ shareToken, data, initialCheckins, editab
   async function toggleChecklistItem(itemId: string, itemText: string, date: string) {
     const key = `0:item:${itemId}:${date}`
     const wasChecked = checkedSet.has(key)
+    if (!wasChecked && checklistItems.length > 0 && checklistItems.every((it) => it.id === itemId || checkedSet.has(`0:item:${it.id}:${date}`))) {
+      setCheering(true)
+      if (cheerTimeoutRef.current) clearTimeout(cheerTimeoutRef.current)
+      cheerTimeoutRef.current = setTimeout(() => setCheering(false), 900)
+    }
     const entry: Checkin = { week_number: 0, action_index: null, checkin_date: date, item_id: itemId, item_text_snapshot: itemText }
     const revert = () => setCheckins((prev) => wasChecked
       ? [...prev, entry]
@@ -487,6 +528,12 @@ export default function WeekTemplate({ shareToken, data, initialCheckins, editab
   }
 
   const [checkinDate, setCheckinDate] = useState(today)
+  const checkinDoneCount = useMemo(
+    () => checklistItems.filter((it) => checkedSet.has(`0:item:${it.id}:${checkinDate}`)).length,
+    [checklistItems, checkedSet, checkinDate],
+  )
+  const checkinAllDone = checklistItems.length > 0 && checkinDoneCount === checklistItems.length
+  const checkinNoneDone = checkinDoneCount === 0
 
   // Water/energy/mood are small per-day numbers/text, not boolean
   // check-offs — stored on the roadmap row itself (guide_overrides.daily_metrics)
@@ -736,7 +783,8 @@ function clpToggleGroceryCat(head){
         @keyframes clpMascotBob { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(-1.5deg); } }
         @keyframes clpMascotCheer { 0% { transform: translateY(0) scale(1) rotate(0deg); } 30% { transform: translateY(-14px) scale(1.08) rotate(-4deg); } 55% { transform: translateY(-6px) scale(1.04) rotate(3deg); } 100% { transform: translateY(0) scale(1) rotate(0deg); } }
         @keyframes clpFlamePop { 0% { transform: scale(1); } 40% { transform: scale(1.22) rotate(-4deg); } 100% { transform: scale(1) rotate(0deg); } }
-        @media (prefers-reduced-motion: reduce) { [data-mascot-idle], [data-streak-flame] { animation: none !important; } }
+        @keyframes clpMascotBlink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
+        @media (prefers-reduced-motion: reduce) { [data-mascot-idle], [data-mascot-face], [data-mascot-eyes], [data-streak-flame] { animation: none !important; } }
       `}</style>
 
       <div style={{ position: 'sticky', top: 0, zIndex: 30, background: 'rgba(247,239,224,0.92)', backdropFilter: 'blur(6px)', borderBottom: `1px solid ${PALETTE.line}`, padding: '10px 1.5rem' }}>
@@ -782,9 +830,12 @@ function clpToggleGroceryCat(head){
       <section id="checkin" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('checkin') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <Eyebrow>Daily accountability</Eyebrow>
-              <SecTitle icon={<CheckCircle2 size={26} />} sectionId="checkin" open={isSectionOpen('checkin')} onToggle={() => toggleSection('checkin')}>Daily Health Check-in</SecTitle>
+            <div style={{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <MascotFace expression={checkinAllDone ? 'proud' : checkinNoneDone ? 'thinking' : 'happy'} size={44} blinkDelay={0.7} />
+              <div>
+                <Eyebrow>Daily accountability</Eyebrow>
+                <SecTitle icon={<CheckCircle2 size={26} />} sectionId="checkin" open={isSectionOpen('checkin')} onToggle={() => toggleSection('checkin')}>Daily Health Check-in</SecTitle>
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {editable && (
@@ -809,6 +860,15 @@ function clpToggleGroceryCat(head){
           )}
 
           <div data-section-body="checkin" style={{ display: isSectionOpen('checkin') ? 'block' : 'none' }}>
+          {!editable && checklistItems.length > 0 && (
+            <p style={{ fontSize: '0.82rem', color: PALETTE.berry, opacity: 0.85, fontWeight: 600, margin: '-6px 0 16px' }}>
+              {checkinAllDone
+                ? 'Everything checked off for today — nice work.'
+                : checkinNoneDone
+                ? 'Nothing logged yet today — tap an item below to check in.'
+                : `${checkinDoneCount} of ${checklistItems.length} done so far today.`}
+            </p>
+          )}
           {checklistItems.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
               {checklistItems.map((item) => {
