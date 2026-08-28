@@ -35,9 +35,15 @@ export async function loadRoster(): Promise<{ patients: RosterPatient[]; stats: 
   const supabase = await createClient('compass')
 
   const [patientsRes, roadmapsRes, sessionsRes, mrxRes, bloodRes] = await Promise.all([
+    // source = 'hub' excludes pre-merge Compass patients (backfilled
+    // 'legacy' by migration_v42) — the roster only lists patients the coach
+    // deliberately created here. Nothing about the legacy rows is deleted;
+    // this is a list filter, not a data change, and their own workspace
+    // page still opens fine if linked to directly.
     supabase
       .from('patients')
       .select('id, full_name, clinic_patient_id, created_at')
+      .eq('source', 'hub')
       .order('created_at', { ascending: false }),
     supabase
       .from('roadmaps')
@@ -116,13 +122,18 @@ export async function loadRoster(): Promise<{ patients: RosterPatient[]; stats: 
     }
   })
 
+  // roadmaps/sessions were queried unfiltered (they're keyed by patient_id,
+  // not source), so every stat below must be re-scoped to hub patients —
+  // otherwise a coach with zero hub patients could see nonzero "active
+  // programs" or "sessions today" left over from legacy Compass activity.
+  const hubIds = new Set(patients.map((p) => p.id))
   const stats: RosterStats = {
     totalPatients: patients.length,
     activePrograms: new Set(
-      roadmaps.filter((r) => r.status === 'final').map((r) => r.patient_id)
+      roadmaps.filter((r) => r.status === 'final' && hubIds.has(r.patient_id)).map((r) => r.patient_id)
     ).size,
-    awaitingReview: pendingSession.size,
-    sessionsToday: sessions.filter((s) => s.session_date?.slice(0, 10) === today).length,
+    awaitingReview: [...pendingSession].filter((id) => hubIds.has(id)).length,
+    sessionsToday: sessions.filter((s) => s.session_date?.slice(0, 10) === today && hubIds.has(s.patient_id)).length,
   }
 
   return { patients, stats }

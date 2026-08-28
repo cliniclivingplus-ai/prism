@@ -63,6 +63,10 @@ export async function POST(req: NextRequest) {
   }
 
   const row = clean(body)
+  // Not client-settable — this is the one insert path into public.patients,
+  // so every row created here is by definition a deliberate hub patient,
+  // not something a request body should be able to override.
+  row.source = 'hub'
 
   if (!row.full_name) {
     return NextResponse.json({ error: 'Patient name is required.' }, { status: 400 })
@@ -88,13 +92,15 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       )
     }
-    // Surfaced explicitly because it is the expected failure until v35 runs.
+    // Surfaced explicitly because it is the expected failure until the
+    // relevant migration runs.
     if (error.code === 'PGRST204' || /column .* does not exist/i.test(error.message)) {
       return NextResponse.json(
         {
           error:
-            'This form needs migration_v35_add_patient_and_hub_fk.sql to be run first ' +
-            '(it adds program, allergies and age_years).',
+            'This form needs a pending migration to be run first — ' +
+            'migration_v35_add_patient_and_hub_fk.sql (program, allergies, age_years) ' +
+            'and/or migration_v42_patients_source.sql (source).',
         },
         { status: 503 }
       )
