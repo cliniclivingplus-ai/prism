@@ -60,6 +60,12 @@ export default function InterpretPage() {
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null)
+  // window.confirm() gave zero visible reaction in some environments — a
+  // native dialog that either didn't render or was easy to dismiss without
+  // noticing, so a click on Refresh/Regenerate could look like it did
+  // nothing at all. Replaced with an in-app modal that's unmistakably
+  // there the instant either button is clicked.
+  const [confirmAction, setConfirmAction] = useState<'refresh' | 'regenerate' | null>(null)
   const [guideData, setGuideData] = useState<GuideData | null>(null)
   const [guideDataError, setGuideDataError] = useState('')
   const [error, setError] = useState('')
@@ -127,8 +133,6 @@ export default function InterpretPage() {
   // wouldn't correspond to anything on the refreshed page anymore.
   async function refreshPlan() {
     if (!roadmap) return
-    const ok = window.confirm('Refresh this plan with new AI-generated content?\n\nThis replaces the weekly schedule and clears the patient’s check-in history for it. The dashboard link they already have keeps working, unchanged.')
-    if (!ok) return
     setLoading(true)
     setError('')
     try {
@@ -151,9 +155,14 @@ export default function InterpretPage() {
   // left completely untouched in the database; this just stops showing it
   // here in favor of the new one.
   async function regeneratePlan() {
-    const ok = window.confirm('Generate a brand new roadmap with the current duration?\n\nThis creates a separate dashboard with its own new link — your current roadmap stays exactly as it is, untouched, just no longer shown here.')
-    if (!ok) return
     await generateRoadmap()
+  }
+
+  async function confirmAndRun() {
+    const action = confirmAction
+    setConfirmAction(null)
+    if (action === 'refresh') await refreshPlan()
+    else if (action === 'regenerate') await regeneratePlan()
   }
 
   if (fetching) return (
@@ -186,12 +195,12 @@ export default function InterpretPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {roadmap ? (
               <>
-                <button onClick={refreshPlan} disabled={loading}
+                <button onClick={() => setConfirmAction('refresh')} disabled={loading}
                   title="Update this same roadmap's content in place — same link, patient sees it refresh next time they open it"
                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', fontSize: 13, cursor: loading ? 'not-allowed' : 'pointer', color: '#6b7280', opacity: loading ? 0.7 : 1 }}>
                   {loading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : '↺'} {loading ? 'Refreshing...' : 'Refresh plan'}
                 </button>
-                <button onClick={regeneratePlan} disabled={loading}
+                <button onClick={() => setConfirmAction('regenerate')} disabled={loading}
                   title="Create a brand new roadmap with a new link — use this when the plan's length itself needs to change (e.g. 3 months → 6 months)"
                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', fontSize: 13, cursor: loading ? 'not-allowed' : 'pointer', color: '#6b7280', opacity: loading ? 0.7 : 1 }}>
                   {loading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Wand2 size={14} />} Regenerate
@@ -251,11 +260,11 @@ export default function InterpretPage() {
               You selected <strong>{durationLabel(duration)}</strong> — the live dashboard is still <strong>{durationLabel(roadmap.duration_months)}</strong> until you apply it.
             </span>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-              <button onClick={refreshPlan} disabled={loading}
+              <button onClick={() => setConfirmAction('refresh')} disabled={loading}
                 style={{ padding: '6px 12px', borderRadius: 7, border: 'none', background: '#538A22', color: '#fff', fontSize: 12, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer' }}>
                 Refresh plan (same link)
               </button>
-              <button onClick={regeneratePlan} disabled={loading}
+              <button onClick={() => setConfirmAction('regenerate')} disabled={loading}
                 style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #D1D5DB', background: '#fff', color: '#6b7280', fontSize: 12, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer' }}>
                 Regenerate (new link)
               </button>
@@ -293,6 +302,37 @@ export default function InterpretPage() {
             </div>
           </div>
           <DashboardClient roadmapId={roadmap.id} shareToken={roadmap.share_revoked_at ? undefined : (roadmap.share_token ?? undefined)} patientId={patientId} data={guideData} initialCheckins={[]} editable duration={duration} />
+        </div>
+      )}
+
+      {confirmAction && (
+        <div
+          onClick={() => setConfirmAction(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 12, padding: 22, maxWidth: 420, width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}
+          >
+            <h2 style={{ fontSize: 15.5, fontWeight: 700, color: '#111827', margin: '0 0 8px' }}>
+              {confirmAction === 'refresh' ? 'Refresh this plan?' : 'Generate a brand new roadmap?'}
+            </h2>
+            <p style={{ fontSize: 13, color: '#4B5563', lineHeight: 1.6, margin: '0 0 18px' }}>
+              {confirmAction === 'refresh'
+                ? 'This replaces the weekly schedule with new AI-generated content and clears the patient’s check-in history for it. The dashboard link they already have keeps working, unchanged.'
+                : 'This creates a separate dashboard with its own new link — your current roadmap stays exactly as it is, untouched, just no longer shown here.'}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setConfirmAction(null)}
+                style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #D1D5DB', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={confirmAndRun}
+                style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#538A22', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                {confirmAction === 'refresh' ? 'Refresh plan' : 'Generate new roadmap'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
