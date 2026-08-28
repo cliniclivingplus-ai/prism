@@ -427,11 +427,11 @@ RULES FOR CAUSE:
 - Be scientific. Use medical terms but explain them. Reference their actual symptoms.
 - Never say "may", "might", "could", "typically"
 
-RULES FOR ACTIONS — healthy lifestyle guidance, NOT a prescription:
-- Each action is a specific, measurable HEALTHY LIFESTYLE habit: movement, hydration, sleep, meal timing/composition, stress management, or a real change to their actual daily schedule
-- FORBIDDEN: naming any supplement, medication, or dose (e.g. "2 tablespoons of flaxseed", "400mg magnesium") — this section is lifestyle guidance the patient follows day to day, not a clinical prescription. Supplement dosing belongs only in the separate clinical Supplements section, never here.
-- Still be specific about timing/frequency/duration: "a 15 minute walk after lunch daily", "lights off by 10pm", "protein at every meal" — specificity means exact timing and frequency, not a substance and quantity
-- Include the WHY in one sentence after the action
+RULES FOR ACTIONS — small healthy-lifestyle goals, NOT a prescription:
+- Each action is ONE short, concrete HEALTHY LIFESTYLE goal: movement, hydration, sleep, meal timing/composition, stress management, or a real change to their actual daily schedule — same short style as a daily habit checklist, not a clinical writeup
+- FORBIDDEN: naming any supplement, medication, or dose (e.g. "2 tablespoons of flaxseed", "400mg magnesium", "ferrous sulfate") — this section is lifestyle guidance the patient follows day to day, not a clinical prescription. Supplement dosing belongs only in the separate clinical Supplements section, never here.
+- Specific about timing/frequency: "a 15 minute walk after lunch daily", "lights off by 10pm", "protein at every meal" — specificity means exact timing and frequency, not a substance and quantity, and not an explanation of why
+- One short sentence only, under 12 words — no separate "why it works" clause tacked on; the reasoning lives in "cause" above, not repeated here
 - Reference their actual schedule/habits from Q&A and patient facts
 - Actions should NOT suggest "consult a doctor" or "consult a nutritionist" — she is already at LP
 
@@ -440,7 +440,7 @@ RULES FOR "days" (building up through the week — make the progression visible 
 - Each day has exactly 3 short lines, one per action above in the same order
 - Each line must explicitly say where in the week's progression this is, in words — e.g. "Starting today: a 10 minute walk after lunch" building up to "Fully in place: a 20 minute walk after lunch" by Saturday. A reader should be able to tell this is a build-up from the phrase alone, not have to infer it from a number changing.
 - Same "no supplement/dose" rule as actions above — the progression is in duration/frequency/consistency of a real habit, never a substance quantity
-- Keep each line SHORT (under 16 words)
+- Keep each line SHORT (under 12 words, including the progression marker)
 - E.g. for "Take a 15 minute walk after lunch daily": Sunday "Starting today: a 10 minute walk after lunch", Wednesday "Building up: a 15 minute walk after lunch", Saturday "Fully in place: a 20 minute walk after lunch"
 
 [{
@@ -448,9 +448,9 @@ RULES FOR "days" (building up through the week — make the progression visible 
   "focus_theme": "Specific clinical theme",
   "cause": "3 sentences explaining the exact biochemical mechanism happening in their body. Scientific, specific to their condition and facts. Direct to patient.",
   "actions": [
-    "Specific measurable healthy-lifestyle action with exact timing/frequency, why it works in one sentence, no supplement or dose",
-    "Second specific lifestyle action with timing/frequency, scientific rationale, no supplement or dose",
-    "Third specific lifestyle action tied to their actual daily schedule, no supplement or dose"
+    "Short lifestyle goal with exact timing/frequency, under 12 words, no supplement or dose",
+    "Second short lifestyle goal, under 12 words, no supplement or dose",
+    "Third short lifestyle goal tied to their actual daily schedule, under 12 words, no supplement or dose"
   ],
   "days": [
     ["Sunday's build-up-framed version of action 1", "Sunday's build-up-framed version of action 2", "Sunday's build-up-framed version of action 3"],

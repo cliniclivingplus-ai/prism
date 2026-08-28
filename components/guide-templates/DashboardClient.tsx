@@ -874,6 +874,32 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const lifestyleTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const mealsTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule)
+  // "Regenerate roadmap" — see regenerate-roadmap/route.ts. Explicit,
+  // confirmed coach action only (never auto-triggered): resets this
+  // roadmap's check-in history and rewrites every week's goals, unlike the
+  // 3-field daily-content regenerate below which is side-effect-free.
+  const [regeneratingRoadmap, setRegeneratingRoadmap] = useState(false)
+  const [confirmRegenerateRoadmap, setConfirmRegenerateRoadmap] = useState(false)
+  const [regenerateRoadmapError, setRegenerateRoadmapError] = useState('')
+  async function regenerateRoadmap() {
+    setConfirmRegenerateRoadmap(false)
+    setRegeneratingRoadmap(true)
+    setRegenerateRoadmapError('')
+    try {
+      const res = await fetch(`/api/compass/roadmaps/${rid}/regenerate-roadmap`, { method: 'POST' })
+      const j = await res.json().catch(() => null)
+      if (res.ok && j?.roadmap?.weekly_schedule) {
+        setEditWeeks(j.roadmap.weekly_schedule)
+        setCheckins([])
+      } else {
+        setRegenerateRoadmapError(j?.error || 'Regeneration failed — try again.')
+      }
+    } catch {
+      setRegenerateRoadmapError('Network error — try again.')
+    } finally {
+      setRegeneratingRoadmap(false)
+    }
+  }
   // Bulk "Regenerate" for the 3 fields above together — see
   // regenerate-daily-content/route.ts. Mainly for a roadmap that predates
   // this content existing (empty on every template until backfilled), so
@@ -2454,7 +2480,32 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               since the coach needs to see every field to edit it. */}
           <div id="roadmap" {...hiddenAttrs('roadmap')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('roadmap') }}>
             {editable && <SectionToggle hidden={isHidden('roadmap')} onToggle={() => toggleSection('roadmap')} />}
-            <div style={sectionTitleStyle}><MapPin size={18} color={C.accent} /> Your roadmap</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={sectionTitleStyle}><MapPin size={18} color={C.accent} /> Your roadmap</div>
+              {editable && (
+                <button type="button" onClick={() => setConfirmRegenerateRoadmap(true)} disabled={regeneratingRoadmap}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '7px 12px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.paper, color: C.accent, cursor: regeneratingRoadmap ? 'default' : 'pointer', opacity: regeneratingRoadmap ? 0.6 : 1 }}>
+                  <Sparkles size={13} /> {regeneratingRoadmap ? 'Regenerating…' : 'Regenerate roadmap'}
+                </button>
+              )}
+            </div>
+            {editable && (
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: confirmRegenerateRoadmap || regenerateRoadmapError ? 10 : 14 }}>
+                Rewrites every week&apos;s goals as short, no-dose lifestyle habits and resets this roadmap&apos;s check-in history. For an older roadmap whose goals read long or name a supplement dose.
+              </div>
+            )}
+            {confirmRegenerateRoadmap && (
+              <div style={{ background: C.accentSoft, border: `1px solid ${C.accent}`, borderRadius: 10, padding: '11px 15px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12.5, color: C.ink }}>Regenerate every week&apos;s goals for this roadmap? This resets the patient&apos;s check-in history for this roadmap and cannot be undone from here (a snapshot of the current plan is archived first).</span>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button type="button" onClick={() => setConfirmRegenerateRoadmap(false)} style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.rule}`, background: '#fff', cursor: 'pointer' }}>Cancel</button>
+                  <button type="button" onClick={regenerateRoadmap} style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', cursor: 'pointer' }}>Regenerate</button>
+                </div>
+              </div>
+            )}
+            {regenerateRoadmapError && (
+              <p style={{ fontSize: 12.5, color: '#DC2626', margin: '-4px 0 14px' }}>{regenerateRoadmapError}</p>
+            )}
             {months.length === 0 && <div style={{ fontSize: 13.5, color: C.muted }}>Not planned yet, check back once your coach generates your roadmap.</div>}
             {!editable && months.length > 0 && (
               <>
