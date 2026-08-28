@@ -66,6 +66,7 @@ export default function ReportPage() {
 
   const [report,  setReport]  = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
+  const [prescription, setPrescription] = useState<{ id: string; approved_at: string | null } | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -79,6 +80,13 @@ export default function ReportPage() {
 
         if (error || !data) { router.push('/mrx/dashboard'); return }
         setReport(data)
+
+        // Separate, non-blocking: lets the header link straight to the
+        // review/approve screen without a doctor having to click
+        // "Generate recommendations" again just to reach an existing one.
+        const { data: rx } = await supabase
+          .from('prescriptions').select('id, approved_at').eq('report_id', id).maybeSingle()
+        if (rx) setPrescription(rx)
       } catch (err) {
         console.error(err)
       } finally {
@@ -229,7 +237,22 @@ export default function ReportPage() {
             <p className="text-xs font-mono uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
               Clinical Report
             </p>
-            <ReportPdfActions reportId={report.id} initialPdfStored={!!report.pdf_filename} />
+            <div className="flex items-center gap-3">
+              {prescription && (
+                <Link
+                  href={`/mrx/report/${id}/review`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+                  style={
+                    prescription.approved_at
+                      ? { background: '#F2F9EC', border: '1px solid #C8E9A8', color: '#1A3207' }
+                      : { background: '#FFFFFF', border: '1px solid #E2F3D0', color: '#538A22' }
+                  }
+                >
+                  {prescription.approved_at ? '✓ Approved prescription' : 'Open prescription draft'}
+                </Link>
+              )}
+              <ReportPdfActions reportId={report.id} initialPdfStored={!!report.pdf_filename} />
+            </div>
           </div>
 
           {!rd && (

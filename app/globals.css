@@ -111,6 +111,26 @@
   --color-rust-100: var(--rust-100);
   --color-amber-600: var(--amber-600);
 
+  /* Semantic aliases (bg-primary, bg-background, border-border, ...) used
+     across the MRX/Blood pages — these only existed as plain CSS vars
+     above, never registered here, so Tailwind v4 never generated the
+     utility classes for them and every one silently rendered as nothing
+     (transparent bg, inherited text color) instead of an error. */
+  --color-background: var(--background);
+  --color-card: var(--card);
+  --color-card-secondary: var(--card-secondary);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  --color-foreground: var(--foreground);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-border: var(--border);
+  --color-border-light: var(--border-light);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
