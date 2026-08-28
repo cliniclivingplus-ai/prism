@@ -18,18 +18,23 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// Splits the AI progress summary into per-marker bullets + one closing line.
-// The prompt now asks for "- " prefixed, newline-separated bullets, but
-// summaries generated before that change (or a model that ignores it) can
-// still come back as one paragraph — in that case this just returns the
-// whole thing as a single closing line, same as the old plain-paragraph
-// render, so nothing breaks for un-regenerated history.
-function parseSummary(text: string): { bullets: string[]; closing: string | null } {
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-  const bullets = lines.filter((l) => l.startsWith('- ')).map((l) => l.slice(2).trim())
-  const closing = lines.find((l) => !l.startsWith('- ')) ?? null
-  if (bullets.length === 0) return { bullets: [], closing: text }
-  return { bullets, closing }
+type SummaryRow = {
+  name: string; unit: string; refRange: string; history: string
+  latestDate: string; change: 'up' | 'down' | 'same'; inRange: boolean
+}
+type StructuredSummary = { rows: SummaryRow[]; closing: string }
+
+// progress_summary is stored as a JSON string ({rows, closing}) so the
+// table renders real per-marker data rather than free text. A value saved
+// before this change is a plain sentence and won't parse as that shape —
+// treated as a closing-only summary with no rows, so it still shows
+// something sensible until the coach hits Regenerate.
+function parseSummaryPayload(raw: string): StructuredSummary {
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && Array.isArray(parsed.rows)) return { rows: parsed.rows, closing: parsed.closing || '' }
+  } catch { /* legacy plain-text value */ }
+  return { rows: [], closing: raw }
 }
 
 // Same "keep it simple" bold red/green zoning as the report page's range
@@ -66,7 +71,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
   const [patient, setPatient] = useState<Patient | null>(null)
   const [reports, setReports] = useState<ReportRow[]>([])
   const [trends, setTrends] = useState<MarkerTrend[]>([])
-  const [summary, setSummary] = useState<string | null>(null)
+  const [summary, setSummary] = useState<StructuredSummary | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(false)
   const [error, setError] = useState('')
 
@@ -89,7 +94,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
         setPatient(j.patient)
         setReports(j.reports)
         setTrends(j.trends)
-        if (j.patient.progress_summary) setSummary(j.patient.progress_summary)
+        if (j.patient.progress_summary) setSummary(parseSummaryPayload(j.patient.progress_summary))
       })
   }
 
@@ -143,8 +148,11 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
       body: JSON.stringify({ regenerate }),
     })
       .then((r) => r.json())
-      .then((j) => setSummary(j.summary || j.error || 'Could not load a summary — try again.'))
-      .catch(() => setSummary('Could not load a summary — try again.'))
+      .then((j) => {
+        if (j.error) { setSummary({ rows: [], closing: j.error }); return }
+        setSummary({ rows: j.rows ?? [], closing: j.closing ?? '' })
+      })
+      .catch(() => setSummary({ rows: [], closing: 'Could not load a summary — try again.' }))
       .finally(() => setLoadingSummary(false))
   }
 
@@ -208,27 +216,55 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
               {loadingSummary ? 'Writing…' : 'Regenerate'}
             </button>
           </div>
-          <div className="bg-card border border-border rounded-2xl px-5 py-4">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             {loadingSummary && !summary ? (
-              <p className="text-sm text-foreground-secondary">Writing summary…</p>
+              <p className="text-sm text-foreground-secondary px-5 py-4">Writing summary…</p>
             ) : summary ? (
-              (() => {
-                const { bullets, closing } = parseSummary(summary)
-                return (
-                  <>
-                    {bullets.length > 0 && (
-                      <ul className="list-disc pl-5 space-y-1.5 text-sm text-foreground-secondary">
-                        {bullets.map((b, i) => <li key={i}>{b}</li>)}
-                      </ul>
-                    )}
-                    {closing && (
-                      <p className={`text-sm text-foreground-secondary whitespace-pre-wrap ${bullets.length > 0 ? 'mt-3 pt-3 border-t border-border' : ''}`}>
-                        {closing}
-                      </p>
-                    )}
-                  </>
-                )
-              })()
+              <>
+                {summary.rows.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b border-border text-left text-xs font-mono uppercase tracking-wide text-foreground-muted">
+                          <th className="px-5 py-2.5 font-medium">Marker</th>
+                          <th className="px-3 py-2.5 font-medium">History</th>
+                          <th className="px-3 py-2.5 font-medium">Latest</th>
+                          <th className="px-3 py-2.5 font-medium">Trend</th>
+                          <th className="px-3 py-2.5 font-medium">Range</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {summary.rows.map((r, i) => (
+                          <tr key={i} className={i === summary.rows.length - 1 ? '' : 'border-b border-border'}>
+                            <td className="px-5 py-2.5 font-medium text-foreground">{r.name}</td>
+                            <td className="px-3 py-2.5 text-foreground-secondary whitespace-nowrap">
+                              {r.history}{r.unit ? ` ${r.unit}` : ''}
+                            </td>
+                            <td className="px-3 py-2.5 text-foreground-muted whitespace-nowrap">{r.latestDate}</td>
+                            <td className="px-3 py-2.5">
+                              <span className={
+                                r.change === 'up' ? 'text-danger' : r.change === 'down' ? 'text-success' : 'text-foreground-muted'
+                              }>
+                                {r.change === 'up' ? '↑ Increased' : r.change === 'down' ? '↓ Decreased' : '→ Same'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 whitespace-nowrap">
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${r.inRange ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
+                                {r.inRange ? 'In range' : 'Out of range'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {summary.closing && (
+                  <p className={`text-sm text-foreground-secondary px-5 py-4 ${summary.rows.length > 0 ? 'border-t border-border' : ''}`}>
+                    {summary.closing}
+                  </p>
+                )}
+              </>
             ) : null}
           </div>
         </section>

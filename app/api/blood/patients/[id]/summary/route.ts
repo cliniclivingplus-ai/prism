@@ -12,12 +12,47 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 
 const NO_TREND_MESSAGE = 'Not enough history yet. Upload another report for this patient to start seeing a trend summary.'
 
-// Same cache-unless-regenerate pattern as /api/blood/recommendations. The prompt
-// only ever gets the patient's own real historical values (date -> value
-// per marker) and is explicitly barred from claiming a trend that isn't
-// actually in that data — the same anti-fabrication rule the per-report
-// recommendations already follow, just applied to a timeline instead of a
-// single reading.
+export type SummaryRow = {
+  name: string
+  unit: string
+  refRange: string
+  history: string // "2.11 → 1.65 → 1.26", oldest to latest, exactly as recorded
+  latestDate: string
+  change: 'up' | 'down' | 'same'
+  inRange: boolean
+}
+export type StructuredSummary = { rows: SummaryRow[]; closing: string }
+
+function fmtShort(d: string) {
+  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+}
+
+// Values, dates and range-status are read straight from the patient's own
+// report data — never re-typed by the model. Only the one-line closing
+// overview is generated text; a table cell is not the place to let an LLM
+// paraphrase a number.
+function buildRows(trends: ReturnType<typeof buildMarkerTrends>): SummaryRow[] {
+  return trends.map((t) => {
+    const last = t.points[t.points.length - 1]
+    const prev = t.points[t.points.length - 2]
+    const change: SummaryRow['change'] = last.value > prev.value ? 'up' : last.value < prev.value ? 'down' : 'same'
+    return {
+      name: t.displayName,
+      unit: t.unit || '',
+      refRange: t.refRange || '',
+      history: t.points.map((p) => p.value).join(' → '),
+      latestDate: fmtShort(last.date),
+      change,
+      inRange: !last.abnormal,
+    }
+  })
+}
+
+// Same cache-unless-regenerate pattern as /api/blood/recommendations. The
+// closing overview is the only part an LLM writes; it's given the same
+// deterministic rows the table renders and is explicitly barred from
+// claiming a trend that isn't actually in that data — the same
+// anti-fabrication rule the per-report recommendations already follow.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -33,8 +68,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .single()
     if (patientError || !patient) return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
 
+    // progress_summary is a text column carrying JSON now; a value from
+    // before this change is a plain sentence and won't parse — treat that
+    // as "no usable cache" rather than serving stale, wrongly-shaped data.
     if (!regenerate && patient.progress_summary) {
-      return NextResponse.json({ source: 'cache', summary: patient.progress_summary })
+      try {
+        const cached = JSON.parse(patient.progress_summary) as StructuredSummary
+        if (Array.isArray(cached.rows)) return NextResponse.json({ source: 'cache', ...cached })
+      } catch { /* pre-table cached value — fall through and regenerate */ }
     }
 
     const { data: reports } = await admin
@@ -47,55 +88,47 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const withHistory = trends.filter((t) => t.points.length >= 2)
 
     if (withHistory.length === 0) {
-      return NextResponse.json({ source: 'generated', summary: NO_TREND_MESSAGE })
+      const empty: StructuredSummary = { rows: [], closing: NO_TREND_MESSAGE }
+      return NextResponse.json({ source: 'generated', ...empty })
     }
 
-    const trendText = withHistory
-      .map((t) => {
-        const points = t.points
-          .map((p) => `${new Date(p.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}: ${p.value}${t.unit ? ' ' + t.unit : ''}${p.abnormal ? ' (out of range)' : ''}`)
-          .join(', ')
-        return `${t.displayName} (reference range: ${t.refRange || 'not printed'}): ${points}`
-      })
+    const rows = buildRows(withHistory)
+
+    const rowText = rows
+      .map((r) => `${r.name}: ${r.history}${r.unit ? ' ' + r.unit : ''} (reference range: ${r.refRange || 'not printed'}), ${r.change === 'up' ? 'increased' : r.change === 'down' ? 'decreased' : 'stayed the same'}, currently ${r.inRange ? 'within range' : 'out of range'}`)
       .join('\n')
 
     const completion = await groq.chat.completions.create({
       model: 'openai/gpt-oss-20b',
-      // One bullet per trending marker plus a closing line — a patient with
-      // many markers (seen: ~19) needs more headroom than a flat 700 gives,
-      // or the response cuts off mid-bullet with no closing sentence at all.
-      max_tokens: 1500,
+      max_tokens: 300,
       temperature: 0.25,
       reasoning_effort: 'low',
       messages: [
         {
           role: 'system',
           content: [
-            'You write a progress summary for a coach comparing a patient\'s blood test results across multiple reports over time.',
-            'For EACH marker in the data given, write one bullet point in this exact structure:',
-            '- Marker name, then every reading in date order as "value on date", then say whether it increased, decreased, or stayed the same from the previous reading, then state whether the latest value is within or outside the reference range',
-            'Example line: "- Hemoglobin: 8.10 on 12 Jul, 9.60 on 20 Jul. Increased by 1.5, still below the 12-15 reference range."',
+            'You write ONE short closing overview (2-4 sentences) summarising a patient\'s blood marker trends for a coach.',
+            'You are given the change/range status already computed for every marker — do not restate every marker individually, that table is shown separately. Instead, group and highlight what matters: which markers remain out of range, any that improved, any that worsened.',
             'RULES:',
-            '- Only describe a change that is actually present in the numbers given — never claim a marker improved, worsened, or stayed stable unless the numbers given show that',
-            '- Use the real values, units, dates, and reference ranges given, never invented ones',
-            '- One bullet per marker, in the order given',
-            '- FORMAT: plain text only, no markdown. Each bullet MUST start with "- " and be on its own line — put a newline character between every bullet. Never join two bullets into the same line or run them together as a paragraph.',
-            '- After the bullets, add one closing line (also starting on its own new line, no leading "-") giving the overall picture across all markers together',
+            '- Only describe what the data given actually shows — never claim a marker improved, worsened, or stayed stable unless it is stated',
+            '- Never invent a value, date, or marker not in the data given',
+            '- Plain text only, no markdown, no bullet points — prose sentences only',
             '- State things plainly and confidently where the data supports it; do not hedge with "may/might/could/possibly"',
             '- Never use an em dash (—); use a comma, period, or "and" instead',
           ].join('\n'),
         },
         {
           role: 'user',
-          content: `Patient: ${patient.name}\n\nMarker history (only markers with 2+ readings are included):\n${trendText}\n\nWrite the progress summary.`,
+          content: `Patient: ${patient.name}\n\nMarker trends:\n${rowText}\n\nWrite the closing overview.`,
         },
       ],
     })
 
-    const summary = completion.choices[0]?.message?.content?.trim() || NO_TREND_MESSAGE
-    await admin.from('patients').update({ progress_summary: summary }).eq('id', id)
+    const closing = completion.choices[0]?.message?.content?.trim() || ''
+    const result: StructuredSummary = { rows, closing }
+    await admin.from('patients').update({ progress_summary: JSON.stringify(result) }).eq('id', id)
 
-    return NextResponse.json({ source: 'generated', summary })
+    return NextResponse.json({ source: 'generated', ...result })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to generate summary' }, { status: 500 })
   }
