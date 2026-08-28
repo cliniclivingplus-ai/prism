@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { resolveRoadmapId } from '@/lib/share/publicData'
 import { buildGuideData } from '@/lib/pdf/buildGuideData'
 import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplements'
+import { ensureDailyContent } from '@/lib/pdf/ensureDailyContent'
 import DashboardClient from '@/components/guide-templates/DashboardClient'
 import AlmanacTemplate from '@/components/guide-templates/AlmanacTemplate'
 import PulseTemplate from '@/components/guide-templates/PulseTemplate'
@@ -46,6 +47,7 @@ export default async function PatientDashboardPage({ params }: { params: Promise
 
   if (error || !roadmap) notFound()
 
+  await ensureDailyContent(roadmap)
   const confirmedSupplements = await resolveConfirmedSupplements(roadmap.patient_id)
   const guideData = buildGuideData(roadmap, imageBank ?? [], recipes ?? [], confirmedSupplements)
 

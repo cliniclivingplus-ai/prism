@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildGuideData } from '@/lib/pdf/buildGuideData'
 import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplements'
+import { ensureDailyContent } from '@/lib/pdf/ensureDailyContent'
 
 // Feeds the coach-facing editable dashboard preview (interpret page) the
 // exact same GuideData shape the read-only patient dashboard and the PDF
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ road
   if (error) return Response.json({ error: error.message }, { status: 500 })
   if (!roadmap) return Response.json({ error: 'Not found' }, { status: 404 })
 
+  await ensureDailyContent(roadmap)
   const confirmedSupplements = await resolveConfirmedSupplements(roadmap.patient_id)
   const data = buildGuideData(roadmap, imageBank ?? [], recipeBank ?? [], confirmedSupplements)
   return Response.json({ data })
