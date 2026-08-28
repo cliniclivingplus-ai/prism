@@ -295,6 +295,14 @@ export default async function PatientWorkspacePage({
                           Rych Index{mrx.rychTier ? ` — ${mrx.rychTier.toLowerCase()}` : ''}
                         </div>
                         <BarTrack pct={mrx.rychIndex} color="var(--pista-600)" />
+                        {mrx.prescriptionApprovedAt && (
+                          <span
+                            className="font-mono-clp w-fit rounded-full px-2 py-[3px] text-[10px] font-medium"
+                            style={{ background: 'var(--pista-100)', color: 'var(--pista-600)' }}
+                          >
+                            ✓ Supplement plan approved
+                          </span>
+                        )}
                       </>
                     ) : (
                       <div className="text-[12px] leading-relaxed" style={{ color: 'var(--ink-faint)' }}>
@@ -614,6 +622,38 @@ export default async function PatientWorkspacePage({
                           )
                         })}
                       </div>
+                    )}
+                  </Panel>
+
+                  <Panel>
+                    <PanelTitle>Supplement plan</PanelTitle>
+                    {mrx.prescriptionApprovedAt ? (
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <span
+                            className="font-mono-clp inline-block rounded-full px-2.5 py-1 text-[10.5px] font-medium"
+                            style={{ background: 'var(--pista-100)', color: 'var(--pista-600)' }}
+                          >
+                            ✓ Approved {formatDate(mrx.prescriptionApprovedAt)}
+                          </span>
+                          <p className="m-0 mt-2 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+                            Doctor-approved supplements, therapies and dietary protocol for this patient.
+                          </p>
+                        </div>
+                        <Link
+                          href={`/mrx/report/${mrx.reportId}/prescription-print`}
+                          target="_blank"
+                          className="flex flex-shrink-0 items-center gap-[7px] rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white"
+                          style={{ background: 'var(--pista-600)' }}
+                        >
+                          Open PDF <IconArrowOut />
+                        </Link>
+                      </div>
+                    ) : (
+                      <p className="m-0 text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>
+                        No prescription has been approved for this report yet — the doctor reviews and
+                        approves it from within MicrobiomeRx.
+                      </p>
                     )}
                   </Panel>
                 </>

@@ -40,6 +40,9 @@ export type MrxSnapshot = {
   scfa: { name: string; value: number }[]
   flagged: { name: string; severity: string | null; condition: string | null }[]
   speciesCount: number | null
+  /** Set only once a doctor has approved a prescription for this report —
+   *  the workspace uses this to surface the supplement plan to coaches. */
+  prescriptionApprovedAt: string | null
 }
 
 export type BloodMarker = {
@@ -176,7 +179,7 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
   // ── MicrobiomeRx (mrx schema, reached only through the link table) ──
   const mrx: MrxSnapshot = {
     hasData: false, reportId: null, reportDate: null, rychIndex: null, rychTier: null,
-    shannon: null, scfa: [], flagged: [], speciesCount: null,
+    shannon: null, scfa: [], flagged: [], speciesCount: null, prescriptionApprovedAt: null,
   }
   {
     const mrxDb = createAdminClient('mrx')
@@ -279,6 +282,13 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
             condition: typeof m.condition_flagged === 'string' ? m.condition_flagged : null,
           }
         })
+
+      const { data: rx } = await mrxDb
+        .from('prescriptions')
+        .select('approved_at')
+        .eq('report_id', rep.id)
+        .maybeSingle()
+      mrx.prescriptionApprovedAt = (rx?.approved_at as string | null) ?? null
     }
   }
 
