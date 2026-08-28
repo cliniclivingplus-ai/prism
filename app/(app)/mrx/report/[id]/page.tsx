@@ -118,9 +118,9 @@ export default function ReportPage() {
 
       {/* Mobile top bar — only way to reach the sidebar below md, since the
           sidebar itself is off-screen until toggled there. */}
-      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0 md:hidden"
+      <div className="relative z-[60] flex items-center gap-3 px-4 py-3 flex-shrink-0 md:hidden"
         style={{ background: '#F2F9EC', borderBottom: '1px solid #C8E9A8' }}>
-        <button onClick={() => setNavOpen(true)} aria-label="Open menu" style={{ color: '#1A3207' }}>
+        <button onClick={() => setNavOpen((o) => !o)} aria-label={navOpen ? 'Close menu' : 'Open menu'} style={{ color: '#1A3207' }}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 7h16M4 12h16M4 17h16" />
           </svg>

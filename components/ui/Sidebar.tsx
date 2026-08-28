@@ -89,10 +89,13 @@ export default function Sidebar({
       {/* Mobile top bar — the only way to reach the sidebar below md, since
           the aside itself is off-screen until toggled. */}
       <div
-        className="flex items-center gap-3 px-4 py-3 md:hidden"
+        className="relative z-[60] flex items-center gap-3 px-4 py-3 md:hidden"
         style={{ background: 'var(--teal-950)', color: '#DCE8E4', borderBottom: '1px solid rgba(220,232,228,.09)' }}
       >
-        <button onClick={() => setOpen(true)} aria-label="Open menu" style={{ color: '#DCE8E4' }}>
+        {/* z-[60], above the drawer's z-50: stays visible and clickable
+            while open, so the same button opens and closes it instead of
+            only being able to tap the backdrop to close. */}
+        <button onClick={() => setOpen((o) => !o)} aria-label={open ? 'Close menu' : 'Open menu'} style={{ color: '#DCE8E4' }}>
           <IconMenu />
         </button>
         <div className="text-[13px] font-semibold" style={{ color: '#F2EEDF' }}>Living Plus</div>
