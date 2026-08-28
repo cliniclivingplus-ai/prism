@@ -14,10 +14,8 @@ type NavEntry = { href: string; label: string; icon: React.ReactNode; badge?: st
 
 export default function Sidebar({
   email,
-  patientCount,
 }: {
   email: string | null
-  patientCount: number | null
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -25,14 +23,8 @@ export default function Sidebar({
   // "Patients" used to be a second entry here, but /patients was only ever
   // a redirect to this same page — both links opened identical content, so
   // it was dropped rather than kept as a second way to reach the one page.
-  // The patient-count badge moved here since it still belongs on the roster.
   const workspace: NavEntry[] = [
-    {
-      href: '/dashboard',
-      label: 'Dashboard',
-      icon: <IconGrid />,
-      badge: patientCount !== null ? String(patientCount) : undefined,
-    },
+    { href: '/dashboard', label: 'Dashboard', icon: <IconGrid /> },
   ]
   const tools: NavEntry[] = [
     { href: '/compass', label: 'LP Compass', icon: <IconCompass /> },
