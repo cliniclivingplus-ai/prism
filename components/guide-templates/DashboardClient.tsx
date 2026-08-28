@@ -1831,7 +1831,14 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           itself over the coach's own editing toolbar (Plan look, Template
           picker, Preview/Download buttons), which was never meant to sit
           under a patient-facing section-nav pill. */}
-      <div data-toc-bar style={{ position: 'sticky', top: 60, zIndex: 40, background: C.paper, borderBottom: `1px solid ${C.rule}` }}>
+      {/* In the coach's editor (editable), this is `fixed` rather than
+          `sticky` — sticky still let it drift into view mid-scroll,
+          appearing to "float" in an unpredictable spot depending on
+          scroll position rather than staying anchored to the top of the
+          screen. Fixed pins it there permanently while editing. The
+          patient-facing render (share page, non-Week templates) keeps the
+          original sticky behaviour, unaffected by this. */}
+      <div data-toc-bar style={{ position: editable ? 'fixed' : 'sticky', top: 60, left: editable ? 0 : undefined, right: editable ? 0 : undefined, zIndex: 40, background: C.paper, borderBottom: `1px solid ${C.rule}` }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '8px 16px', position: 'relative' }}>
           <button data-toc-trigger onClick={() => setTocOpen((v) => !v)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: C.ink, background: C.accentSoft, border: `1px solid ${C.rule}`, borderRadius: 20, padding: '7px 14px', cursor: 'pointer' }}>
@@ -1848,7 +1855,11 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
         </div>
       </div>
 
-      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 24px 64px' }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: editable ? '50px 24px 64px' : '0 24px 64px' }}>
+        {/* Only needed when the bar above is `fixed` (editable) — fixed
+            elements don't reserve space in normal flow the way `sticky`
+            does, so without this the content would start hidden underneath
+            it instead of just below it. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 0 }}>
           {/* Founder's note — coach-editable text, personalized with name +
               goal only until a coach actually edits it (see
