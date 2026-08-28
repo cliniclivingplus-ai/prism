@@ -95,7 +95,43 @@ const MONTHS: { quarterLabel: string; monthLabel: string; monthNumber: number; w
 export function reshapeRoadmapIntoMonths(weeklySchedule: WeeklyPlan[] | null | undefined): MonthGroup[] {
   const weeks = Array.isArray(weeklySchedule) ? [...weeklySchedule].sort((a, b) => a.week_number - b.week_number) : []
   return MONTHS.map((m) => {
-    const chunk = weeks.filter((w) => w.week_number >= m.weekStart && w.week_number <= m.weekEnd)
+    const chunk = weeks.filter((w) => w.week_number >= m.weekStart && w.week_number <= m.weekEnd).map(withDayFloor)
     return { ...m, weeks: chunk, planned: chunk.length > 0 }
   })
+}
+
+// Deterministic floor for `days` — roadmaps generated before day-by-day
+// escalation existed (or ones whose AI response omitted it) have `days`
+// missing or malformed, so every template's own `week.days?.[dayIndex] ??
+// week.actions ?? []` read silently falls back to repeating the same 3
+// flat `actions` on every day of the week. Applying the same synthesis
+// used at generation time (interpret/route.ts) here too — at read time,
+// for every template — means an older roadmap gets the identical
+// day-by-day framing a freshly generated one would, without an AI call and
+// without ever inventing a new action: each day is just that week's own
+// real action, reframed with a progression marker.
+const DAY_PROGRESS_MARKERS = [
+  'Day 1, starting today',
+  'Day 2, keep going',
+  'Day 3, building the habit',
+  'Day 4, building the habit',
+  'Day 5, almost there',
+  'Day 6, almost there',
+  'Day 7, fully in place',
+]
+function firstSentence(text: string): string {
+  const cut = text.split(/(?<=[.!])\s/)[0] || text
+  return cut.length > 70 ? cut.slice(0, 67) + '…' : cut
+}
+export function buildDayProgression(actions: string[]): string[][] {
+  return DAY_PROGRESS_MARKERS.map((marker) => actions.map((a) => `${marker}: ${firstSentence(a)}`))
+}
+export function hasValidDays(week: { days?: unknown }, actionCount: number): boolean {
+  const days = week.days
+  return Array.isArray(days) && days.length === 7 && days.every((d) => Array.isArray(d) && d.length === actionCount && d.every((x) => typeof x === 'string' && x.trim()))
+}
+function withDayFloor(w: WeeklyPlan): WeeklyPlan {
+  const actions = w.actions ?? []
+  if (actions.length === 0 || hasValidDays(w, actions.length)) return w
+  return { ...w, days: buildDayProgression(actions) }
 }

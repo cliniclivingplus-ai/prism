@@ -874,6 +874,33 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const lifestyleTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const mealsTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule)
+  // Bulk "Regenerate" for the 3 fields above together — see
+  // regenerate-daily-content/route.ts. Mainly for a roadmap that predates
+  // this content existing (empty on every template until backfilled), so
+  // it fills the same way a freshly generated roadmap already does.
+  const [regeneratingDaily, setRegeneratingDaily] = useState(false)
+  const [confirmRegenerateDaily, setConfirmRegenerateDaily] = useState(false)
+  const [regenerateDailyError, setRegenerateDailyError] = useState('')
+  async function regenerateDailyContent() {
+    setConfirmRegenerateDaily(false)
+    setRegeneratingDaily(true)
+    setRegenerateDailyError('')
+    try {
+      const res = await fetch(`/api/compass/roadmaps/${rid}/regenerate-daily-content`, { method: 'POST' })
+      const j = await res.json().catch(() => null)
+      if (res.ok && j) {
+        setLifestyleByPeriod(splitIntoPeriods(j.lifestyle_guidelines || '', LIFESTYLE_PERIODS))
+        setMealsByPeriod(splitIntoPeriods(j.meal_guidelines || '', MEAL_PERIODS))
+        setDailyScheduleText(j.daily_schedule || '')
+      } else {
+        setRegenerateDailyError(j?.error || 'Regeneration failed — try again.')
+      }
+    } catch {
+      setRegenerateDailyError('Network error — try again.')
+    } finally {
+      setRegeneratingDaily(false)
+    }
+  }
   const [nutritionistId, setNutritionistId] = useState(data.coach?.id ?? '')
   const [lifestyleText, setLifestyleText] = useState(data.roadmap.lifestyle_guidelines)
   const [editWeeks, setEditWeeks] = useState<WeeklyPlan[]>(data.roadmap.weekly_schedule)
@@ -2276,8 +2303,27 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           {editable && (
             <div id="lifestyle" {...hiddenAttrs('lifestyle')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('lifestyle') }}>
               {editable && <SectionToggle hidden={isHidden('lifestyle')} onToggle={() => toggleSection('lifestyle')} />}
-              <div style={sectionTitleStyle}>Daily lifestyle / meals / schedule</div>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Same content the patient sees under &quot;Daily Lifestyle Guidelines,&quot; &quot;Breakfast, Lunch &amp; Dinner,&quot; and &quot;Daily Schedule,&quot; edited together here.</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div style={sectionTitleStyle}>Daily lifestyle / meals / schedule</div>
+                <button type="button" onClick={() => setConfirmRegenerateDaily(true)} disabled={regeneratingDaily}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '7px 12px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.paper, color: C.accent, cursor: regeneratingDaily ? 'default' : 'pointer', opacity: regeneratingDaily ? 0.6 : 1 }}>
+                  <Sparkles size={13} /> {regeneratingDaily ? 'Regenerating…' : 'Ask AI to regenerate all 3'}
+                </button>
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Same content the patient sees under &quot;Daily Lifestyle Guidelines,&quot; &quot;Breakfast, Lunch &amp; Dinner,&quot; and &quot;Daily Schedule,&quot; edited together here. Empty on an older roadmap generated before this content existed — regenerate to backfill it, grounded in this roadmap&apos;s own overview, diet protocol, and confirmed supplements.</div>
+
+              {confirmRegenerateDaily && (
+                <div style={{ background: C.accentSoft, border: `1px solid ${C.accent}`, borderRadius: 10, padding: '11px 15px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12.5, color: C.ink }}>Regenerate all 3 sections from this roadmap&apos;s current overview and confirmed supplements? Any manual edits to lifestyle, meals, or schedule will be overwritten.</span>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <button type="button" onClick={() => setConfirmRegenerateDaily(false)} style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.rule}`, background: '#fff', cursor: 'pointer' }}>Cancel</button>
+                    <button type="button" onClick={regenerateDailyContent} style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', cursor: 'pointer' }}>Regenerate</button>
+                  </div>
+                </div>
+              )}
+              {regenerateDailyError && (
+                <p style={{ fontSize: 12.5, color: '#DC2626', margin: '-4px 0 14px' }}>{regenerateDailyError}</p>
+              )}
 
               <div style={editLabelStyle}>Daily lifestyle guidelines</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 4 }}>
