@@ -1481,28 +1481,6 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
 }`}</style>
       {isKawaii && <style>{KAWAII_MOTION_CSS}</style>}
       {editable && <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>}
-      {/* Table of contents — a single dropdown button rather than a row of
-          links, so it never overflows or shows a scrollbar regardless of
-          how many sections are visible. The links themselves are plain
-          anchors (no JS needed to jump), only open/close needs a handler —
-          restored via data-toc-trigger/data-toc-panel in the downloaded
-          static export too, not just the live page. */}
-      <div data-toc-bar style={{ position: 'sticky', top: 60, zIndex: 40, background: C.paper, borderBottom: `1px solid ${C.rule}` }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '8px 16px', position: 'relative' }}>
-          <button data-toc-trigger onClick={() => setTocOpen((v) => !v)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: C.ink, background: C.accentSoft, border: `1px solid ${C.rule}`, borderRadius: 20, padding: '7px 14px', cursor: 'pointer' }}>
-            Jump to section <ChevronDown size={14} style={{ transform: tocOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-          </button>
-          <div data-toc-panel style={{ display: tocOpen ? 'grid' : 'none', position: 'absolute', top: '100%', left: 16, marginTop: 6, gridTemplateColumns: 'repeat(2, minmax(160px, 1fr))', gap: '2px 12px', background: C.paper, border: `1px solid ${C.rule}`, borderRadius: 12, padding: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: '70vh', overflowY: 'auto', zIndex: 41 }}>
-            {TOC_ITEMS.filter((item) => (editable || !isHidden(item.id)) && (item.id !== 'customblocks' || canvasBlocks.length > 0 || editable)).map((item, i) => (
-              <a key={`${item.id}-${i}`} data-toc-link href={`#${item.id}`} onClick={() => setTocOpen(false)}
-                style={{ fontSize: 12.5, fontWeight: 600, color: C.inkSoft, textDecoration: 'none', padding: '8px 9px', borderRadius: 8, whiteSpace: 'nowrap' }}>
-                {item.label}
-              </a>
-            ))}
-          </div>
-        </div>
-      </div>
       {allMatches.length > 0 && (
         <div data-recipe-overlay onClick={() => setOpenRecipeId(null)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(44,36,24,0.55)', display: openRecipeId ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 110 }}>
@@ -1839,7 +1817,38 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             </div>
           )}
         </div>
+      </div>
 
+      {/* Table of contents — a single dropdown button rather than a row of
+          links, so it never overflows or shows a scrollbar regardless of
+          how many sections are visible. The links themselves are plain
+          anchors (no JS needed to jump), only open/close needs a handler —
+          restored via data-toc-trigger/data-toc-panel in the downloaded
+          static export too, not just the live page.
+          Sits directly above the first real jump target (Founder's note)
+          rather than at the very top of the page — it used to render
+          before the header, so once you scrolled even slightly it pinned
+          itself over the coach's own editing toolbar (Plan look, Template
+          picker, Preview/Download buttons), which was never meant to sit
+          under a patient-facing section-nav pill. */}
+      <div data-toc-bar style={{ position: 'sticky', top: 60, zIndex: 40, background: C.paper, borderBottom: `1px solid ${C.rule}` }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '8px 16px', position: 'relative' }}>
+          <button data-toc-trigger onClick={() => setTocOpen((v) => !v)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: C.ink, background: C.accentSoft, border: `1px solid ${C.rule}`, borderRadius: 20, padding: '7px 14px', cursor: 'pointer' }}>
+            Jump to section <ChevronDown size={14} style={{ transform: tocOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
+          <div data-toc-panel style={{ display: tocOpen ? 'grid' : 'none', position: 'absolute', top: '100%', left: 16, marginTop: 6, gridTemplateColumns: 'repeat(2, minmax(160px, 1fr))', gap: '2px 12px', background: C.paper, border: `1px solid ${C.rule}`, borderRadius: 12, padding: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: '70vh', overflowY: 'auto', zIndex: 41 }}>
+            {TOC_ITEMS.filter((item) => (editable || !isHidden(item.id)) && (item.id !== 'customblocks' || canvasBlocks.length > 0 || editable)).map((item, i) => (
+              <a key={`${item.id}-${i}`} data-toc-link href={`#${item.id}`} onClick={() => setTocOpen(false)}
+                style={{ fontSize: 12.5, fontWeight: 600, color: C.inkSoft, textDecoration: 'none', padding: '8px 9px', borderRadius: 8, whiteSpace: 'nowrap' }}>
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 24px 64px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 0 }}>
           {/* Founder's note — coach-editable text, personalized with name +
               goal only until a coach actually edits it (see
