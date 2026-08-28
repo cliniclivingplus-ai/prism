@@ -18,6 +18,20 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// Splits the AI progress summary into per-marker bullets + one closing line.
+// The prompt now asks for "- " prefixed, newline-separated bullets, but
+// summaries generated before that change (or a model that ignores it) can
+// still come back as one paragraph — in that case this just returns the
+// whole thing as a single closing line, same as the old plain-paragraph
+// render, so nothing breaks for un-regenerated history.
+function parseSummary(text: string): { bullets: string[]; closing: string | null } {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
+  const bullets = lines.filter((l) => l.startsWith('- ')).map((l) => l.slice(2).trim())
+  const closing = lines.find((l) => !l.startsWith('- ')) ?? null
+  if (bullets.length === 0) return { bullets: [], closing: text }
+  return { bullets, closing }
+}
+
 // Same "keep it simple" bold red/green zoning as the report page's range
 // bar, just as a timeline: a shaded band for the reference range, a line
 // through the actual readings, and a bold dot per reading colored by
@@ -195,9 +209,27 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
             </button>
           </div>
           <div className="bg-card border border-border rounded-2xl px-5 py-4">
-            <p className="text-sm text-foreground-secondary whitespace-pre-wrap">
-              {loadingSummary && !summary ? 'Writing summary…' : summary}
-            </p>
+            {loadingSummary && !summary ? (
+              <p className="text-sm text-foreground-secondary">Writing summary…</p>
+            ) : summary ? (
+              (() => {
+                const { bullets, closing } = parseSummary(summary)
+                return (
+                  <>
+                    {bullets.length > 0 && (
+                      <ul className="list-disc pl-5 space-y-1.5 text-sm text-foreground-secondary">
+                        {bullets.map((b, i) => <li key={i}>{b}</li>)}
+                      </ul>
+                    )}
+                    {closing && (
+                      <p className={`text-sm text-foreground-secondary whitespace-pre-wrap ${bullets.length > 0 ? 'mt-3 pt-3 border-t border-border' : ''}`}>
+                        {closing}
+                      </p>
+                    )}
+                  </>
+                )
+              })()
+            ) : null}
           </div>
         </section>
 

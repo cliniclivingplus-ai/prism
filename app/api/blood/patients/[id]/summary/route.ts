@@ -61,7 +61,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const completion = await groq.chat.completions.create({
       model: 'openai/gpt-oss-20b',
-      max_tokens: 700,
+      // One bullet per trending marker plus a closing line — a patient with
+      // many markers (seen: ~19) needs more headroom than a flat 700 gives,
+      // or the response cuts off mid-bullet with no closing sentence at all.
+      max_tokens: 1500,
       temperature: 0.25,
       reasoning_effort: 'low',
       messages: [
@@ -71,12 +74,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             'You write a progress summary for a coach comparing a patient\'s blood test results across multiple reports over time.',
             'For EACH marker in the data given, write one bullet point in this exact structure:',
             '- Marker name, then every reading in date order as "value on date", then say whether it increased, decreased, or stayed the same from the previous reading, then state whether the latest value is within or outside the reference range',
-            'Example: "Hemoglobin: 8.10 on 12 Jul, 9.60 on 20 Jul. Increased by 1.5, still below the 12-15 reference range."',
+            'Example line: "- Hemoglobin: 8.10 on 12 Jul, 9.60 on 20 Jul. Increased by 1.5, still below the 12-15 reference range."',
             'RULES:',
             '- Only describe a change that is actually present in the numbers given — never claim a marker improved, worsened, or stayed stable unless the numbers given show that',
             '- Use the real values, units, dates, and reference ranges given, never invented ones',
             '- One bullet per marker, in the order given',
-            '- After the bullets, add one closing sentence giving the overall picture across all markers together',
+            '- FORMAT: plain text only, no markdown. Each bullet MUST start with "- " and be on its own line — put a newline character between every bullet. Never join two bullets into the same line or run them together as a paragraph.',
+            '- After the bullets, add one closing line (also starting on its own new line, no leading "-") giving the overall picture across all markers together',
             '- State things plainly and confidently where the data supports it; do not hedge with "may/might/could/possibly"',
             '- Never use an em dash (—); use a comma, period, or "and" instead',
           ].join('\n'),
