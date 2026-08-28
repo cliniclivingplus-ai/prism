@@ -1304,7 +1304,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
         const validDates = new Set(DAY_LABELS.map((_, i) => dateForWeekDay(data.createdAt, w.week_number, i)))
         const perDay = w.days[0]?.length ?? w.actions?.length ?? 0
         const total = w.days.reduce((n, d) => n + d.length, 0)
-        const done = checkins.filter((c) => c.week_number === w.week_number && c.action_index < perDay && validDates.has(c.checkin_date)).length
+        const done = checkins.filter((c) => c.week_number === w.week_number && c.action_index != null && c.action_index < perDay && validDates.has(c.checkin_date)).length
         return { total, done }
       }
       const total = w.actions?.length ?? 0

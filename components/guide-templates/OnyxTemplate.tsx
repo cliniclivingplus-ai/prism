@@ -31,6 +31,11 @@ import { matchGuideImageDistinct } from '@/lib/pdf/matchGuideImage'
 import { buildInlineExportScript } from '@/lib/pdf/inlineExportScript'
 import { CanvasBlocksSection } from './CanvasBlocksSection'
 import { toBlockTheme } from '@/lib/blocks/BlockRenderer'
+import { splitIntoPeriods, parseScheduleLines } from '@/lib/periodBullets'
+import { type ChecklistItem } from '@/lib/dailyChecklist'
+
+const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
+const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
 
 const DAY_MEAL_SLOTS: DayMealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert']
 const SLOT_LABELS: Record<DayMealSlot, string> = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks', dessert: 'Desserts' }
@@ -74,7 +79,7 @@ function greeting(): string {
   return 'Good evening'
 }
 
-type Checkin = { week_number: number; action_index: number; checkin_date: string }
+type Checkin = { week_number: number; action_index: number | null; checkin_date: string; item_id?: string | null; item_text_snapshot?: string | null }
 
 function parseBullets(text: string): string[] {
   return (text || '')
@@ -113,10 +118,14 @@ const FONT_LINK = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:w
 const SERIF = "'Cormorant Garamond', serif"
 
 const TOC_ITEMS: { label: string; id: string }[] = [
+  { label: 'Daily health check-in', id: 'checkin' },
   { label: 'Founder’s note', id: 'founder' },
   { label: 'Meet your coach', id: 'coach' },
   { label: 'Your care team', id: 'careteam' },
   { label: 'How to use this guide', id: 'howto' },
+  { label: 'Daily lifestyle guidelines', id: 'lifestyle' },
+  { label: 'Breakfast, lunch & dinner', id: 'meals' },
+  { label: 'Daily schedule', id: 'schedule' },
   { label: 'Your roadmap', id: 'roadmap' },
   { label: 'Nutrition guidelines', id: 'nutrition' },
   { label: 'Grocery list', id: 'grocery' },
@@ -241,7 +250,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
         const validDates = new Set(DAY_LABELS.map((_, i) => dateForWeekDay(data.createdAt, w.week_number, i)))
         const perDay = w.days[0]?.length ?? w.actions?.length ?? 0
         const total = w.days.reduce((n, d) => n + d.length, 0)
-        const done = checkins.filter((c) => c.week_number === w.week_number && c.action_index < perDay && validDates.has(c.checkin_date)).length
+        const done = checkins.filter((c) => c.week_number === w.week_number && c.action_index != null && c.action_index < perDay && validDates.has(c.checkin_date)).length
         return { total, done }
       }
       const total = w.actions?.length ?? 0
@@ -265,7 +274,56 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
   const goalsDone = progress.monthStats.reduce((n, m) => n + m.doneActions, 0)
   const adherencePct = totalActionsInPlan > 0 ? Math.round((goalsDone / totalActionsInPlan) * 100) : 0
 
-  const checkedSet = useMemo(() => new Set(checkins.map((c) => `${c.week_number}:${c.action_index}:${c.checkin_date}`)), [checkins])
+  const checkedSet = useMemo(() => new Set(checkins.map((c) => (c.item_id ? `0:item:${c.item_id}:${c.checkin_date}` : `${c.week_number}:${c.action_index}:${c.checkin_date}`))), [checkins])
+
+  const checklistItems: ChecklistItem[] = data.dailyChecklistItems || []
+  const [checkinDate, setCheckinDate] = useState(today)
+  const checkinDoneCount = checklistItems.filter((it) => checkedSet.has(`0:item:${it.id}:${checkinDate}`)).length
+  const checkinAllDone = checklistItems.length > 0 && checkinDoneCount === checklistItems.length
+  const checkinNoneDone = checkinDoneCount === 0
+
+  async function toggleChecklistItem(itemId: string, itemText: string, date: string) {
+    const key = `0:item:${itemId}:${date}`
+    const wasChecked = checkedSet.has(key)
+    const entry: Checkin = { week_number: 0, action_index: null, checkin_date: date, item_id: itemId, item_text_snapshot: itemText }
+    const revert = () => setCheckins((prev) => wasChecked
+      ? [...prev, entry]
+      : prev.filter((c) => !(c.week_number === 0 && c.item_id === itemId && c.checkin_date === date)))
+    setCheckins((prev) => wasChecked
+      ? prev.filter((c) => !(c.week_number === 0 && c.item_id === itemId && c.checkin_date === date))
+      : [...prev, entry])
+    try {
+      const r = await fetch(`/api/share/roadmap/${shareToken}/checkins`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week_number: 0, item_id: itemId, item_text: itemText, date }),
+      })
+      if (!r.ok) revert()
+    } catch { revert() }
+  }
+
+  const [metricsCache, setMetricsCache] = useState<Record<string, { water?: number; energy?: number; mood?: string }>>(data.dailyMetrics || {})
+  const todayMetrics = metricsCache[checkinDate] || {}
+  const [moodDraft, setMoodDraft] = useState(todayMetrics.mood || '')
+  useEffect(() => { setMoodDraft(metricsCache[checkinDate]?.mood || '') }, [checkinDate, metricsCache])
+  async function saveMetric(field: 'water' | 'energy' | 'mood', value: number | string) {
+    setMetricsCache((prev) => ({ ...prev, [checkinDate]: { ...prev[checkinDate], [field]: value } }))
+    try {
+      await fetch(`/api/share/roadmap/${shareToken}/daily-metrics`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: checkinDate, [field]: value }),
+      })
+    } catch { /* best-effort */ }
+  }
+  function adjustWater(delta: number) {
+    saveMetric('water', Math.max(0, (metricsCache[checkinDate]?.water ?? 0) + delta))
+  }
+  function adjustEnergy(delta: number) {
+    saveMetric('energy', Math.max(0, Math.min(10, (metricsCache[checkinDate]?.energy ?? 0) + delta)))
+  }
+
+  const lifestyleByPeriod = useMemo(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS), [data.dailyLifestyleGuidelines])
+  const mealsByPeriod = useMemo(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS), [data.mealGuidelines])
+  const dailyScheduleText = data.dailySchedule || ''
 
   // `date` is the specific day-tab's own real calendar date (see
   // dateForWeekDay above), not always today — each day tracks independently.
@@ -471,6 +529,73 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
           <SignatureBar pct={adherencePct} goalsDone={goalsDone} totalActionsInPlan={totalActionsInPlan} />
         </Card>
 
+        {/* Daily Health Check-in — same feature as the Week-family templates,
+            ported here read-only. */}
+        <Card id="checkin" hidden={isHidden('checkin')}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+            <SecTitle icon={<CheckCircle2 size={18} />}>Daily Health Check-in</SecTitle>
+            <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
+              style={{ fontSize: 12.5, background: ONYX.bg, border: `1px solid ${ONYX.border}`, padding: '8px 11px', borderRadius: 4, color: ONYX.ink, fontWeight: 600 }} />
+          </div>
+
+          {checklistItems.length > 0 && (
+            <p style={{ fontSize: 12.5, color: ONYX.accent, fontWeight: 600, margin: '8px 0 12px' }}>
+              {checkinAllDone
+                ? 'Everything checked off for today — nice work.'
+                : checkinNoneDone
+                ? 'Nothing logged yet today — tap an item below to check in.'
+                : `${checkinDoneCount} of ${checklistItems.length} done so far today.`}
+            </p>
+          )}
+
+          {checklistItems.length > 0 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginTop: 12 }}>
+              {checklistItems.map((item) => {
+                const checked = checkedSet.has(`0:item:${item.id}:${checkinDate}`)
+                return (
+                  <div key={item.id} onClick={() => toggleChecklistItem(item.id, item.text, checkinDate)}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', borderRadius: 4, cursor: 'pointer', border: `1px solid ${checked ? ONYX.accent : ONYX.border}`, background: checked ? ONYX.accentSoft : ONYX.bg }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
+                      {checked
+                        ? <CheckCircle2 size={17} color={ONYX.accent} style={{ flexShrink: 0 }} />
+                        : <Circle size={17} style={{ flexShrink: 0, opacity: 0.4 }} />}
+                      <span style={{ fontSize: 13, fontWeight: 500, color: checked ? ONYX.accent : ONYX.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                    </div>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? ONYX.accent : ONYX.accentSoft, color: checked ? ONYX.onAccent : ONYX.accent, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: ONYX.muted, marginTop: 12 }}>Once your coach confirms your supplements or lifestyle guidelines, your daily checklist will show up here.</p>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 18 }}>
+            <div style={{ background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 4, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: ONYX.accent, marginBottom: 8 }}><Droplet size={12} /> Water (glasses)</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <button onClick={() => adjustWater(-1)} style={{ width: 30, height: 30, borderRadius: 4, border: `1px solid ${ONYX.border}`, background: ONYX.accentSoft, color: ONYX.ink, fontWeight: 700, cursor: 'pointer' }}>−</button>
+                <span style={{ fontSize: 20, fontWeight: 700, color: ONYX.ink }}>{todayMetrics.water || 0}</span>
+                <button onClick={() => adjustWater(1)} style={{ width: 30, height: 30, borderRadius: 4, border: `1px solid ${ONYX.border}`, background: ONYX.accentSoft, color: ONYX.ink, fontWeight: 700, cursor: 'pointer' }}>+</button>
+              </div>
+            </div>
+            <div style={{ background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 4, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: ONYX.accent, marginBottom: 8 }}><Flame size={12} /> Energy (1-10)</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <button onClick={() => adjustEnergy(-1)} style={{ width: 30, height: 30, borderRadius: 4, border: `1px solid ${ONYX.border}`, background: ONYX.accentSoft, color: ONYX.ink, fontWeight: 700, cursor: 'pointer' }}>−</button>
+                <span style={{ fontSize: 20, fontWeight: 700, color: ONYX.ink }}>{todayMetrics.energy || 0}</span>
+                <button onClick={() => adjustEnergy(1)} style={{ width: 30, height: 30, borderRadius: 4, border: `1px solid ${ONYX.border}`, background: ONYX.accentSoft, color: ONYX.ink, fontWeight: 700, cursor: 'pointer' }}>+</button>
+              </div>
+            </div>
+            <div style={{ background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 4, padding: '12px 14px' }}>
+              <div style={{ fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: ONYX.accent, marginBottom: 8 }}>Mood &amp; reflection</div>
+              <input value={moodDraft} onChange={(e) => setMoodDraft(e.target.value)} onBlur={() => saveMetric('mood', moodDraft)}
+                placeholder="e.g. Calm and focused today"
+                style={{ width: '100%', background: ONYX.card, border: `1px solid ${ONYX.border}`, borderRadius: 4, padding: '7px 10px', fontSize: 12.5, color: ONYX.ink }} />
+            </div>
+          </div>
+        </Card>
+
         {/* Founder's note — round photo, tap to reveal the note */}
         <Card id="founder" hidden={isHidden('founder')} style={{ textAlign: 'center' }}>
           <Eyebrow>A note from the founder</Eyebrow>
@@ -562,6 +687,74 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
             )}
           </div>
         </Card>
+
+        {LIFESTYLE_PERIODS.some((label) => parseBullets(lifestyleByPeriod[label] || '').length > 0) && (
+          <Card id="lifestyle" hidden={isHidden('lifestyle')}>
+            <SecTitle icon={<Sun size={18} />}>Daily Lifestyle Guidelines</SecTitle>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginTop: 16 }}>
+              {LIFESTYLE_PERIODS.map((label) => {
+                const items = parseBullets(lifestyleByPeriod[label] || '')
+                if (items.length === 0) return null
+                return (
+                  <div key={label} style={{ background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 4, padding: '15px 17px' }}>
+                    <span style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent, fontWeight: 600 }}>{label}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                      {items.map((item, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                          <Circle size={11} color={ONYX.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
+                          <span style={{ fontSize: 13, lineHeight: 1.5, color: ONYX.inkSoft }}>{renderMarkdownBold(item)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        )}
+
+        {MEAL_PERIODS.some((label) => parseBullets(mealsByPeriod[label] || '').length > 0) && (
+          <Card id="meals" hidden={isHidden('meals')}>
+            <SecTitle icon={<Utensils size={18} />}>Breakfast, Lunch &amp; Dinner</SecTitle>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginTop: 16 }}>
+              {MEAL_PERIODS.map((label) => {
+                const items = parseBullets(mealsByPeriod[label] || '')
+                if (items.length === 0) return null
+                return (
+                  <div key={label} style={{ background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 4, padding: '15px 17px' }}>
+                    <span style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent, fontWeight: 600 }}>{label}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                      {items.map((item, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                          <Circle size={11} color={ONYX.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
+                          <span style={{ fontSize: 13, lineHeight: 1.5, color: ONYX.inkSoft }}>{renderMarkdownBold(item)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        )}
+
+        {dailyScheduleText.trim() && (
+          <Card id="schedule" hidden={isHidden('schedule')}>
+            <SecTitle icon={<CalendarCheck size={18} />}>Daily Schedule</SecTitle>
+            <div style={{ position: 'relative', paddingLeft: 34, marginTop: 18 }}>
+              <div style={{ position: 'absolute', left: 13, top: 6, bottom: 6, width: 1, background: ONYX.border }} />
+              {parseScheduleLines(dailyScheduleText).map((item, i, arr) => (
+                <div key={i} style={{ position: 'relative', marginBottom: i < arr.length - 1 ? 20 : 0 }}>
+                  <span style={{ position: 'absolute', left: -34, top: 0, width: 26, height: 26, borderRadius: '50%', background: ONYX.accentSoft, border: `2px solid ${ONYX.card}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Circle size={9} color={ONYX.accent} />
+                  </span>
+                  {item.time && <div style={{ fontSize: 11.5, fontWeight: 700, color: ONYX.accent }}>{item.time}</div>}
+                  <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 2, color: ONYX.inkSoft }}>{item.text}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Your roadmap */}
         {months.length > 0 && (
