@@ -63,9 +63,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (!link) {
-    // No explicit link yet — if this LP patient has a Clinic ID and a
-    // MicrobiomeRX patient with that same Clinic ID exists (only possible
-    // for reports uploaded after MicrobiomeRX started collecting Clinic ID
+    // No explicit link yet — if this LP patient has a Clinicea ID and a
+    // MicrobiomeRX patient with that same Clinicea ID exists (only possible
+    // for reports uploaded after MicrobiomeRX started collecting Clinicea ID
     // at upload time), link them automatically instead of making the coach
     // search by name. Falls through to "not linked" otherwise.
     const { data: clpPatient } = await supabaseAdmin.from('patients').select('clinic_patient_id').eq('id', id).maybeSingle()

@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     }
   } else if (clinicId) {
     // No hub patient supplied (e.g. an upload started from inside the tool).
-    // Fall back to the tool's own Clinic ID identity, which is still an id
+    // Fall back to the tool's own Clinicea ID identity, which is still an id
     // rather than a name — but leaves clp_patient_id null.
     const { data: existing } = await mrx
       .from('patients')

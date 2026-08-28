@@ -54,7 +54,7 @@ export default function DashboardPage() {
 
   async function createPatient(e: React.FormEvent) {
     e.preventDefault()
-    if (!newName.trim() || !newClinicId.trim()) { setCreateError('Both name and Clinic ID are required.'); return }
+    if (!newName.trim() || !newClinicId.trim()) { setCreateError('Both name and Clinicea ID are required.'); return }
     setCreating(true)
     setCreateError('')
     try {
@@ -102,7 +102,7 @@ export default function DashboardPage() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name or Clinic ID"
+              placeholder="Search by name or Clinicea ID"
               className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary-light transition"
             />
             {query.trim() && (
@@ -135,7 +135,7 @@ export default function DashboardPage() {
               <input
                 value={newClinicId}
                 onChange={(e) => setNewClinicId(e.target.value)}
-                placeholder="Clinic ID"
+                placeholder="Clinicea ID"
                 disabled={creating}
                 className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary-light transition"
               />

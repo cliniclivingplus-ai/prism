@@ -37,10 +37,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (!link) {
-    // No explicit link yet — if this LP patient has a Clinic ID and a
-    // Blood Panel Analyzer patient with that same Clinic ID exists, link
+    // No explicit link yet — if this LP patient has a Clinicea ID and a
+    // Blood Panel Analyzer patient with that same Clinicea ID exists, link
     // them automatically rather than making the coach search by name.
-    // Falls through to "not linked" (name search) if no Clinic ID is set
+    // Falls through to "not linked" (name search) if no Clinicea ID is set
     // or no match is found.
     const { data: clpPatient } = await supabaseAdmin.from('patients').select('clinic_patient_id').eq('id', id).maybeSingle()
     if (clpPatient?.clinic_patient_id) {

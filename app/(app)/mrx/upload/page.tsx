@@ -117,7 +117,7 @@ export default function UploadPage() {
 
   const handleSave = async () => {
     if (!form.name.trim()) { setError('Patient name is required.'); return }
-    if (!form.clinic_id.trim()) { setError('Clinic ID is required — it\'s what lets this report be found and linked from the clinic\'s other systems.'); return }
+    if (!form.clinic_id.trim()) { setError('Clinicea ID is required — it\'s what lets this report be found and linked from the clinic\'s other systems.'); return }
     if (species.length < 3) { setError('Not enough species detected.'); return }
     setSaving(true); setError(null)
 
@@ -126,8 +126,8 @@ export default function UploadPage() {
       // Linking lives in /api/mrx/reports so both upload paths do it the same
       // way: hub FK (clp_patient_id) when the upload was started from a
       // patient's workspace, the tool's own mrx.patients id, and the
-      // mrx_patient_links row. Clinic ID remains the tool-side identity key —
-      // two patients can share a name, never a Clinic ID.
+      // mrx_patient_links row. Clinicea ID remains the tool-side identity key —
+      // two patients can share a name, never a Clinicea ID.
       const clinicId = form.clinic_id.trim()
       const res = await fetch('/api/mrx/reports', {
         method: 'POST',
@@ -282,7 +282,7 @@ export default function UploadPage() {
             <div className="p-5 grid grid-cols-2 gap-4">
               {[
                 { name:'name',                   label:'Patient name *',  placeholder:'Full name'  },
-                { name:'clinic_id',              label:'Clinic ID *',     placeholder:'CLP1212'    },
+                { name:'clinic_id',              label:'Clinicea ID *',     placeholder:'CLP1212'    },
                 { name:'age_sex',                label:'Age / Sex',       placeholder:'63M'        },
                 { name:'patient_id',             label:'Patient ID',      placeholder:'BS041850'   },
                 { name:'sample_type',            label:'Sample type',     placeholder:'Stool'      },

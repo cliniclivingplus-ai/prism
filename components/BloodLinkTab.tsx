@@ -162,7 +162,7 @@ export default function BloodLinkTab({ patientId }: { patientId: string }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>{linked.patient.name}</span>
                 {linked.autoLinked && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: C.danger, background: C.dangerSoft, padding: '2px 7px', borderRadius: 999 }}>Auto-linked via Clinic ID</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: C.danger, background: C.dangerSoft, padding: '2px 7px', borderRadius: 999 }}>Auto-linked via Clinicea ID</span>
                 )}
               </div>
               <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>

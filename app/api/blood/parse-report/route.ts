@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const admin = createSupabaseAdmin()
 
     // Every upload must target an explicit, already-created patient
-    // account (Clinic ID is what makes that account unique) — never a
+    // account (Clinicea ID is what makes that account unique) — never a
     // typed/matched name, which previously risked two same-named patients
     // getting their reports mixed together.
     const { data: patient } = await admin.from('patients').select('id').eq('id', patientId).maybeSingle()

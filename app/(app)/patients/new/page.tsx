@@ -142,7 +142,7 @@ export default function AddPatientPage() {
                 />
               </Field>
 
-              <Field label="Clinic ID (MRN)" hint="Optional, but it's the key other tools match on.">
+              <Field label="Clinicea ID (MRN)" hint="Optional, but it's the key other tools match on.">
                 <input
                   value={form.clinic_patient_id}
                   onChange={set('clinic_patient_id')}

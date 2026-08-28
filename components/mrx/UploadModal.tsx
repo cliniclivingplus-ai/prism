@@ -135,7 +135,7 @@ export default function UploadModal({ initialFile, onClose, hubPatientId }: Uplo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           hubPatientId:  hubPatientId ?? null,
-          clinicId:      null, // this modal never collects a Clinic ID
+          clinicId:      null, // this modal never collects a Clinicea ID
           patientName:   form.name,
           patientAgeSex: form.age_sex || null,
           pdfFilename:   file?.name || null,
