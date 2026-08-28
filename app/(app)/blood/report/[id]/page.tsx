@@ -52,6 +52,10 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const [recommendations, setRecommendations] = useState<MarkerRecommendation[] | null>(null)
   const [loadingRecs, setLoadingRecs] = useState(false)
   const [error, setError] = useState('')
+  // Set when this report's own patient ("patient" above) has a different
+  // name than the hub account it's linked to via clp_patient_id — the
+  // earliest visible sign a coach picked the wrong patient at upload time.
+  const [hubNameMismatch, setHubNameMismatch] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -64,6 +68,11 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         setPatient(j.patient)
         setFileUrl(j.fileUrl)
         if (j.report.recommendations) setRecommendations(j.report.recommendations)
+        const hubName = (j.hubPatientName ?? '').trim()
+        const toolName = (j.patient?.name ?? '').trim()
+        if (hubName && toolName && hubName.toLowerCase() !== toolName.toLowerCase()) {
+          setHubNameMismatch(hubName)
+        }
       })
     return () => { alive = false }
   }, [id])
@@ -112,6 +121,12 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         <p className="text-sm text-foreground-muted mb-8">
           {report.pdf_filename} · {new Date(report.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
         </p>
+
+        {hubNameMismatch && (
+          <div className="rounded-2xl p-4 mb-8 text-sm" style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#78350F' }}>
+            ⚠ This report is linked to the patient account &quot;{hubNameMismatch}&quot;, but this report&apos;s own patient is &quot;{patient?.name}&quot; — double-check this is the right report before relying on it.
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="bg-card border border-border rounded-2xl px-5 py-4">

@@ -43,6 +43,11 @@ export type MrxSnapshot = {
   /** Set only once a doctor has approved a prescription for this report —
    *  the workspace uses this to surface the supplement plan to coaches. */
   prescriptionApprovedAt: string | null
+  /** Set when this report is linked to the hub patient by clp_patient_id
+   *  but the report's own patient_name reads differently — a coach picking
+   *  the wrong patient at upload time (name mismatch is the earliest
+   *  visible sign of that). Not treated as an error: just a heads-up. */
+  nameMismatch: string | null
 }
 
 export type BloodMarker = {
@@ -62,6 +67,9 @@ export type BloodSnapshot = {
   reportDate: string | null
   markers: BloodMarker[]
   abnormal: BloodMarker[]
+  /** Same idea as MrxSnapshot.nameMismatch — the linked blood.patients row's
+   *  name, when it differs from the hub patient's. */
+  nameMismatch: string | null
 }
 
 export type PatientWorkspace = {
@@ -71,6 +79,16 @@ export type PatientWorkspace = {
   blood: BloodSnapshot
   toolStates: { compass: ToolState; mrx: ToolState; blood: ToolState }
   activity: { label: string; meta: string; tone: 'ok' | 'amber' }[]
+}
+
+/** Case/whitespace-insensitive name compare — flags a real mismatch, not a
+ *  formatting difference. Null when either side is missing (nothing to
+ *  compare, not a mismatch). */
+function nameMismatch(hubName: string | null, sourceName: string | null): string | null {
+  const hub = (hubName ?? '').trim()
+  const source = (sourceName ?? '').trim()
+  if (!hub || !source) return null
+  return hub.toLowerCase() === source.toLowerCase() ? null : source
 }
 
 /** Parse the numeric part of a marker result, for positioning a range marker. */
@@ -180,6 +198,7 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
   const mrx: MrxSnapshot = {
     hasData: false, reportId: null, reportDate: null, rychIndex: null, rychTier: null,
     shannon: null, scfa: [], flagged: [], speciesCount: null, prescriptionApprovedAt: null,
+    nameMismatch: null,
   }
   {
     const mrxDb = createAdminClient('mrx')
@@ -187,7 +206,7 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
 
     // 1. The unambiguous path: a hub foreign key, set on every report
     //    uploaded after migration v35. No link row or name needed.
-    const REPORT_COLS = 'id, created_at, sample_date, rules_output, report_data, species_count'
+    const REPORT_COLS = 'id, created_at, sample_date, rules_output, report_data, species_count, patient_name'
     let rep = (
       await mrxDb
         .from('reports')
@@ -245,6 +264,7 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
     }
 
     if (rep) {
+      mrx.nameMismatch = nameMismatch(p.full_name, (rep as { patient_name?: string }).patient_name ?? null)
       const rules = (rep.rules_output ?? {}) as Record<string, unknown>
       const rdata = (rep.report_data ?? {}) as Record<string, unknown>
       const scfaRaw = (rdata.scfa ?? {}) as Record<string, number>
@@ -295,7 +315,7 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
   // ── Blood Panel (blood schema) ──
   const blood: BloodSnapshot = {
     hasData: false, bloodPatientId: null, reportId: null,
-    reportDate: null, markers: [], abnormal: [],
+    reportDate: null, markers: [], abnormal: [], nameMismatch: null,
   }
   {
     const bloodDb = createAdminClient('blood')
@@ -305,7 +325,7 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
     // Hub FK first (v36), exactly as for MicrobiomeRx; the tool's own
     // patient_id is the fallback for panels uploaded before that column
     // existed. No name matching on either path.
-    const BLOOD_COLS = 'id, created_at, markers'
+    const BLOOD_COLS = 'id, created_at, markers, patient_id'
     let rep = (
       await bloodDb
         .from('reports')
@@ -327,6 +347,11 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
     ).data
 
     if (rep) {
+      const repPatientId = (rep as { patient_id?: string | null }).patient_id ?? null
+      if (repPatientId) {
+        const { data: bp } = await bloodDb.from('patients').select('name').eq('id', repPatientId).maybeSingle()
+        blood.nameMismatch = nameMismatch(p.full_name, (bp as { name?: string } | null)?.name ?? null)
+      }
       const markers: BloodMarker[] = (Array.isArray(rep.markers) ? rep.markers : []).map((raw) => {
         const m = raw as Record<string, unknown>
         return {

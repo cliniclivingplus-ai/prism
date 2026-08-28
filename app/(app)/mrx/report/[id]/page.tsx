@@ -20,6 +20,7 @@ type Report = {
   created_at: string
   report_data: any
   recommendations: any
+  clp_patient_id: string | null
 }
 
 const NAV_GROUPS = [
@@ -67,6 +68,10 @@ export default function ReportPage() {
   const [report,  setReport]  = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [prescription, setPrescription] = useState<{ id: string; approved_at: string | null } | null>(null)
+  // Set when this report is linked to a hub patient (clp_patient_id) whose
+  // own name doesn't match this report's patient_name — the earliest
+  // visible sign a coach picked the wrong patient at upload time.
+  const [hubNameMismatch, setHubNameMismatch] = useState<string | null>(null)
   // This sidebar was a fixed 256px column with no mobile handling at all —
   // same problem as the two shared hub sidebars, same fix: off-canvas
   // drawer below md, static above it.
@@ -84,6 +89,20 @@ export default function ReportPage() {
 
         if (error || !data) { router.push('/mrx/dashboard'); return }
         setReport(data)
+
+        if (data.clp_patient_id) {
+          try {
+            const hubRes = await fetch(`/api/patients/${data.clp_patient_id}`)
+            if (hubRes.ok) {
+              const hub = await hubRes.json()
+              const hubName = (hub?.full_name ?? '').trim()
+              const reportName = (data.patient_name ?? '').trim()
+              if (hubName && reportName && hubName.toLowerCase() !== reportName.toLowerCase()) {
+                setHubNameMismatch(hubName)
+              }
+            }
+          } catch { /* non-blocking */ }
+        }
 
         // Separate, non-blocking: lets the header link straight to the
         // review/approve screen without a doctor having to click
@@ -269,6 +288,13 @@ export default function ReportPage() {
             <div className="rounded-2xl p-6 mb-8"
               style={{ background: '#FEF3C7', border: '1px solid #FCD34D' }}>
               ⚠️ No detailed report data found. Please re-upload the PDF for full analysis.
+            </div>
+          )}
+
+          {hubNameMismatch && (
+            <div className="rounded-2xl p-4 mb-8 text-sm"
+              style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#78350F' }}>
+              ⚠ This report is linked to the patient account &quot;{hubNameMismatch}&quot;, but this report&apos;s own patient name is &quot;{report.patient_name}&quot; — double-check this is the right report before relying on it.
             </div>
           )}
 

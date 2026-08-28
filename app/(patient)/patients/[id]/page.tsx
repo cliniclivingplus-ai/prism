@@ -562,6 +562,15 @@ export default async function PatientWorkspacePage({
                 }
               />
 
+              {mrx.nameMismatch && (
+                <div
+                  className="mb-[18px] rounded-[10px] px-4 py-2.5 text-[12.5px]"
+                  style={{ background: 'var(--amber-50, #FFF8E9)', border: '1px solid var(--gold-300, #E9CE86)', color: 'var(--amber-700, #8A5A00)' }}
+                >
+                  ⚠ This report&apos;s own patient name is &quot;{mrx.nameMismatch}&quot;, not &quot;{patient.full_name}&quot; — double-check this is the right report before relying on it.
+                </div>
+              )}
+
               {mrx.hasData ? (
                 <>
                   <div className="panel-grid-2 grid gap-[18px]">
@@ -708,6 +717,15 @@ export default async function PatientWorkspacePage({
                   </div>
                 }
               />
+
+              {blood.nameMismatch && (
+                <div
+                  className="mb-[18px] rounded-[10px] px-4 py-2.5 text-[12.5px]"
+                  style={{ background: 'var(--amber-50, #FFF8E9)', border: '1px solid var(--gold-300, #E9CE86)', color: 'var(--amber-700, #8A5A00)' }}
+                >
+                  ⚠ This report&apos;s own patient name is &quot;{blood.nameMismatch}&quot;, not &quot;{patient.full_name}&quot; — double-check this is the right report before relying on it.
+                </div>
+              )}
 
               {blood.hasData ? (
                 <div className="panel-grid-2 grid gap-[18px]">

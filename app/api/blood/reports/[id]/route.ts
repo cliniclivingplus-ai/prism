@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 import { createSupabaseAdmin } from '@/lib/blood/supabaseServer'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -21,5 +22,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     fileUrl = signed?.signedUrl ?? null
   }
 
-  return NextResponse.json({ report, patient, fileUrl })
+  // Hub-name mismatch check: this report is filed under `patient` (the
+  // tool's own row) above, but if it's also linked to a hub account by
+  // clp_patient_id, that hub patient's own name might read differently —
+  // the earliest visible sign a coach picked the wrong patient at upload.
+  let hubPatientName: string | null = null
+  if (report.clp_patient_id) {
+    const hub = createAdminClient('compass')
+    const { data: hubPatient } = await hub.from('patients').select('full_name').eq('id', report.clp_patient_id).maybeSingle()
+    hubPatientName = hubPatient?.full_name ?? null
+  }
+
+  return NextResponse.json({ report, patient, fileUrl, hubPatientName })
 }
