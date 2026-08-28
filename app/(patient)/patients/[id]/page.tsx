@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/auth/guard'
 import PatientSidebar from '@/components/ui/PatientSidebar'
 import { Ring, WeeklyBars, Donut, RangeBar, BarTrack } from '@/components/ui/charts'
 import {
-  IconCompass, IconMrx, IconBlood, IconArrowOut, IconPlus, IconUpload, IconLock,
+  IconCompass, IconMrx, IconBlood, IconArrowOut, IconUpload, IconLock,
 } from '@/components/ui/icons'
 import { loadPatientWorkspace, rangePosition } from '@/lib/clinical/patient'
 import { ageFrom, formatDate, relativeDays } from '@/lib/clinical/derive'
@@ -423,6 +423,12 @@ export default async function PatientWorkspacePage({
                         Open roadmap dashboard <IconArrowOut />
                       </Link>
                     )}
+                    {/* Always the same destination — this patient's own
+                        Compass account page (sessions, reports, roadmap
+                        history, "Edit roadmap"). The label used to read
+                        "New session note" once a roadmap existed, which
+                        described a different action than what the link
+                        actually opens. */}
                     <Link
                       href={`/compass/patients/${patient.id}`}
                       className="flex items-center gap-[7px] rounded-lg px-4 py-2.5 text-[13px] font-semibold"
@@ -432,7 +438,7 @@ export default async function PatientWorkspacePage({
                           : { background: 'var(--teal-700)', color: '#fff' }
                       }
                     >
-                      <IconPlus /> {compass.shareToken ? 'New session note' : 'Open in Compass'}
+                      <IconArrowOut /> Open in LP Compass
                     </Link>
                   </div>
                 }
