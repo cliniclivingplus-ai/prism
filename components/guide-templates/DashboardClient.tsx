@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo, useEffect, useRef, Fragment, type ReactNode } from 'react'
-import { CheckCircle2, Circle, MapPin, Utensils, Pill, ShoppingCart, HeartPulse, HelpCircle, Phone, X, ChefHat, Download, Sparkles, Star, Save, Check, Loader2, ExternalLink, Flame, CalendarCheck, Target, TrendingUp, ChevronDown, ChevronRight, Video, MessageCircle, Users, Activity, Stethoscope, Plus, Trash2, Eye, EyeOff, LinkIcon, type IconComponent } from '@/lib/kawaii/icons'
+import { CheckCircle2, Circle, MapPin, Utensils, Pill, ShoppingCart, HeartPulse, HelpCircle, Phone, X, ChefHat, Download, Sparkles, Star, Save, Check, Loader2, ExternalLink, Flame, CalendarCheck, Target, TrendingUp, ChevronDown, ChevronRight, Video, MessageCircle, Users, Activity, Stethoscope, Plus, Trash2, Eye, EyeOff, LinkIcon, Droplet, Sun, type IconComponent } from '@/lib/kawaii/icons'
+import { type ChecklistItem } from '@/lib/dailyChecklist'
 import { Splash } from '@/lib/kawaii/Mascot'
 import { KAWAII } from '@/lib/kawaii/tokens'
 import { KAWAII_MOTION_CSS } from '@/lib/kawaii/motion'
@@ -14,7 +15,7 @@ import { splitRecipeLines } from '@/lib/recipeText'
 import { renderMarkdownBold } from '@/lib/renderMarkdownBold'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
-import { splitIntoPeriods, joinPeriods } from '@/lib/periodBullets'
+import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from '@/lib/periodBullets'
 import AiEditButton from '@/components/AiEditButton'
 import LinkInsertButton from '@/components/LinkInsertButton'
 
@@ -72,7 +73,7 @@ const C = {
 // across the wheel diagram and its pill chips so a category reads the same
 // color in both places.
 
-type Checkin = { week_number: number; action_index: number; checkin_date: string }
+type Checkin = { week_number: number; action_index: number | null; checkin_date: string; item_id?: string | null; item_text_snapshot?: string | null }
 
 // Radius/shadow/font are CSS vars with non-kawaii fallbacks, set per-theme
 // on the root wrapper below — so these constants work unchanged under all
@@ -165,11 +166,15 @@ function SectionToggle({ hidden, onToggle }: { hidden: boolean; onToggle: () => 
 }
 
 const TOC_ITEMS: { label: string; id: string }[] = [
+  { label: 'Daily health check-in', id: 'checkin' },
   { label: 'Founder’s note', id: 'founder' },
   { label: 'Meet your coach', id: 'coach' },
   { label: 'Your care team', id: 'careteam' },
   { label: 'How to use this guide', id: 'howto' },
   { label: 'Your why', id: 'why' },
+  { label: 'Daily lifestyle guidelines', id: 'lifestyle' },
+  { label: 'Breakfast, Lunch & Dinner', id: 'meals' },
+  { label: 'Daily schedule', id: 'schedule' },
   { label: 'Your roadmap', id: 'roadmap' },
   { label: 'Nutrition guidelines', id: 'nutrition' },
   { label: 'This week’s recipes', id: 'nutrition' },
@@ -1098,7 +1103,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             lifestyle_guidelines: lifestyleText,
-            guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText },
+            guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText, daily_checklist_items: checklistItems },
             weekly_schedule: editWeeks.map((w) => ({ ...w, actions: (w.actions || []).map((a) => a.trim()).filter(Boolean) })),
           }),
         }),
@@ -1119,7 +1124,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   }
 
   const checkedSet = useMemo(
-    () => new Set(checkins.map((c) => `${c.week_number}:${c.action_index}:${c.checkin_date}`)),
+    () => new Set(checkins.map((c) =>
+      c.item_id ? `0:item:${c.item_id}:${c.checkin_date}` : `${c.week_number}:${c.action_index}:${c.checkin_date}`
+    )),
     [checkins]
   )
 
@@ -1149,6 +1156,91 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     } catch {
       revert()
     }
+  }
+
+  // Daily Health Check-in items toggle by stable item_id, not position — see
+  // lib/dailyChecklist.ts and the checkins route for why. Same sentinel
+  // week_number 0, same optimistic-update-then-reconcile shape as toggle().
+  async function toggleChecklistItem(itemId: string, itemText: string, date: string) {
+    const key = `0:item:${itemId}:${date}`
+    const wasChecked = checkedSet.has(key)
+    const entry: Checkin = { week_number: 0, action_index: null, checkin_date: date, item_id: itemId, item_text_snapshot: itemText }
+    const revert = () => setCheckins((prev) => wasChecked
+      ? [...prev, entry]
+      : prev.filter((c) => !(c.week_number === 0 && c.item_id === itemId && c.checkin_date === date)))
+    setCheckins((prev) => wasChecked
+      ? prev.filter((c) => !(c.week_number === 0 && c.item_id === itemId && c.checkin_date === date))
+      : [...prev, entry])
+    try {
+      const r = await fetch(`/api/share/roadmap/${shareToken}/checkins`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week_number: 0, item_id: itemId, item_text: itemText, date }),
+      })
+      if (!r.ok) revert()
+    } catch {
+      revert()
+    }
+  }
+
+  // Daily Health Check-in — same feature as the Week-family templates,
+  // grounded in this patient's real confirmed supplements/lifestyle
+  // guidelines (see lib/dailyChecklist.ts). Editing text/add/remove here
+  // follows this file's own pattern (local state, included in the batched
+  // "Save changes" patch below) rather than Week's per-field autosave —
+  // regenerate is the one exception, since it fetches fresh AI content that
+  // should land immediately either way.
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(data.dailyChecklistItems || [])
+  const [regenerating, setRegenerating] = useState(false)
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
+  function saveChecklistItemText(id: string, next: string) {
+    setChecklistItems((prev) => prev.map((it) => (it.id === id ? { ...it, text: next } : it)))
+  }
+  function addChecklistItem() {
+    setChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), text: 'New task', source: 'coach' }])
+  }
+  function removeChecklistItem(id: string) {
+    setChecklistItems((prev) => prev.filter((it) => it.id !== id))
+  }
+  async function regenerateChecklist() {
+    setConfirmRegenerate(false)
+    setRegenerating(true)
+    try {
+      const res = await fetch(`/api/compass/roadmaps/${rid}/regenerate-checklist`, { method: 'POST' })
+      const j = await res.json().catch(() => null)
+      if (res.ok && Array.isArray(j?.items)) setChecklistItems(j.items)
+    } catch { /* keep the current list on failure */ }
+    finally { setRegenerating(false) }
+  }
+
+  const [checkinDate, setCheckinDate] = useState(today)
+  const checkinDoneCount = checklistItems.filter((it) => checkedSet.has(`0:item:${it.id}:${checkinDate}`)).length
+  const checkinAllDone = checklistItems.length > 0 && checkinDoneCount === checklistItems.length
+  const checkinNoneDone = checkinDoneCount === 0
+
+  // Water/energy/mood — small per-day numbers/text, stored on the roadmap
+  // row (guide_overrides.daily_metrics) via a dedicated endpoint on the
+  // patient-facing side, same as Week; edit-mode changes here instead ride
+  // along in the batched "Save changes" patch, matching every other
+  // editable field in this file.
+  const [metricsCache, setMetricsCache] = useState<Record<string, { water?: number; energy?: number; mood?: string }>>(data.dailyMetrics || {})
+  const todayMetrics = metricsCache[checkinDate] || {}
+  const [moodDraft, setMoodDraft] = useState(todayMetrics.mood || '')
+  useEffect(() => { setMoodDraft(metricsCache[checkinDate]?.mood || '') }, [checkinDate, metricsCache])
+
+  async function saveMetric(field: 'water' | 'energy' | 'mood', value: number | string) {
+    setMetricsCache((prev) => ({ ...prev, [checkinDate]: { ...prev[checkinDate], [field]: value } }))
+    try {
+      await fetch(`/api/share/roadmap/${shareToken}/daily-metrics`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: checkinDate, [field]: value }),
+      })
+    } catch { /* optimistic UI already updated; best-effort sync */ }
+  }
+  function adjustWater(delta: number) {
+    saveMetric('water', Math.max(0, (metricsCache[checkinDate]?.water ?? 0) + delta))
+  }
+  function adjustEnergy(delta: number) {
+    saveMetric('energy', Math.max(0, Math.min(10, (metricsCache[checkinDate]?.energy ?? 0) + delta)))
   }
 
   // "Bought" state for the per-week shopping list — a personal checklist,
@@ -1861,6 +1953,111 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             does, so without this the content would start hidden underneath
             it instead of just below it. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 0 }}>
+          {/* Daily Health Check-in — same feature as the Week-family
+              templates (see WeekTemplate.tsx), ported here so every
+              template has it, not just single-week plans. Shown regardless
+              of editable state: a coach opening the live preview can also
+              tick things off / adjust water-energy-mood, same as Week. */}
+          <div id="checkin" {...hiddenAttrs('checkin')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('checkin') }}>
+            {editable && <SectionToggle hidden={isHidden('checkin')} onToggle={() => toggleSection('checkin')} />}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+              <div style={sectionTitleStyle}><CheckCircle2 size={18} color={C.accent} /> Daily Health Check-in</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {editable && (
+                  <button type="button" onClick={() => setConfirmRegenerate(true)} disabled={regenerating}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '7px 12px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.paper, color: C.accent, cursor: regenerating ? 'default' : 'pointer', opacity: regenerating ? 0.6 : 1 }}>
+                    <Sparkles size={13} /> {regenerating ? 'Regenerating…' : 'Ask AI to regenerate'}
+                  </button>
+                )}
+                <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
+                  style={{ fontSize: 12.5, background: C.bg, border: `1px solid ${C.rule}`, padding: '8px 11px', borderRadius: 9, color: C.ink, fontWeight: 600 }} />
+              </div>
+            </div>
+
+            {confirmRegenerate && (
+              <div style={{ background: C.accentSoft, border: `1px solid ${C.accent}`, borderRadius: 10, padding: '11px 15px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12.5, color: C.ink }}>Regenerate from this patient&apos;s current supplements and lifestyle guidelines? Any manual edits to the checklist will be overwritten.</span>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button type="button" onClick={() => setConfirmRegenerate(false)} style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.rule}`, background: '#fff', cursor: 'pointer' }}>Cancel</button>
+                  <button type="button" onClick={regenerateChecklist} style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', cursor: 'pointer' }}>Regenerate</button>
+                </div>
+              </div>
+            )}
+
+            {!editable && checklistItems.length > 0 && (
+              <p style={{ fontSize: 12.5, color: C.accent, fontWeight: 600, margin: '-4px 0 12px' }}>
+                {checkinAllDone
+                  ? 'Everything checked off for today — nice work.'
+                  : checkinNoneDone
+                  ? 'Nothing logged yet today — tap an item below to check in.'
+                  : `${checkinDoneCount} of ${checklistItems.length} done so far today.`}
+              </p>
+            )}
+
+            {checklistItems.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                {checklistItems.map((item) => {
+                  const checked = checkedSet.has(`0:item:${item.id}:${checkinDate}`)
+                  return (
+                    <div key={item.id} onClick={() => { if (!editable) toggleChecklistItem(item.id, item.text, checkinDate) }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', borderRadius: 12, cursor: editable ? 'default' : 'pointer', border: `1px solid ${checked ? C.accent : C.rule}`, background: checked ? C.accentSoft : C.bg }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
+                        {!editable && (checked
+                          ? <CheckCircle2 size={17} color={C.accent} style={{ flexShrink: 0 }} />
+                          : <Circle size={17} style={{ flexShrink: 0, opacity: 0.4 }} />)}
+                        {editable ? (
+                          <input value={item.text} onChange={(e) => saveChecklistItemText(item.id, e.target.value)}
+                            style={{ ...editInputStyle, flex: 1, padding: '4px 6px', fontSize: 13 }} />
+                        ) : (
+                          <span style={{ fontSize: 13, fontWeight: 500, color: checked ? C.accent : C.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                        )}
+                      </div>
+                      {editable ? (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); removeChecklistItem(item.id) }} title="Remove"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.accent, opacity: 0.6, flexShrink: 0 }}><X size={14} /></button>
+                      ) : (
+                        <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? C.accent : C.accentSoft, color: checked ? '#fff' : C.accent, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: C.muted }}>Once your coach confirms your supplements or lifestyle guidelines, your daily checklist will show up here.</p>
+            )}
+            {editable && (
+              <button type="button" onClick={addChecklistItem}
+                style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '7px 13px', borderRadius: 10, border: `1px dashed ${C.rule}`, background: 'none', color: C.accent, cursor: 'pointer' }}>
+                <Plus size={13} /> Add task
+              </button>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 18 }}>
+              <div style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 12, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: C.accent, marginBottom: 8 }}><Droplet size={12} /> Water (glasses)</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <button onClick={() => adjustWater(-1)} style={{ width: 30, height: 30, borderRadius: 9, border: `1px solid ${C.rule}`, background: C.accentSoft, fontWeight: 700, cursor: 'pointer' }}>−</button>
+                  <span style={{ fontSize: 20, fontWeight: 700 }}>{todayMetrics.water || 0}</span>
+                  <button onClick={() => adjustWater(1)} style={{ width: 30, height: 30, borderRadius: 9, border: `1px solid ${C.rule}`, background: C.accentSoft, fontWeight: 700, cursor: 'pointer' }}>+</button>
+                </div>
+              </div>
+              <div style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 12, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: C.accent, marginBottom: 8 }}><Flame size={12} /> Energy (1-10)</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <button onClick={() => adjustEnergy(-1)} style={{ width: 30, height: 30, borderRadius: 9, border: `1px solid ${C.rule}`, background: C.accentSoft, fontWeight: 700, cursor: 'pointer' }}>−</button>
+                  <span style={{ fontSize: 20, fontWeight: 700 }}>{todayMetrics.energy || 0}</span>
+                  <button onClick={() => adjustEnergy(1)} style={{ width: 30, height: 30, borderRadius: 9, border: `1px solid ${C.rule}`, background: C.accentSoft, fontWeight: 700, cursor: 'pointer' }}>+</button>
+                </div>
+              </div>
+              <div style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 12, padding: '12px 14px' }}>
+                <div style={{ fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: C.accent, marginBottom: 8 }}>Mood &amp; reflection</div>
+                <input value={moodDraft} onChange={(e) => setMoodDraft(e.target.value)} onBlur={() => saveMetric('mood', moodDraft)}
+                  placeholder="e.g. Calm and focused today"
+                  style={{ width: '100%', background: C.paper, border: `1px solid ${C.rule}`, borderRadius: 9, padding: '7px 10px', fontSize: 12.5, color: C.ink }} />
+              </div>
+            </div>
+          </div>
+
           {/* Founder's note — coach-editable text, personalized with name +
               goal only until a coach actually edits it (see
               defaultFounderNote in buildGuideData.ts) */}
@@ -2071,14 +2268,16 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             </div>
           </div>
 
-          {/* Week-plan extras — only shown/edited here when a Week-family
-              template is picked (see WEEK_FAMILY_TEMPLATES), sitting right
-              after "How to use your plan" since that's where it also
-              renders on the patient-facing Week templates. */}
-          {editable && WEEK_FAMILY_TEMPLATES.includes(template) && (
-            <div style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN }}>
-              <div style={sectionTitleStyle}>Week-plan extras</div>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Shown only on Week-family templates, right after &quot;How to use your plan.&quot;</div>
+          {/* Daily lifestyle / meals / schedule — was Week-family-only
+              (gated on WEEK_FAMILY_TEMPLATES); now available on every
+              template, patient-facing read view further below. This block
+              is just the coach editor; sits right after "How to use your
+              plan" since that's where the read view also renders. */}
+          {editable && (
+            <div id="lifestyle" {...hiddenAttrs('lifestyle')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('lifestyle') }}>
+              {editable && <SectionToggle hidden={isHidden('lifestyle')} onToggle={() => toggleSection('lifestyle')} />}
+              <div style={sectionTitleStyle}>Daily lifestyle / meals / schedule</div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Same content the patient sees under &quot;Daily Lifestyle Guidelines,&quot; &quot;Breakfast, Lunch &amp; Dinner,&quot; and &quot;Daily Schedule,&quot; edited together here.</div>
 
               <div style={editLabelStyle}>Daily lifestyle guidelines</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 4 }}>
@@ -2127,6 +2326,79 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6 }} rows={5}
                 value={dailyScheduleText} onChange={(e) => setDailyScheduleText(e.target.value)}
                 placeholder={'One time-block per line, e.g.\n7:30 AM — Wake up, hydrate\n9:30 AM — Breakfast\n8:30 PM — Dinner finished'} />
+            </div>
+          )}
+
+          {/* Patient-facing read view of the same three fields — ported
+              from WeekTemplate.tsx, only rendered here (not editable),
+              since the block above already covers editing for every
+              template. Each sub-section only renders if it actually has
+              content, same as Week. */}
+          {!editable && LIFESTYLE_PERIODS.some((label) => parseBullets(lifestyleByPeriod[label] || '').length > 0) && (
+            <div id="lifestyle" {...hiddenAttrs('lifestyle')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('lifestyle') }}>
+              <div style={sectionTitleStyle}><Sun size={18} color={C.accent} /> Daily Lifestyle Guidelines</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginTop: 16 }}>
+                {LIFESTYLE_PERIODS.map((label) => {
+                  const items = parseBullets(lifestyleByPeriod[label] || '')
+                  if (items.length === 0) return null
+                  return (
+                    <div key={label} style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 12, padding: '15px 17px' }}>
+                      <span style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent, fontWeight: 700 }}>{label}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                        {items.map((item, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                            <Circle size={11} color={C.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
+                            <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {!editable && MEAL_PERIODS.some((label) => parseBullets(mealsByPeriod[label] || '').length > 0) && (
+            <div id="meals" {...hiddenAttrs('meals')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('meals') }}>
+              <div style={sectionTitleStyle}><Utensils size={18} color={C.accent} /> Breakfast, Lunch &amp; Dinner</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginTop: 16 }}>
+                {MEAL_PERIODS.map((label) => {
+                  const items = parseBullets(mealsByPeriod[label] || '')
+                  if (items.length === 0) return null
+                  return (
+                    <div key={label} style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 12, padding: '15px 17px' }}>
+                      <span style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent, fontWeight: 700 }}>{label}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                        {items.map((item, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                            <Circle size={11} color={C.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
+                            <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {!editable && dailyScheduleText.trim() && (
+            <div id="schedule" {...hiddenAttrs('schedule')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('schedule') }}>
+              <div style={sectionTitleStyle}><CalendarCheck size={18} color={C.accent} /> Daily Schedule</div>
+              <div style={{ position: 'relative', paddingLeft: 34, marginTop: 18 }}>
+                <div style={{ position: 'absolute', left: 13, top: 6, bottom: 6, width: 2, background: C.rule }} />
+                {parseScheduleLines(dailyScheduleText).map((item, i, arr) => (
+                  <div key={i} style={{ position: 'relative', marginBottom: i < arr.length - 1 ? 20 : 0 }}>
+                    <span style={{ position: 'absolute', left: -34, top: 0, width: 26, height: 26, borderRadius: 13, background: C.accentSoft, border: `2px solid ${C.paper}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Circle size={9} color={C.accent} />
+                    </span>
+                    {item.time && <div style={{ fontSize: 11.5, fontWeight: 700, color: C.accent }}>{item.time}</div>}
+                    <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 2 }}>{item.text}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
