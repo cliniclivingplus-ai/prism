@@ -137,8 +137,10 @@ export default function ReportPage() {
         className={`fixed inset-y-0 left-0 z-50 w-64 flex-shrink-0 flex flex-col overflow-hidden transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${navOpen ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ background: '#F2F9EC', borderRight: '1px solid #C8E9A8' }}>
 
-        {/* Patient card */}
-        <div className="p-4" style={{ borderBottom: '1px solid #C8E9A8' }}>
+        {/* Patient card. pt-[90px] below md: this drawer sits behind two
+            stacked fixed top bars (the hub shell's and this page's own),
+            so without it the top of this card renders hidden behind them. */}
+        <div className="p-4 pt-[90px] md:pt-4" style={{ borderBottom: '1px solid #C8E9A8' }}>
           <div className="rounded-2xl p-4 space-y-2"
             style={{ background: '#FFFFFF', border: '1px solid #C8E9A8' }}>
 

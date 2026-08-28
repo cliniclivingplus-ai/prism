@@ -105,8 +105,11 @@ export default function PatientSidebar({
         className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[248px] flex-shrink-0 flex-col transition-transform duration-200 md:sticky md:top-0 md:z-auto md:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ background: 'var(--teal-950)', color: '#DCE8E4' }}
       >
+        {/* Hidden below md — same reasoning as components/ui/Sidebar.tsx:
+            the mobile top bar already shows a wordmark, so duplicating one
+            here (under that bar's z-index) just peeked out behind it. */}
         <div
-          className="flex items-center gap-2.5 px-[18px] pb-4 pt-5"
+          className="hidden items-center gap-2.5 px-[18px] pb-4 pt-5 md:flex"
           style={{ borderBottom: '1px solid rgba(220,232,228,.09)' }}
         >
           <div
@@ -126,11 +129,14 @@ export default function PatientSidebar({
           </div>
         </div>
 
+        {/* mt-[52px] below md: the drawer's own header is hidden there now
+            (see above), so without this this link would render right under
+            the fixed mobile top bar and be covered by it. */}
         <Link
           href="/dashboard"
           title="Back to patient list"
           onClick={() => setOpen(false)}
-          className="mx-3.5 mb-1.5 mt-3.5 flex items-center gap-2.5 rounded-[9px] px-2.5 py-2.5"
+          className="mx-3.5 mb-1.5 mt-[52px] flex items-center gap-2.5 rounded-[9px] px-2.5 py-2.5 md:mt-3.5"
           style={{ background: 'rgba(255,255,255,.045)', border: '1px solid rgba(220,232,228,.1)' }}
         >
           <div

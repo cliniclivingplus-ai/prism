@@ -113,8 +113,12 @@ export default function Sidebar({
         className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[248px] flex-shrink-0 flex-col transition-transform duration-200 md:sticky md:top-0 md:z-auto md:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ background: 'var(--teal-950)', color: '#DCE8E4' }}
       >
+        {/* Hidden below md: the mobile top bar already shows the "Living
+            Plus" wordmark right above this drawer, and duplicating it here
+            (at a lower z-index than that bar) was peeking out from behind
+            it. Desktop has no separate top bar, so this stays there. */}
         <div
-          className="flex items-center gap-2.5 px-[18px] pb-4 pt-5"
+          className="hidden items-center gap-2.5 px-[18px] pb-4 pt-5 md:flex"
           style={{ borderBottom: '1px solid rgba(220,232,228,.09)' }}
         >
           <div
@@ -137,7 +141,11 @@ export default function Sidebar({
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 pb-3 pt-3.5">
+        {/* pt-[52px] below md: the drawer's own header is hidden there now
+            (see above), so without this the first nav item/label would
+            render right under the fixed mobile top bar and be covered by
+            it, same z-index problem as before just one layer down. */}
+        <nav className="flex-1 overflow-y-auto px-3 pb-3 pt-[52px] md:pt-3.5">
           {groupLabel('Workspace')}
           {workspace.map(item)}
           {groupLabel('Tools overview')}
