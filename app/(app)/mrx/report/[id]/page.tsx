@@ -237,31 +237,7 @@ export default function ReportPage() {
             <p className="text-xs font-mono uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
               Clinical Report
             </p>
-            <div className="flex items-center gap-3">
-              {prescription && (
-                <Link
-                  // Approved: go straight to the generated PDF document
-                  // (prescription-print) — that's the actual approved
-                  // artefact, not the editable draft. Not yet approved:
-                  // send the doctor to the review/edit screen instead.
-                  href={
-                    prescription.approved_at
-                      ? `/mrx/report/${id}/prescription-print`
-                      : `/mrx/report/${id}/review`
-                  }
-                  target={prescription.approved_at ? '_blank' : undefined}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
-                  style={
-                    prescription.approved_at
-                      ? { background: '#F2F9EC', border: '1px solid #C8E9A8', color: '#1A3207' }
-                      : { background: '#FFFFFF', border: '1px solid #E2F3D0', color: '#538A22' }
-                  }
-                >
-                  {prescription.approved_at ? '✓ Approved prescription' : 'Open prescription draft'}
-                </Link>
-              )}
-              <ReportPdfActions reportId={report.id} initialPdfStored={!!report.pdf_filename} />
-            </div>
+            <ReportPdfActions reportId={report.id} initialPdfStored={!!report.pdf_filename} />
           </div>
 
           {!rd && (
@@ -285,6 +261,40 @@ export default function ReportPage() {
                 allergies:       report.patient_allergies,
               }}
             />
+          )}
+
+          {/* Sits right under the AI Recommendation Engine card so a doctor
+              lands on the approved document from one screen, without going
+              through "Generate recommendations" again to get there. */}
+          {prescription && (
+            <Link
+              href={
+                prescription.approved_at
+                  ? `/mrx/report/${id}/prescription-print`
+                  : `/mrx/report/${id}/review`
+              }
+              target={prescription.approved_at ? '_blank' : undefined}
+              className="mt-6 flex items-center justify-between rounded-2xl p-5 transition-all"
+              style={
+                prescription.approved_at
+                  ? { background: '#F2F9EC', border: '1px solid #C8E9A8' }
+                  : { background: '#FFFFFF', border: '1px solid #E2F3D0' }
+              }
+            >
+              <div>
+                <div className="text-sm font-semibold" style={{ color: '#1A3207' }}>
+                  {prescription.approved_at ? '✓ Approved prescription' : 'Prescription draft saved'}
+                </div>
+                <div className="text-xs mt-0.5" style={{ color: '#538A22' }}>
+                  {prescription.approved_at
+                    ? `Approved ${new Date(prescription.approved_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} — view the signed PDF`
+                    : 'Not yet approved — open the review screen to finish and approve it'}
+                </div>
+              </div>
+              <span className="text-xs font-medium flex-shrink-0" style={{ color: '#538A22' }}>
+                {prescription.approved_at ? 'Open PDF →' : 'Open draft →'}
+              </span>
+            </Link>
           )}
 
         </div>
