@@ -6,5 +6,8 @@ import { requireUser } from '@/lib/auth/guard'
 // so these pages still live at /patients/**, and middleware still gates them.
 export default async function PatientLayout({ children }: { children: React.ReactNode }) {
   await requireUser()
-  return <div className="flex min-h-screen">{children}</div>
+  // flex-col below md: PatientSidebar's own mobile top bar needs to stack
+  // above the content, not sit beside it in a row — same reasoning as
+  // (app)/layout.tsx's identical change for the same off-canvas pattern.
+  return <div className="flex min-h-screen flex-col md:flex-row">{children}</div>
 }

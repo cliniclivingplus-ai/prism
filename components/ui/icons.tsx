@@ -110,3 +110,9 @@ export const IconLock = ({ size = 13 }: P) => (
     <path d="M8 11V8a4 4 0 018 0v3" stroke="currentColor" strokeWidth="1.7" />
   </svg>
 )
+
+export const IconMenu = ({ size = 20 }: P) => (
+  <svg {...base(size)}>
+    <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+  </svg>
+)

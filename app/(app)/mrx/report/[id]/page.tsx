@@ -67,6 +67,10 @@ export default function ReportPage() {
   const [report,  setReport]  = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [prescription, setPrescription] = useState<{ id: string; approved_at: string | null } | null>(null)
+  // This sidebar was a fixed 256px column with no mobile handling at all —
+  // same problem as the two shared hub sidebars, same fix: off-canvas
+  // drawer below md, static above it.
+  const [navOpen, setNavOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -110,10 +114,27 @@ export default function ReportPage() {
   const score    = rd?.rych_index ?? null
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#F8FAF6' }}>
+    <div className="flex h-screen flex-col overflow-hidden md:flex-row" style={{ background: '#F8FAF6' }}>
+
+      {/* Mobile top bar — only way to reach the sidebar below md, since the
+          sidebar itself is off-screen until toggled there. */}
+      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0 md:hidden"
+        style={{ background: '#F2F9EC', borderBottom: '1px solid #C8E9A8' }}>
+        <button onClick={() => setNavOpen(true)} aria-label="Open menu" style={{ color: '#1A3207' }}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+        <span className="text-sm font-semibold truncate" style={{ color: '#1A3207' }}>{report.patient_name}</span>
+      </div>
+
+      {navOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setNavOpen(false)} aria-hidden="true" />
+      )}
 
       {/* ── Sidebar ── */}
-      <div className="w-64 flex-shrink-0 flex flex-col overflow-hidden"
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 flex-shrink-0 flex flex-col overflow-hidden transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${navOpen ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ background: '#F2F9EC', borderRight: '1px solid #C8E9A8' }}>
 
         {/* Patient card */}
@@ -181,6 +202,7 @@ export default function ReportPage() {
                     <Link
                       key={item.section}
                       href={`/mrx/report/${id}/${item.section}`}
+                      onClick={() => setNavOpen(false)}
                       className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all"
                       style={{
                         background: active ? '#FFFFFF' : 'transparent',
@@ -215,6 +237,7 @@ export default function ReportPage() {
         <div className="p-4" style={{ borderTop: '1px solid #C8E9A8' }}>
           <Link
             href="/mrx/dashboard"
+            onClick={() => setNavOpen(false)}
             className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-xs font-medium transition-all"
             style={{ background: '#FFFFFF', border: '1px solid #C8E9A8', color: '#538A22' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#F2F9EC' }}

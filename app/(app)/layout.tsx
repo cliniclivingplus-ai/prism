@@ -7,7 +7,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser()
 
   return (
-    <div className="flex min-h-screen">
+    // flex-col below md: the sidebar's mobile top bar (rendered by Sidebar
+    // itself) needs to stack above the content, not sit beside it in a row
+    // — the sidebar <aside> proper is `fixed` at that width anyway, so it
+    // doesn't participate in this flow either way.
+    <div className="flex min-h-screen flex-col md:flex-row">
       <Sidebar email={user.email ?? null} />
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>
     </div>
