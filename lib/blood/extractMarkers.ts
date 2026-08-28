@@ -61,20 +61,23 @@ function parseMarkersJson(raw: string): ExtractedMarker[] {
 // the entire 4000-token budget on reasoning and returned finish_reason
 // "length" with zero visible output. Same fix this codebase family
 // already uses elsewhere for this model (e.g. CDB's ai-edit-field route).
+// Previously swallowed every failure (rate limit, timeout, API error) into
+// a bare empty array, so "0 markers" and "Groq returned 429" looked
+// identical to the caller and to the coach — the upload UI could only ever
+// say "No test results could be extracted", even when the real cause was
+// the shared TPM budget being hit (seen repeatedly against this org's
+// account) and had nothing to do with the report itself. Now the caller
+// gets the real error and can tell those apart.
 export async function extractMarkers(rawText: string): Promise<ExtractedMarker[]> {
-  try {
-    const completion = await groq.chat.completions.create({
-      model: 'openai/gpt-oss-20b',
-      temperature: 0,
-      max_tokens: 4000,
-      reasoning_effort: 'low',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: rawText.slice(0, MAX_TEXT_CHARS) },
-      ],
-    })
-    return parseMarkersJson(completion.choices[0]?.message?.content?.trim() ?? '{}')
-  } catch {
-    return []
-  }
+  const completion = await groq.chat.completions.create({
+    model: 'openai/gpt-oss-20b',
+    temperature: 0,
+    max_tokens: 4000,
+    reasoning_effort: 'low',
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: rawText.slice(0, MAX_TEXT_CHARS) },
+    ],
+  })
+  return parseMarkersJson(completion.choices[0]?.message?.content?.trim() ?? '{}')
 }

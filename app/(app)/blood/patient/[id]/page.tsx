@@ -123,6 +123,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
         form.append('patient_id', id)
         form.append('text', extracted.text)
         form.append('file', file)
+        form.append('ocr_used', String(extracted.ocrUsed))
 
         setUploadProgress(`${label}: extracting markers…`)
         const res = await fetch('/api/blood/parse-report', { method: 'POST', body: form })

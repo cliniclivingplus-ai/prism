@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     const patientId = form.get('patient_id')
     const text = form.get('text')
     const file = form.get('file')
+    const ocrUsed = form.get('ocr_used') === 'true'
 
     if (typeof patientId !== 'string' || !patientId.trim()) {
       return NextResponse.json({ error: 'patient_id is required' }, { status: 400 })
@@ -62,9 +63,41 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
     const clpPatientId = (link?.clp_patient_id as string | undefined) ?? null
 
-    const markers = await extractMarkers(rawText)
+    let markers
+    try {
+      markers = await extractMarkers(rawText)
+    } catch (err) {
+      // Distinguish a real Groq/API failure from genuinely finding nothing —
+      // these used to look identical to the coach as "No test results could
+      // be extracted", even when the cause was a rate limit and retrying
+      // in a minute would have worked fine.
+      const message = err instanceof Error ? err.message : String(err)
+      const rateLimited = /rate_limit_exceeded|429/i.test(message)
+      return NextResponse.json(
+        {
+          error: rateLimited
+            ? 'The AI extraction service is temporarily rate-limited — wait a minute and try uploading again.'
+            : `Extraction failed: ${message}`,
+        },
+        { status: rateLimited ? 429 : 502 }
+      )
+    }
     if (markers.length === 0) {
-      return NextResponse.json({ error: 'No test results could be extracted from this report.' }, { status: 422 })
+      // A real multi-row lab report's OCR text runs well past this even
+      // when messy — a report this short after OCR almost always means the
+      // scan/photo itself was too low-quality for OCR to read the table,
+      // not that the model failed to recognise valid rows. Worth telling
+      // the coach that distinction rather than leaving it as a flat "no
+      // results found", which reads like the AI's fault either way.
+      const looksLikeBadScan = ocrUsed && rawText.trim().length < 150
+      return NextResponse.json(
+        {
+          error: looksLikeBadScan
+            ? 'This looks like a scan or photo the OCR could barely read (very little text recognised). Try a clearer photo/scan, better lighting, or the original digital PDF if you have one.'
+            : 'No test results could be extracted from this report.',
+        },
+        { status: 422 }
+      )
     }
 
     const { data: report, error: insertError } = await admin
