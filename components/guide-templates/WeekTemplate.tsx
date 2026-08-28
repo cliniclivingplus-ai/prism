@@ -870,6 +870,11 @@ function clpToggleGroceryCat(head){
         @keyframes clpFlamePop { 0% { transform: scale(1); } 40% { transform: scale(1.22) rotate(-4deg); } 100% { transform: scale(1) rotate(0deg); } }
         @keyframes clpMascotBlink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
         @media (prefers-reduced-motion: reduce) { [data-mascot-idle], [data-mascot-face], [data-mascot-eyes], [data-streak-flame] { animation: none !important; } }
+        /* "Jump to section" scrolls a section's own id flush to the very
+           top of the viewport, but that strip is covered by the sticky
+           "Jump to section" bar (position:sticky, top:0) — without this,
+           the section heading lands hidden right behind it. */
+        section[id] { scroll-margin-top: 64px; }
       `}</style>
 
       <div style={{ position: 'sticky', top: 0, zIndex: 30, background: 'rgba(247,239,224,0.92)', backdropFilter: 'blur(6px)', borderBottom: `1px solid ${PALETTE.line}`, padding: '10px 1.5rem' }}>

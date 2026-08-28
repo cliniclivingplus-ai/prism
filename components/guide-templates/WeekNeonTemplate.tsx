@@ -845,6 +845,7 @@ function clpToggleGroceryCat(head){
         @keyframes clpFlamePop { 0% { transform: scale(1); } 40% { transform: scale(1.22) rotate(-4deg); } 100% { transform: scale(1) rotate(0deg); } }
         @keyframes clpMascotBlink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
         @media (prefers-reduced-motion: reduce) { [data-mascot-idle], [data-mascot-face], [data-mascot-eyes], [data-streak-flame] { animation: none !important; } }
+        section[id] { scroll-margin-top: 64px; }
       `}</style>
 
       <div style={{ position: 'sticky', top: 0, zIndex: 30, background: 'rgba(10,11,16,0.92)', backdropFilter: 'blur(6px)', borderBottom: `1px solid ${PALETTE.line}`, padding: '10px 1.5rem' }}>
