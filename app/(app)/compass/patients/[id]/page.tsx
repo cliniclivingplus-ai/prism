@@ -485,7 +485,12 @@ function DashboardTab({ roadmaps, patientId }: { roadmaps: Roadmap[]; patientId:
               {i === 0 && <span style={{ fontSize: 10.5, fontWeight: 700, color: C.green, background: C.greenSoft, borderRadius: 20, padding: '2px 8px' }}>CURRENT</span>}
               <span style={{ fontSize: 12, color: C.faint }}>{fmtDate(r.created_at)}</span>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            {/* flexWrap so this 5-button group (Copy link/Edit
+                roadmap/History/Daily progress/Open dashboard) drops to a
+                second line on narrow screens instead of forcing a fixed
+                minimum width wider than the viewport, which was pushing the
+                whole page into horizontal scroll on mobile. */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => copyLink(r)} disabled={!r.share_token || !!r.share_revoked_at}
                 title={r.share_revoked_at ? 'This share link has been revoked' : !r.share_token ? 'No share link for this roadmap yet' : 'Copy the patient link'}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12.5, fontWeight: 700, cursor: (!r.share_token || r.share_revoked_at) ? 'not-allowed' : 'pointer', opacity: (!r.share_token || r.share_revoked_at) ? 0.5 : 1 }}>
