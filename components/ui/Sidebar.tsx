@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { getBrowserClient } from '@/lib/supabase/client'
 import {
-  IconGrid, IconPatients, IconCompass, IconMrx, IconBlood, IconSignOut,
+  IconGrid, IconCompass, IconMrx, IconBlood, IconSignOut,
 } from './icons'
 import { initials } from '@/lib/clinical/derive'
 
@@ -22,12 +22,15 @@ export default function Sidebar({
   const pathname = usePathname()
   const router = useRouter()
 
+  // "Patients" used to be a second entry here, but /patients was only ever
+  // a redirect to this same page — both links opened identical content, so
+  // it was dropped rather than kept as a second way to reach the one page.
+  // The patient-count badge moved here since it still belongs on the roster.
   const workspace: NavEntry[] = [
-    { href: '/dashboard', label: 'Dashboard', icon: <IconGrid /> },
     {
-      href: '/patients',
-      label: 'Patients',
-      icon: <IconPatients />,
+      href: '/dashboard',
+      label: 'Dashboard',
+      icon: <IconGrid />,
       badge: patientCount !== null ? String(patientCount) : undefined,
     },
   ]

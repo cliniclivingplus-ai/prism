@@ -8,7 +8,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser()
 
   const supabase = await createClient('compass')
-  const { count } = await supabase.from('patients').select('id', { count: 'exact', head: true })
+  // source = 'hub' matches loadRoster()'s own filter — otherwise this
+  // badge would count every legacy Compass patient too, disagreeing with
+  // the roster page's own "Total patients" stat right below it.
+  const { count } = await supabase
+    .from('patients')
+    .select('id', { count: 'exact', head: true })
+    .eq('source', 'hub')
 
   return (
     <div className="flex min-h-screen">
