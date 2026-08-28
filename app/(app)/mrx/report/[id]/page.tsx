@@ -240,7 +240,16 @@ export default function ReportPage() {
             <div className="flex items-center gap-3">
               {prescription && (
                 <Link
-                  href={`/mrx/report/${id}/review`}
+                  // Approved: go straight to the generated PDF document
+                  // (prescription-print) — that's the actual approved
+                  // artefact, not the editable draft. Not yet approved:
+                  // send the doctor to the review/edit screen instead.
+                  href={
+                    prescription.approved_at
+                      ? `/mrx/report/${id}/prescription-print`
+                      : `/mrx/report/${id}/review`
+                  }
+                  target={prescription.approved_at ? '_blank' : undefined}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
                   style={
                     prescription.approved_at
