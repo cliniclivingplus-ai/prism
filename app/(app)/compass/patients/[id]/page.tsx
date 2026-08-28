@@ -491,6 +491,16 @@ function DashboardTab({ roadmaps, patientId }: { roadmaps: Roadmap[]; patientId:
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12.5, fontWeight: 700, cursor: (!r.share_token || r.share_revoked_at) ? 'not-allowed' : 'pointer', opacity: (!r.share_token || r.share_revoked_at) ? 0.5 : 1 }}>
                 {copiedId === r.id ? <><Check size={13} color={C.green} /> Copied</> : <><Link2 size={13} /> Copy link</>}
               </button>
+              {/* Goes straight to the coach-editing view on the exact
+                  template the patient sees. live-edit itself falls back to
+                  "Open in Classic editor" for any non-Week-family template,
+                  so this link is always safe to show regardless of which
+                  template this roadmap actually uses. */}
+              <Link href={`/compass/patients/${patientId}/roadmap/${r.id}/live-edit`}
+                title="Edit this roadmap"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>
+                <Pencil size={13} /> Edit roadmap
+              </Link>
               <Link href={`/compass/patients/${patientId}/roadmap-history/${r.id}`}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>
                 <History size={13} /> History
