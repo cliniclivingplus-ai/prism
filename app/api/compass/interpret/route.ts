@@ -441,10 +441,12 @@ RULES FOR ACTIONS — a short WEEKLY SUMMARY, NOT a prescription:
 - Reference their actual schedule/habits from Q&A and patient facts
 - Actions should NOT suggest "consult a doctor" or "consult a nutritionist" — she is already at LP
 
-RULES FOR "days" — 7 DIFFERENT days, each with its OWN 3 goals, not one set of 3 goals repeated/relabeled all week:
+RULES FOR "days" — 7 DIFFERENT days, each with its OWN 3 ENTIRELY NEW goals, not the same habit varied or escalated all week:
 - Exactly 7 entries, one per day of THIS week, in order: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday
-- Each day has exactly 3 short lines — but every day's 3 lines must be genuinely DIFFERENT content from every other day in this week, not the same habit reworded with a "Day 1 / building up / Day 7" marker. A patient reading Sunday's 3 goals and Wednesday's 3 goals should see two different real things to do, both still serving this week's focus_theme.
-- All 21 lines (7 days x 3) stay within the same theme/cause as this week — vary WHICH lifestyle lever each day targets (one day movement + hydration + sleep, another day meal timing + stress + a different movement cue, etc.) rather than inventing an unrelated theme per day
+- LEVER POOL — the real categories a goal can come from: (1) hydration, (2) movement/exercise, (3) sleep/wind-down, (4) meal composition (what's eaten), (5) meal timing (when/how eaten), (6) stress/breathing/mindset, (7) environment (screens, light, posture, workspace)
+- Each day's 3 goals must come from 3 DIFFERENT levers in that pool. Across the whole week, spread usage across ALL 7 levers as evenly as the week allows — do not let one lever (e.g. "swap this snack") appear as one of the 3 goals on more than 2 days total. If Sunday used meal composition + movement + sleep, Monday should draw from different levers (e.g. hydration + stress + environment), not meal composition + movement + sleep again with different specifics.
+- This is the actual bug being fixed: a previous version varied the SPECIFIC food/activity each day (different snack, different stretch) while quietly reusing the SAME lever every day (a snack swap every single day, just a different snack). That is still a repeat and is exactly what must NOT happen — a patient scanning all 7 days should see 7 visibly different KINDS of goals, not 7 variations on one recurring habit.
+- All 21 lines still serve this week's focus_theme/cause — vary the lever and the specific goal, not the underlying clinical target
 - Same "no supplement/dose" rule as actions above
 - Each line is a plain, standalone goal, no "Day N" / "Starting today" / "Building up" framing — just the goal itself, e.g. "10 minute walk after lunch", not "Day 3, building up: 10 minute walk after lunch"
 - Keep each line SHORT (under 12 words)
