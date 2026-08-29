@@ -432,35 +432,37 @@ RULES FOR CAUSE:
 - Be scientific. Use medical terms but explain them. Reference their actual symptoms.
 - Never say "may", "might", "could", "typically"
 
-RULES FOR ACTIONS — small healthy-lifestyle goals, NOT a prescription:
-- Each action is ONE short, concrete HEALTHY LIFESTYLE goal: movement, hydration, sleep, meal timing/composition, stress management, or a real change to their actual daily schedule — same short style as a daily habit checklist, not a clinical writeup
-- FORBIDDEN: naming any supplement, medication, or dose (e.g. "2 tablespoons of flaxseed", "400mg magnesium", "ferrous sulfate") — this section is lifestyle guidance the patient follows day to day, not a clinical prescription. Supplement dosing belongs only in the separate clinical Supplements section, never here.
+RULES FOR ACTIONS — a short WEEKLY SUMMARY, NOT a prescription:
+- 3 short lines summarising the week's focus at a glance (this is what a month-view card shows, not what the patient works from day to day — that's "days" below)
+- Each is ONE short, concrete HEALTHY LIFESTYLE goal: movement, hydration, sleep, meal timing/composition, stress management, or a real change to their actual daily schedule
+- FORBIDDEN: naming any supplement, medication, or dose (e.g. "2 tablespoons of flaxseed", "400mg magnesium", "ferrous sulfate") — this is lifestyle guidance the patient follows day to day, not a clinical prescription. Supplement dosing belongs only in the separate clinical Supplements section, never here.
 - Specific about timing/frequency: "a 15 minute walk after lunch daily", "lights off by 10pm", "protein at every meal" — specificity means exact timing and frequency, not a substance and quantity, and not an explanation of why
 - One short sentence only, under 12 words — no separate "why it works" clause tacked on; the reasoning lives in "cause" above, not repeated here
 - Reference their actual schedule/habits from Q&A and patient facts
 - Actions should NOT suggest "consult a doctor" or "consult a nutritionist" — she is already at LP
 
-RULES FOR "days" (building up through the week — make the progression visible in the wording itself, never just a changing number):
+RULES FOR "days" — 7 DIFFERENT days, each with its OWN 3 goals, not one set of 3 goals repeated/relabeled all week:
 - Exactly 7 entries, one per day of THIS week, in order: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday
-- Each day has exactly 3 short lines, one per action above in the same order
-- Each line must explicitly say where in the week's progression this is, in words — e.g. "Starting today: a 10 minute walk after lunch" building up to "Fully in place: a 20 minute walk after lunch" by Saturday. A reader should be able to tell this is a build-up from the phrase alone, not have to infer it from a number changing.
-- Same "no supplement/dose" rule as actions above — the progression is in duration/frequency/consistency of a real habit, never a substance quantity
-- Keep each line SHORT (under 12 words, including the progression marker)
-- E.g. for "Take a 15 minute walk after lunch daily": Sunday "Starting today: a 10 minute walk after lunch", Wednesday "Building up: a 15 minute walk after lunch", Saturday "Fully in place: a 20 minute walk after lunch"
+- Each day has exactly 3 short lines — but every day's 3 lines must be genuinely DIFFERENT content from every other day in this week, not the same habit reworded with a "Day 1 / building up / Day 7" marker. A patient reading Sunday's 3 goals and Wednesday's 3 goals should see two different real things to do, both still serving this week's focus_theme.
+- All 21 lines (7 days x 3) stay within the same theme/cause as this week — vary WHICH lifestyle lever each day targets (one day movement + hydration + sleep, another day meal timing + stress + a different movement cue, etc.) rather than inventing an unrelated theme per day
+- Same "no supplement/dose" rule as actions above
+- Each line is a plain, standalone goal, no "Day N" / "Starting today" / "Building up" framing — just the goal itself, e.g. "10 minute walk after lunch", not "Day 3, building up: 10 minute walk after lunch"
+- Keep each line SHORT (under 12 words)
+- Do not just copy the 3 "actions" into every day — actions is the week's summary; days is the real, varied content
 
 [{
   "week_number": ${startWeek},
   "focus_theme": "Specific clinical theme",
   "cause": "3 sentences explaining the exact biochemical mechanism happening in their body. Scientific, specific to their condition and facts. Direct to patient.",
   "actions": [
-    "Short lifestyle goal with exact timing/frequency, under 12 words, no supplement or dose",
-    "Second short lifestyle goal, under 12 words, no supplement or dose",
-    "Third short lifestyle goal tied to their actual daily schedule, under 12 words, no supplement or dose"
+    "Short weekly-summary lifestyle goal, under 12 words, no supplement or dose",
+    "Second short weekly-summary lifestyle goal, under 12 words, no supplement or dose",
+    "Third short weekly-summary lifestyle goal tied to their actual daily schedule, under 12 words, no supplement or dose"
   ],
   "days": [
-    ["Sunday's build-up-framed version of action 1", "Sunday's build-up-framed version of action 2", "Sunday's build-up-framed version of action 3"],
-    ["Monday's build-up-framed version of action 1", "Monday's build-up-framed version of action 2", "Monday's build-up-framed version of action 3"],
-    "… 7 total, Sunday through Saturday, each explicitly worded as further along the build-up than the day before"
+    ["Sunday's own goal 1 — a real, specific habit", "Sunday's own goal 2 — different lever than goal 1", "Sunday's own goal 3 — different lever again"],
+    ["Monday's own goal 1 — different from every Sunday goal", "Monday's own goal 2", "Monday's own goal 3"],
+    "… 7 total, Sunday through Saturday, every day's 3 goals genuinely different from every other day's, all still serving this week's focus_theme"
   ],
   "milestone": "By end of this week, if you follow all actions: [1-2 specific, measurable changes the patient will notice, e.g. bloating reduces, energy improves by afternoon, bowel movement becomes regular]. Be specific and realistic."
 }]
@@ -483,7 +485,12 @@ Exactly ${weeksInChunk} items, week_number ${startWeek} through ${endWeek}. Each
         // to catch, just far more often than it should. 1200/week (4000
         // total for a 3-week chunk) leaves days enough room to actually
         // finish while keeping the combined request comfortably under 8000.
-        max_tokens: Math.min(4800, weeksInChunk * 1200 + 400),
+        // 21 genuinely different daily goals (7 days x 3, no longer 3
+        // goals reworded 7 times) is more real content per week than the
+        // old escalation-framed "days" was, so this needed raising again
+        // alongside that prompt change — still safely under the 8000 TPM
+        // ceiling for a 3-week chunk plus its own prompt overhead.
+        max_tokens: Math.min(5200, weeksInChunk * 1400 + 400),
       })
       const raw = res.choices[0]?.message?.content ?? ''
       if (res.choices[0]?.finish_reason === 'length') {
