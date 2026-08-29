@@ -74,14 +74,13 @@ export async function POST(req: NextRequest) {
 
     // ── Strategy 2: Groq 70b fallback ─────────────────────────────
     if (!categories || categories.length < 3) {
-      const apiKey = process.env.GROQ_API_KEY
-      if (!apiKey) {
+      if (!process.env.GROQ_API_KEY) {
         return NextResponse.json(
           { error: 'GROQ_API_KEY not set and operator list extraction failed.' },
           { status: 500 }
         )
       }
-      categories = await extractDietaryViaGroq(fullText, apiKey)
+      categories = await extractDietaryViaGroq(fullText)
       method = 'groq_70b'
       console.log(`[parse-dietary-rx] groq fallback: ${categories.length} categories, ${categories.reduce((s, c) => s + c.items.length, 0)} items`)
     }

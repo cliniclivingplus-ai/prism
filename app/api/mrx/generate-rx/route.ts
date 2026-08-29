@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 import { createClient } from '@supabase/supabase-js'
 import { PatientInput, RxData } from '@/lib/mrx/types'
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY!,
-})
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -120,7 +116,7 @@ ${patient.allergies ? 'Allergies: ' + patient.allergies : ''}
 Gut microbiome species list (${species_list.length} species):
 ${species_list.join('\n')}`
 
-    const completion = await groq.chat.completions.create({
+    const completion = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       max_tokens: 4000,
       messages: [

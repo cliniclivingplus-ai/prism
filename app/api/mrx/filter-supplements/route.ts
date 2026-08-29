@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 
 const MAX_HISTORY_MESSAGES = 10
 
@@ -204,7 +203,7 @@ async function callGroqWithRetry(
 ): Promise<string> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const completion = await groq.chat.completions.create({
+      const completion = await groqChatCompletion({
         model: 'openai/gpt-oss-20b',
         max_tokens: 3000,
         temperature: 0.2,

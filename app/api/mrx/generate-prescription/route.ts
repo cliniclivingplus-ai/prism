@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
@@ -26,7 +25,7 @@ export async function POST(req: NextRequest) {
   const chunks = await searchKnowledge(ragQuery)
   const knowledgeContext = chunks.map((c: any) => c.content).join('\n\n---\n\n')
 
-  const response = await groq.chat.completions.create({
+  const response = await groqChatCompletion({
     model: 'openai/gpt-oss-120b',
     max_tokens: 2000,
     reasoning_effort: 'low',

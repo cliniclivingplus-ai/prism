@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 import {
   hasDietarySection,
   extractDietaryFromOperatorList,
@@ -11,7 +11,6 @@ import { extractFoundationMicrobiota } from '@/lib/mrx/ExtractFoundationmicrobio
 import { extractAbundantSpecies } from '@/lib/mrx/extractAbundantSpecies'
 
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 
 function extractScoreBefore(text: string, label: string): number | null {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -464,7 +463,7 @@ async function parseDietaryRx(pages: Array<{ text: string; words: any[]; operato
       if (opResult && opResult.length >= 3) return { categories: sanitiseDietaryRx(opResult), method: 'operator_list' }
     }
     if (!process.env.GROQ_API_KEY) return null
-    const groqResult = await extractDietaryViaGroq(fullText, process.env.GROQ_API_KEY)
+    const groqResult = await extractDietaryViaGroq(fullText)
     if (groqResult.length >= 3) return { categories: groqResult, method: 'groq_70b' }
     return null
   } catch (e) {
@@ -488,7 +487,7 @@ export async function POST(req: NextRequest) {
 
     let speciesList: string[] = []
     try {
-      const res = await groq.chat.completions.create({
+      const res = await groqChatCompletion({
         model: 'openai/gpt-oss-20b', max_tokens: 2000, temperature: 0,
         messages: [
           { role: 'system', content: 'Extract ALL microbial species names from this gut microbiome report. Include bacteria, fungi, archaea. Use genus + species format. Return ONLY: { "species": ["species 1", "species 2", ...] } No duplicates.' },

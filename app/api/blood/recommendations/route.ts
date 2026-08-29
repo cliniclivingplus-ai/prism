@@ -4,12 +4,11 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 import { createSupabaseAdmin } from '@/lib/blood/supabaseServer'
 import { findGuidanceMatch, type MarkerGuidanceRow } from '@/lib/blood/markerGuidance'
 import type { ExtractedMarker, MarkerRecommendation } from '@/lib/blood/types'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 
 // Deterministic trigger -> constrained-LLM-rationale, same pattern as
 // MicrobiomeRX's app/api/aic-supplements/route.ts: the recommendation
@@ -18,7 +17,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 // the row's own explanation to this specific patient's actual value.
 async function writeRationale(marker: ExtractedMarker, row: MarkerGuidanceRow): Promise<string> {
   try {
-    const completion = await groq.chat.completions.create({
+    const completion = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       max_tokens: 160,
       temperature: 0.25,

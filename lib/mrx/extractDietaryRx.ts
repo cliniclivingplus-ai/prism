@@ -451,16 +451,13 @@ Format:
 [{ "category": "Greens & Vegetables", "items": [{ "name": "AMARANTH", "freqs": ["3day","3day","alt"] }] }]`
 
 export async function extractDietaryViaGroq(
-  text: string,
-  groqApiKey: string
+  text: string
 ): Promise<DietaryCategory[]> {
-  // Dynamic import to avoid issues in browser contexts
-  const Groq = (await import('groq-sdk')).default
-  const groq = new Groq({ apiKey: groqApiKey })
+  const { groqChatCompletion } = await import('@/lib/groq')
 
   const sectionText = sliceDietarySection(text)
 
-  const completion = await groq.chat.completions.create({
+  const completion = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     max_tokens: 4000,
     temperature: 0.1,

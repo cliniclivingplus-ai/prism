@@ -4,7 +4,7 @@
 // Rules engine (deterministic) -> Groq (writes clinical rationale only)
 
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 import { createClient } from '@supabase/supabase-js'
 import {
   runAICSupplementRules,
@@ -13,7 +13,6 @@ import {
   type AICRulesOutput,
 } from '@/lib/mrx/aicSupplementRules'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,7 +39,7 @@ async function fetchAICProducts(): Promise<AICProduct[]> {
 
 async function writeRationale(rec: AICRecommendation): Promise<string> {
   try {
-    const completion = await groq.chat.completions.create({
+    const completion = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       max_tokens: 180,
       temperature: 0.25,

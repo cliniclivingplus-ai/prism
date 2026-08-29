@@ -1,6 +1,5 @@
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const MAX_REPORT_CHARS = 8000
 
 export type ExtractedSupplement = {
@@ -18,7 +17,7 @@ export type ExtractedSupplement = {
 // written, nothing inferred — that a coach reviews and edits before it's
 // ever shown to a patient (dosing info is never auto-published).
 export async function extractSupplementsFromReport(rawText: string): Promise<ExtractedSupplement[]> {
-  const completion = await groq.chat.completions.create({
+  const completion = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     temperature: 0.1,
     max_tokens: 1400,

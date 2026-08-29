@@ -1,7 +1,6 @@
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 import type { ExtractedMarker } from './types'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 const MAX_TEXT_CHARS = 12000
 
 const SYSTEM_PROMPT = `You extract every lab test result from a blood/diagnostic report's raw text into structured JSON. The report may combine multiple unrelated panels (e.g. CBC, a hormone panel, a mineral panel) in one document — extract every test from every panel present. It may also contain long narrative "Interpretation"/"Result" prose sections — do not extract those as tests, only the actual named test result rows.
@@ -69,7 +68,7 @@ function parseMarkersJson(raw: string): ExtractedMarker[] {
 // account) and had nothing to do with the report itself. Now the caller
 // gets the real error and can tell those apart.
 export async function extractMarkers(rawText: string): Promise<ExtractedMarker[]> {
-  const completion = await groq.chat.completions.create({
+  const completion = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     temperature: 0,
     max_tokens: 4000,

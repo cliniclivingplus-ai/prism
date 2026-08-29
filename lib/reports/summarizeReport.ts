@@ -1,10 +1,9 @@
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const MAX_REPORT_CHARS = 8000
 
 export async function summarizeReportForPatient(reportType: string, patientName: string, rawText: string): Promise<string> {
-  const completion = await groq.chat.completions.create({
+  const completion = await groqChatCompletion({
     model: 'openai/gpt-oss-120b',
     temperature: 0.3,
     max_tokens: 700,

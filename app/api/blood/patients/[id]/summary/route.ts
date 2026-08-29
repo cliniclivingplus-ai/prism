@@ -4,11 +4,10 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 import { createSupabaseAdmin } from '@/lib/blood/supabaseServer'
 import { buildMarkerTrends } from '@/lib/blood/patientTrends'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 
 const NO_TREND_MESSAGE = 'Not enough history yet. Upload another report for this patient to start seeing a trend summary.'
 
@@ -98,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .map((r) => `${r.name}: ${r.history}${r.unit ? ' ' + r.unit : ''} (reference range: ${r.refRange || 'not printed'}), ${r.change === 'up' ? 'increased' : r.change === 'down' ? 'decreased' : 'stayed the same'}, currently ${r.inRange ? 'within range' : 'out of range'}`)
       .join('\n')
 
-    const completion = await groq.chat.completions.create({
+    const completion = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       max_tokens: 300,
       temperature: 0.25,

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const MAX_HISTORY_MESSAGES = 10
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 // Support both possible env var names
@@ -343,7 +342,7 @@ ${filterContext}
     // quadratically with conversation length since every prior turn gets resent.
     const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES)
 
-    const response = await groq.chat.completions.create({
+    const response = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       max_tokens: 1000,
       messages: [

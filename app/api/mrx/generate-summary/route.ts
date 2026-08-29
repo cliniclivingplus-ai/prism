@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(req: NextRequest) {
   const { reportId, speciesData } = await req.json()
 
-  const response = await groq.chat.completions.create({
+  const response = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     max_tokens: 800,
     messages: [
