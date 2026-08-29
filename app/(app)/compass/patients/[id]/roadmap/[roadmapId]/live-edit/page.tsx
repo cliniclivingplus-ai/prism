@@ -12,6 +12,7 @@ import WeekCareTemplate from '@/components/guide-templates/WeekCareTemplate'
 import WeekEarthTemplate from '@/components/guide-templates/WeekEarthTemplate'
 import WeekEditorialTemplate from '@/components/guide-templates/WeekEditorialTemplate'
 import WeekNeonTemplate from '@/components/guide-templates/WeekNeonTemplate'
+import DashboardClient from '@/components/guide-templates/DashboardClient'
 
 // Every Week-family skin supports inline editing, so the coach edits on the
 // exact template the patient sees rather than on a stand-in.
@@ -26,6 +27,13 @@ const WEEK_FAMILY = {
   'week-neon': WeekNeonTemplate,
 } as const
 
+// Templates with their own dedicated, read-only-only component — none of
+// these support an `editable` prop (yet). Classic falls through to
+// DashboardClient below instead, which already supports full inline
+// editing (it's the same editor the generic Classic editor route uses),
+// so it needs no template-specific work to join Week-family here.
+const NOT_YET_LIVE_EDITABLE = new Set(['almanac', 'pulse', 'onyx', 'vitals'])
+
 // Phase 1 of inline editing: a coach edits directly on the same component
 // the patient sees (WeekTemplate), instead of the generic Classic editor +
 // a separate "Preview as patient" tab. Gated the same way every other
@@ -36,9 +44,14 @@ const WEEK_FAMILY = {
 // viewer both render WeekTemplate too, but neither of them passes
 // `editable` or `roadmapId`, so they get the default read-only render.
 //
-// Only 'week' template roadmaps are wired up so far — every other template
-// still uses the Classic editor (DashboardClient) via the interpret page,
-// unchanged.
+// Phase 2: Classic joined Week-family here too — it already had full
+// inline editing under a different name (the "editable" mode the generic
+// interpret-page editor already used), so this route just points at the
+// same DashboardClient component instead of duplicating it. Almanac/Pulse/
+// Onyx/Vitals are still read-only-only components with no `editable` prop
+// at all, so they fall through to the "not yet available" message below —
+// building real inline editing for each is its own follow-up, not a small
+// addition.
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
 
@@ -67,13 +80,13 @@ export default async function LiveEditPage({ params }: { params: Promise<{ id: s
   const backHref = `/compass/patients/${patientId}`
   const classicEditorHref = roadmap.session_id ? `/compass/patients/${patientId}/sessions/${roadmap.session_id}/interpret` : backHref
 
-  const Template = WEEK_FAMILY[guideData.template as keyof typeof WEEK_FAMILY]
-  if (!Template) {
+  const Template = (WEEK_FAMILY as Record<string, typeof WeekTemplate | undefined>)[guideData.template]
+
+  if (!Template && NOT_YET_LIVE_EDITABLE.has(guideData.template)) {
     return (
       <div style={{ maxWidth: 560, margin: '80px auto', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
         <p style={{ fontSize: 14, color: '#5A5548' }}>
-          Inline editing is available for the Week-family templates. This plan uses &quot;{guideData.template}&quot; —
-          edit it in the Classic editor instead.
+          Inline editing isn&apos;t built for &quot;{guideData.template}&quot; yet — edit it in the Classic editor instead.
         </p>
         <Link href={classicEditorHref} style={{ color: '#8A3B2E', fontWeight: 700, textDecoration: 'underline' }}>
           <ArrowLeft size={12} style={{ display: 'inline', verticalAlign: -1 }} /> Open Classic editor
@@ -85,18 +98,35 @@ export default async function LiveEditPage({ params }: { params: Promise<{ id: s
   return (
     <div>
       <div style={{ background: '#FBF1E3', borderBottom: '1px solid #E8D4AE', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, fontSize: 13, color: '#7A5A1E', fontWeight: 600, flexWrap: 'wrap' }}>
-        <span>Editing live — changes save as you click away from each field.</span>
+        {/* Week-family autosaves per field on blur; DashboardClient (used
+            for Classic here) batches edits behind its own "Save changes"
+            button instead — the banner text has to match whichever one is
+            actually rendering below, or it promises a save behavior this
+            editor doesn't have. */}
+        <span>{Template ? 'Editing live — changes save as you click away from each field.' : 'Editing on the real layout — click Save changes below when you\'re done.'}</span>
         <Link href={classicEditorHref} style={{ color: '#7A5A1E', textDecoration: 'underline', fontWeight: 700 }}>
           <ArrowLeft size={11} style={{ display: 'inline', verticalAlign: -1 }} /> Classic editor
         </Link>
       </div>
-      <Template
-        editable
-        roadmapId={roadmapId}
-        shareToken={roadmap.share_revoked_at ? '' : (roadmap.share_token ?? '')}
-        data={guideData}
-        initialCheckins={checkins ?? []}
-      />
+      {Template ? (
+        <Template
+          editable
+          roadmapId={roadmapId}
+          shareToken={roadmap.share_revoked_at ? '' : (roadmap.share_token ?? '')}
+          data={guideData}
+          initialCheckins={checkins ?? []}
+        />
+      ) : (
+        <DashboardClient
+          editable
+          roadmapId={roadmapId}
+          shareToken={roadmap.share_revoked_at ? undefined : (roadmap.share_token ?? undefined)}
+          patientId={patientId}
+          data={guideData}
+          initialCheckins={checkins ?? []}
+          duration={roadmap.duration_months ?? undefined}
+        />
+      )}
     </div>
   )
 }

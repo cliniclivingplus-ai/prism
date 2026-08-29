@@ -1951,9 +1951,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   points, weekly goals, the daily checklist and the shopping
                   list directly on the real patient-facing layout instead of
                   this generic editor + a separate preview tab. Offered for
-                  every Week-family skin; the other templates still use this
-                  editor, so the live-edit route sends them back here. */}
-              {WEEK_FAMILY_TEMPLATES.includes(template) && patientId && (
+                  every Week-family skin and Classic (both render through
+                  this same editable view either way, so the live-edit route
+                  just points back here for Classic); Almanac/Pulse/Onyx/
+                  Vitals have no editable mode yet, so they still use this
+                  editor only. */}
+              {(WEEK_FAMILY_TEMPLATES.includes(template) || template === 'classic') && patientId && (
                 <a href={`/compass/patients/${patientId}/roadmap/${rid}/live-edit`}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.paper, color: C.ink, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
                   <Sparkles size={15} /> Edit live on your plan
