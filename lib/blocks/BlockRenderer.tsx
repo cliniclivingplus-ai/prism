@@ -157,8 +157,8 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
     case 'hero':
       return (
         <>
-          <h1 style={{ fontSize: 'clamp(1.6rem,4vw,2.1rem)', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: theme.ink }}>{block.title}</h1>
-          {block.subtitle && <p style={{ fontSize: 14, color: theme.muted, marginTop: 8 }}>{renderMarkdownBold(block.subtitle)}</p>}
+          <h1 style={{ fontSize: 'clamp(1.6rem,4vw,2.1rem)', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: theme.ink, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{block.title}</h1>
+          {block.subtitle && <p style={{ fontSize: 14, color: theme.muted, marginTop: 8, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{renderMarkdownBold(block.subtitle)}</p>}
         </>
       )
 
@@ -172,8 +172,8 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
               return (
                 <div key={i} style={{ padding: 14, borderRadius: 12, background: theme.accentSoft }}>
                   <Icon size={16} color={theme.accent} />
-                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8, color: theme.ink }}>{it.value}</div>
-                  <div style={{ fontSize: 11, color: theme.muted, marginTop: 2 }}>{it.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8, color: theme.ink, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{it.value}</div>
+                  <div style={{ fontSize: 11, color: theme.muted, marginTop: 2, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{it.label}</div>
                 </div>
               )
             })}
@@ -198,7 +198,7 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
                 <li key={i} onClick={onCheckItem ? () => onCheckItem(key, !checked) : undefined}
                   style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10, cursor: onCheckItem ? 'pointer' : 'default' }}>
                   {checked ? <CheckCircle2 size={17} color={theme.accent} style={{ flexShrink: 0, marginTop: 1 }} /> : <Circle size={17} color="#9CA3AF" style={{ flexShrink: 0, marginTop: 1 }} />}
-                  <span style={{ fontSize: 14, color: checked ? theme.muted : theme.ink, textDecoration: checked ? 'line-through' : 'none' }}>{renderMarkdownBold(it.text)}</span>
+                  <span style={{ fontSize: 14, color: checked ? theme.muted : theme.ink, textDecoration: checked ? 'line-through' : 'none', overflowWrap: 'break-word', wordBreak: 'break-word', minWidth: 0 }}>{renderMarkdownBold(it.text)}</span>
                 </li>
               )
             })}
@@ -221,7 +221,7 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 800, color: theme.ink }}>{it.topic}</div>
                   </div>
-                  <p style={{ fontSize: 12.5, color: theme.muted, lineHeight: 1.5, margin: 0 }}>{renderMarkdownBold(it.text)}</p>
+                  <p style={{ fontSize: 12.5, color: theme.muted, lineHeight: 1.5, margin: 0, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{renderMarkdownBold(it.text)}</p>
                 </div>
               )
             })}
@@ -241,7 +241,7 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
                   <div style={{ width: 64, height: 64, borderRadius: '50%', background: theme.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Icon size={30} color={theme.accent} strokeWidth={2} />
                   </div>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: theme.ink, lineHeight: 1.3 }}>{it.label}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: theme.ink, lineHeight: 1.3, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{it.label}</div>
                 </div>
               )
             })}
@@ -326,7 +326,7 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
       return (
         <>
           {block.title && <BlockTitle theme={theme}>{block.title}</BlockTitle>}
-          <p style={{ fontSize: 13.5, color: theme.muted, lineHeight: 1.6, margin: block.title ? '10px 0 0' : 0 }}>{renderMarkdownBold(block.text)}</p>
+          <p style={{ fontSize: 13.5, color: theme.muted, lineHeight: 1.6, margin: block.title ? '10px 0 0' : 0, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{renderMarkdownBold(block.text)}</p>
         </>
       )
 
@@ -347,7 +347,7 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
                 {block.rows.map((row, ri) => (
                   <tr key={ri}>
                     {row.map((cell, ci) => (
-                      <td key={ci} style={{ padding: '7px 10px', borderBottom: `1px solid ${theme.line}`, color: theme.muted }}>{cell}</td>
+                      <td key={ci} style={{ padding: '7px 10px', borderBottom: `1px solid ${theme.line}`, color: theme.muted, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{cell}</td>
                     ))}
                   </tr>
                 ))}
@@ -374,5 +374,5 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
 }
 
 function BlockTitle({ children, theme = DEFAULT_BLOCK_THEME }: { children: React.ReactNode; theme?: BlockTheme }) {
-  return <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: theme.ink }}>{children}</h2>
+  return <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: theme.ink, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{children}</h2>
 }

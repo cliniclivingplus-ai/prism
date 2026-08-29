@@ -1323,7 +1323,23 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const parsedGuidelines = parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines)
   const firstName = data.patient?.full_name?.split(' ')[0] ?? 'there'
   const coachFirst = data.coach?.full_name?.split(' ')[0] || 'your coach'
-  const blockTheme = toBlockTheme(PALETTES[theme])
+  // Custom blocks are one shared field regardless of which template ends
+  // up reading it, but not every template renders them the same way: Week-
+  // family and Almanac ignore "Plan look" (PALETTES[theme]) entirely and
+  // use their own fixed warm gold/paper tokens (see PALETTE in
+  // WeekTemplate.tsx / AlmanacTemplate.tsx — identical values, kept in
+  // sync manually since neither exports it), and Onyx ignores it too with
+  // its own fixed near-black/gold tokens (ONYX in OnyxTemplate.tsx). Only
+  // Classic/Pulse/Vitals actually derive their colors from PALETTES[theme].
+  // Without this, a block added here (previewed in the "Plan look" swatch)
+  // rendered visibly differently once the patient actually saw it on
+  // Almanac/Onyx — same bug reported live, verified by comparing this
+  // preview against each template's real toBlockTheme(...) call.
+  const blockTheme = template === 'onyx'
+    ? toBlockTheme({ accent: '#C9A44C', accentSoft: 'rgba(201,164,76,0.12)', line: 'rgba(255,255,255,0.08)', card: '#17181C', ink: '#F4F2EC', muted: '#8A8A8E' })
+    : (template === 'almanac' || WEEK_FAMILY_TEMPLATES.includes(template))
+    ? toBlockTheme({ accent: '#7A3346', accentSoft: '#F2E6CE', line: 'rgba(43,42,34,0.18)', card: '#F3ECDA', ink: '#2B2A22', muted: '#8C5B45' })
+    : toBlockTheme(PALETTES[theme])
 
   // Real adherence, not filler — every number below is derived straight from
   // recorded check-ins (never invented). Per-month "adherence" is goals
