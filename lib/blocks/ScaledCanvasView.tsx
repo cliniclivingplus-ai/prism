@@ -5,10 +5,20 @@ import { CANVAS_WIDTH } from './BlockRenderer'
 
 // Scales a fixed-width canvas as a single unit to fit whatever viewport it's
 // shown in — the same trick Canva itself uses for shared designs, rather
-// than reflowing individual blocks per breakpoint. Never scales UP past the
-// canvas's own design size on wide screens, only down on narrower ones.
-// Real DOM elements underneath (e.g. checklist checkboxes) stay genuinely
-// interactive under the CSS transform.
+// than reflowing individual blocks per breakpoint. Real DOM elements
+// underneath (e.g. checklist checkboxes) stay genuinely interactive under
+// the CSS transform.
+//
+// Always scales to fill its container's actual width, up or down — every
+// template's own content column is wider than CANVAS_WIDTH (720px design
+// width vs. 920-1180px depending on the template), and the earlier
+// "never scale up" cap left custom blocks visibly narrower than every
+// native section around them (e.g. the FAQ card spanning the full column
+// while a custom block stopped hundreds of pixels short of its right
+// edge) — reported live on a real Onyx roadmap. Scaling up here is safe:
+// unlike a raster image, every block is real vector/text content, so it
+// stays crisp at any scale, just matching the surrounding column width
+// instead of standing out as a fixed, undersized island.
 export function ScaledCanvasView({ children, canvasHeight }: { children: React.ReactNode; canvasHeight: number }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState(1)
@@ -16,7 +26,7 @@ export function ScaledCanvasView({ children, canvasHeight }: { children: React.R
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    const update = () => setScale(Math.min(1, el.clientWidth / CANVAS_WIDTH))
+    const update = () => setScale(el.clientWidth / CANVAS_WIDTH)
     update()
     const observer = new ResizeObserver(update)
     observer.observe(el)
