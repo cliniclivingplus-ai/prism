@@ -1985,7 +1985,16 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           screen. Fixed pins it there permanently while editing. The
           patient-facing render (share page, non-Week templates) keeps the
           original sticky behaviour, unaffected by this. */}
-      <div data-toc-bar style={{ position: editable ? 'fixed' : 'sticky', top: 60, left: editable ? 0 : undefined, right: editable ? 0 : undefined, zIndex: 40, background: C.paper, borderBottom: `1px solid ${C.rule}` }}>
+      {/* `left`/`right` for the fixed (editable) case come from the
+          className below, not inline style — position:fixed escapes the
+          flex layout entirely and measures from the viewport edge, so
+          left:0 sat UNDER the 248px sidebar (md:sticky, occupying real flex
+          space on desktop) instead of starting after it, making the pill
+          float disconnected above the sidebar instead of over the content
+          column. Mobile keeps left-0/right-0 since the sidebar is an
+          off-canvas drawer there, not in flow. */}
+      <div data-toc-bar className={editable ? 'left-0 right-0 md:left-[248px]' : undefined}
+        style={{ position: editable ? 'fixed' : 'sticky', top: 60, zIndex: 40, background: C.paper, borderBottom: `1px solid ${C.rule}` }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '8px 16px', position: 'relative' }}>
           <button data-toc-trigger onClick={() => setTocOpen((v) => !v)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: C.ink, background: C.accentSoft, border: `1px solid ${C.rule}`, borderRadius: 20, padding: '7px 14px', cursor: 'pointer' }}>
