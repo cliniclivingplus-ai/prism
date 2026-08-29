@@ -365,13 +365,19 @@ Each bullet under a section starts with •. Specific to this patient. No generi
 
     // A single completion can't reliably produce a full 12-month (48-week)
     // schedule — each week's JSON object now includes a 7-day escalation
-    // breakdown on top of the base fields, roughly 800+ tokens per week, so
-    // even 12 weeks alone would run past the model's ~8,192 output ceiling.
-    // Generating in 6-week chunks keeps every individual call well inside
-    // that limit regardless of total duration, and each chunk is told which
-    // phase of the overall arc it represents so the progression (eliminate →
-    // repair → rebuild) still holds across chunks.
-    const WEEKS_PER_CHUNK = 6
+    // breakdown on top of the base fields. Generating in small chunks keeps
+    // every individual call well inside two separate limits: the model's
+    // output ceiling, and this org's Groq on-demand TPM cap (a hard 8000
+    // tokens per request — prompt + max_tokens combined, not just output).
+    // A 6-week chunk's ~6400-token completion budget plus this call's own
+    // prompt overhead (patient facts, KB context, the JSON schema example)
+    // already exceeds 8000 on its own — observed failing with "Requested
+    // 8950" on a 3-month (2-chunk) generation. 3 weeks/chunk keeps the
+    // completion budget small enough to leave real headroom for the prompt,
+    // regardless of total duration. Each chunk is told which phase of the
+    // overall arc it represents so the progression (eliminate → repair →
+    // rebuild) still holds across chunks.
+    const WEEKS_PER_CHUNK = 3
     const chunkRanges: { startWeek: number; endWeek: number }[] = []
     for (let start = 1; start <= totalWeeks; start += WEEKS_PER_CHUNK) {
       chunkRanges.push({ startWeek: start, endWeek: Math.min(start + WEEKS_PER_CHUNK - 1, totalWeeks) })
@@ -463,12 +469,17 @@ RULES FOR "days" (building up through the week — make the progression visible 
 Exactly ${weeksInChunk} items, week_number ${startWeek} through ${endWeek}. Each week must address a different physiological system or mechanism from every other week in this chunk${usedThemes.length > 0 ? ' AND from every theme already covered above' : ''}. Every week needs its own complete "days" array — never omit it or leave it shorter than 7 entries.` }
         ],
         temperature: 0.3,
-        // Raised per-week budget (was 850+300) on the openai/gpt-oss-120b
-        // migration to leave headroom for hidden reasoning tokens, which
-        // count against max_tokens on this model even at reasoning_effort
-        // 'low'. Still capped at 8000 — Groq's practical output ceiling —
-        // and 6 weeks/chunk (the max WEEKS_PER_CHUNK) stays under it.
-        max_tokens: Math.min(8000, weeksInChunk * 1000 + 400),
+        // The real ceiling here is this org's Groq on-demand TPM cap (8000
+        // tokens per request, prompt + max_tokens combined) — not the
+        // model's own output limit. This budget only covers the completion
+        // half; leaving it well under 8000 (rather than up against it, as
+        // the old 1000/week + up-to-8000 formula did) reserves real room
+        // for this call's own prompt (patient facts, KB context, the JSON
+        // schema example) so the two combined don't trip the same 413 that
+        // motivated shrinking WEEKS_PER_CHUNK above. Actions/days got
+        // shorter too (12-word cap, no "why" clause), so 700/week plus a
+        // fixed buffer for hidden reasoning tokens is enough per week.
+        max_tokens: Math.min(4000, weeksInChunk * 700 + 400),
       })
       const raw = res.choices[0]?.message?.content ?? ''
       const parsed = extractJSON(raw)
