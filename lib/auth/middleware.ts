@@ -4,13 +4,17 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Everything is gated by default. A path is public only if it matches one of
 // these — the inverse of the source repos, where /api/* was exempt wholesale.
 //
-//   /login      the only unauthenticated page (self-serve signup is retired)
-//   /share/*    patient-facing share links (capability URLs, see lib/share)
-//   /api/share/*  the read + check-off endpoints those pages call
+//   /login           the only unauthenticated page
+//   /api/auth/signup the one deliberate re-opening of signup — domain-
+//                     restricted to @cliniclivingplus.com, enforced
+//                     server-side in the route itself (see its own comment)
+//   /share/*         patient-facing share links (capability URLs, see lib/share)
+//   /api/share/*     the read + check-off endpoints those pages call
 //
 // Anything added outside this list is authenticated automatically.
 const PUBLIC_PATHS: RegExp[] = [
   /^\/login(?:\/|$)/,
+  /^\/api\/auth\/signup$/,
   /^\/share(?:\/|$)/,
   /^\/api\/share(?:\/|$)/,
   /^\/_next\//,
