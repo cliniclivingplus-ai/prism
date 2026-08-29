@@ -12,11 +12,21 @@ import WeekCareTemplate from '@/components/guide-templates/WeekCareTemplate'
 import WeekEarthTemplate from '@/components/guide-templates/WeekEarthTemplate'
 import WeekEditorialTemplate from '@/components/guide-templates/WeekEditorialTemplate'
 import WeekNeonTemplate from '@/components/guide-templates/WeekNeonTemplate'
+import AlmanacTemplate from '@/components/guide-templates/AlmanacTemplate'
+import PulseTemplate from '@/components/guide-templates/PulseTemplate'
+import OnyxTemplate from '@/components/guide-templates/OnyxTemplate'
+import VitalsTemplate from '@/components/guide-templates/VitalsTemplate'
 import DashboardClient from '@/components/guide-templates/DashboardClient'
 
-// Every Week-family skin supports inline editing, so the coach edits on the
-// exact template the patient sees rather than on a stand-in.
-const WEEK_FAMILY = {
+// Every template with its own dedicated component now supports inline
+// editing (Phase 3 brought Almanac/Pulse/Onyx/Vitals up to the same
+// editable capability Week-family already had), so the coach edits on the
+// exact layout the patient sees rather than on a stand-in, regardless of
+// which template a roadmap uses. Classic has no dedicated component of its
+// own — it falls through to DashboardClient below, which already supports
+// the same inline editing (it's the same editor the generic Classic editor
+// route uses).
+const TEMPLATES = {
   'week': WeekTemplate,
   'week-aurora': WeekAuroraTemplate,
   'week-bloom': WeekBloomTemplate,
@@ -25,14 +35,11 @@ const WEEK_FAMILY = {
   'week-earth': WeekEarthTemplate,
   'week-editorial': WeekEditorialTemplate,
   'week-neon': WeekNeonTemplate,
+  'almanac': AlmanacTemplate,
+  'pulse': PulseTemplate,
+  'onyx': OnyxTemplate,
+  'vitals': VitalsTemplate,
 } as const
-
-// Templates with their own dedicated, read-only-only component — none of
-// these support an `editable` prop (yet). Classic falls through to
-// DashboardClient below instead, which already supports full inline
-// editing (it's the same editor the generic Classic editor route uses),
-// so it needs no template-specific work to join Week-family here.
-const NOT_YET_LIVE_EDITABLE = new Set(['almanac', 'pulse', 'onyx', 'vitals'])
 
 // Phase 1 of inline editing: a coach edits directly on the same component
 // the patient sees (WeekTemplate), instead of the generic Classic editor +
@@ -47,11 +54,14 @@ const NOT_YET_LIVE_EDITABLE = new Set(['almanac', 'pulse', 'onyx', 'vitals'])
 // Phase 2: Classic joined Week-family here too — it already had full
 // inline editing under a different name (the "editable" mode the generic
 // interpret-page editor already used), so this route just points at the
-// same DashboardClient component instead of duplicating it. Almanac/Pulse/
-// Onyx/Vitals are still read-only-only components with no `editable` prop
-// at all, so they fall through to the "not yet available" message below —
-// building real inline editing for each is its own follow-up, not a small
-// addition.
+// same DashboardClient component instead of duplicating it.
+//
+// Phase 3: Almanac/Pulse/Onyx/Vitals each gained their own `editable` mode
+// (InlineEditableText + a per-field patchRoadmap autosave, matching Week's
+// pattern — Founder's note/Coach's note/Care team/Your why/Power points/
+// Services/lifestyle/meals/schedule/checklist/weekly goals/grocery list are
+// all editable in place now), so every template a roadmap can use is
+// reachable from here.
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
 
@@ -80,20 +90,7 @@ export default async function LiveEditPage({ params }: { params: Promise<{ id: s
   const backHref = `/compass/patients/${patientId}`
   const classicEditorHref = roadmap.session_id ? `/compass/patients/${patientId}/sessions/${roadmap.session_id}/interpret` : backHref
 
-  const Template = (WEEK_FAMILY as Record<string, typeof WeekTemplate | undefined>)[guideData.template]
-
-  if (!Template && NOT_YET_LIVE_EDITABLE.has(guideData.template)) {
-    return (
-      <div style={{ maxWidth: 560, margin: '80px auto', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
-        <p style={{ fontSize: 14, color: '#5A5548' }}>
-          Inline editing isn&apos;t built for &quot;{guideData.template}&quot; yet — edit it in the Classic editor instead.
-        </p>
-        <Link href={classicEditorHref} style={{ color: '#8A3B2E', fontWeight: 700, textDecoration: 'underline' }}>
-          <ArrowLeft size={12} style={{ display: 'inline', verticalAlign: -1 }} /> Open Classic editor
-        </Link>
-      </div>
-    )
-  }
+  const Template = (TEMPLATES as Record<string, typeof WeekTemplate | undefined>)[guideData.template]
 
   return (
     <div>

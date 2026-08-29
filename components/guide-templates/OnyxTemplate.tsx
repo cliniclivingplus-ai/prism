@@ -31,8 +31,9 @@ import { matchGuideImageDistinct } from '@/lib/pdf/matchGuideImage'
 import { buildInlineExportScript } from '@/lib/pdf/inlineExportScript'
 import { CanvasBlocksSection } from './CanvasBlocksSection'
 import { toBlockTheme } from '@/lib/blocks/BlockRenderer'
-import { splitIntoPeriods, parseScheduleLines } from '@/lib/periodBullets'
+import { splitIntoPeriods, parseScheduleLines, joinPeriods } from '@/lib/periodBullets'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
+import InlineEditableText from '@/components/InlineEditableText'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -208,7 +209,18 @@ function SignatureBar({ pct, goalsDone, totalActionsInPlan }: { pct: number; goa
   )
 }
 
-export default function OnyxTemplate({ shareToken, data, initialCheckins }: { shareToken: string; data: GuideData; initialCheckins: Checkin[] }) {
+export default function OnyxTemplate({ shareToken, data, initialCheckins, editable = false, roadmapId }: {
+  shareToken: string
+  data: GuideData
+  initialCheckins: Checkin[]
+  // Inline coach editing — see components/InlineEditableText.tsx. Defaults
+  // to false and is never passed by the public /share/roadmap/<token> page
+  // or the read-only archived-version viewer, only by the authenticated
+  // coach route that opts into it explicitly (same "prop defaults closed"
+  // pattern WeekTemplate's own `editable` prop already uses).
+  editable?: boolean
+  roadmapId?: string
+}) {
   const firstName = data.patient.full_name?.split(' ')[0] || 'there'
   const coachFirst = data.coach?.full_name?.split(' ')[0] || 'your coach'
   const hiddenSections = data.hiddenSections ?? []
@@ -216,7 +228,86 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
   const parsed = useMemo(() => parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines), [data.roadmap.nutritionist_guidelines])
   const lifestyleBullets = useMemo(() => parseBullets(data.roadmap.lifestyle_guidelines), [data.roadmap.lifestyle_guidelines])
 
-  const months = useMemo(() => reshapeRoadmapIntoMonths(data.roadmap.weekly_schedule).filter((m) => m.planned), [data.roadmap.weekly_schedule])
+  // Best-effort, fire-and-forget — local state below already reflects the
+  // edit optimistically, matching WeekTemplate's own patchRoadmap helper.
+  function patchRoadmap(body: Record<string, unknown>) {
+    if (!roadmapId) return
+    fetch(`/api/compass/roadmaps/${roadmapId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }).catch(() => {})
+  }
+
+  // "Your roadmap" here spans every month/week (unlike WeekTemplate's single
+  // week), so the editable copy is the whole weekly_schedule array, not one
+  // week's actions — saveWeekAction below finds the right week by number.
+  const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
+  const months = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+  function saveWeekAction(weekNumber: number, dayIndex: number, actionIndex: number, next: string) {
+    setWeeklySchedule((prev) => {
+      const updated = prev.map((w) => {
+        if (w.week_number !== weekNumber) return w
+        if (w.days && w.days.length > 0) {
+          const days = w.days.map((d, i) => (i === dayIndex ? d.map((a, j) => (j === actionIndex ? next : a)) : d))
+          return { ...w, days }
+        }
+        const actions = (w.actions ?? []).map((a, j) => (j === actionIndex ? next : a))
+        return { ...w, actions }
+      })
+      patchRoadmap({ weekly_schedule: updated })
+      return updated
+    })
+  }
+
+  // Founder's note / coach's note / care team / "your why" — WeekTemplate
+  // doesn't make these editable (its `editable` mode only covers the
+  // structured, per-item lists), but the task explicitly asks for them
+  // here, so these follow the same per-field autosave pattern as
+  // DashboardClient's Classic editor uses for the identical fields,
+  // just committed immediately (via patchRoadmap) instead of behind a
+  // "Save changes" button — the same "always-persisted" feel as every
+  // other editable field on this page.
+  const [founderNote, setFounderNote] = useState(data.founderNote)
+  function saveFounderNote(next: string) {
+    setFounderNote(next)
+    patchRoadmap({ guide_overrides: { founder_note: next } })
+  }
+  const [coachQuote, setCoachQuote] = useState(data.coachQuote)
+  function saveCoachQuote(next: string) {
+    setCoachQuote(next)
+    patchRoadmap({ guide_overrides: { coach_quote: next } })
+  }
+  const [whyReflection, setWhyReflection] = useState(data.whyReflection)
+  function saveWhyReflection(next: string) {
+    setWhyReflection(next)
+    patchRoadmap({ guide_overrides: { why_reflection: next } })
+  }
+  const [careTeam, setCareTeam] = useState(data.careTeam || [])
+  function saveCareTeam(next: typeof careTeam) {
+    setCareTeam(next)
+    patchRoadmap({ guide_overrides: { care_team: next } })
+  }
+  function updateCareTeamField(i: number, field: keyof (typeof careTeam)[number], value: string) {
+    setCareTeam((prev) => prev.map((m, idx) => (idx === i ? { ...m, [field]: value } : m)))
+  }
+  function blurCareTeam() { patchRoadmap({ guide_overrides: { care_team: careTeam } }) }
+  const [powerPoints, setPowerPoints] = useState(data.powerPoints || [])
+  function savePowerPoints(next: typeof powerPoints) {
+    setPowerPoints(next)
+    patchRoadmap({ guide_overrides: { power_points: next } })
+  }
+  function updatePowerPointField(i: number, field: keyof (typeof powerPoints)[number], value: string) {
+    setPowerPoints((prev) => prev.map((p, idx) => (idx === i ? { ...p, [field]: value } : p)))
+  }
+  function blurPowerPoints() { patchRoadmap({ guide_overrides: { power_points: powerPoints } }) }
+  const [careServices, setCareServices] = useState(data.careServices || [])
+  function saveCareServices(next: typeof careServices) {
+    setCareServices(next)
+    patchRoadmap({ guide_overrides: { care_services: next } })
+  }
+  function updateCareServiceField(i: number, field: keyof (typeof careServices)[number], value: string) {
+    setCareServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)))
+  }
+  function blurCareServices() { patchRoadmap({ guide_overrides: { care_services: careServices } }) }
 
   const [checkins, setCheckins] = useState<Checkin[]>(initialCheckins)
 
@@ -276,7 +367,20 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
 
   const checkedSet = useMemo(() => new Set(checkins.map((c) => (c.item_id ? `0:item:${c.item_id}:${c.checkin_date}` : `${c.week_number}:${c.action_index}:${c.checkin_date}`))), [checkins])
 
-  const checklistItems: ChecklistItem[] = data.dailyChecklistItems || []
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(data.dailyChecklistItems || [])
+  function saveChecklist(next: ChecklistItem[]) {
+    setChecklistItems(next)
+    patchRoadmap({ guide_overrides: { daily_checklist_items: next } })
+  }
+  function saveChecklistItemText(id: string, next: string) {
+    saveChecklist(checklistItems.map((it) => (it.id === id ? { ...it, text: next } : it)))
+  }
+  function addChecklistItem() {
+    saveChecklist([...checklistItems, { id: crypto.randomUUID(), text: 'New task', source: 'coach' }])
+  }
+  function removeChecklistItem(id: string) {
+    saveChecklist(checklistItems.filter((it) => it.id !== id))
+  }
   const [checkinDate, setCheckinDate] = useState(today)
   const checkinDoneCount = checklistItems.filter((it) => checkedSet.has(`0:item:${it.id}:${checkinDate}`)).length
   const checkinAllDone = checklistItems.length > 0 && checkinDoneCount === checklistItems.length
@@ -321,9 +425,43 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
     saveMetric('energy', Math.max(0, Math.min(10, (metricsCache[checkinDate]?.energy ?? 0) + delta)))
   }
 
-  const lifestyleByPeriod = useMemo(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS), [data.dailyLifestyleGuidelines])
-  const mealsByPeriod = useMemo(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS), [data.mealGuidelines])
-  const dailyScheduleText = data.dailySchedule || ''
+  const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS))
+  const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS))
+  function saveLifestyleItem(label: string, itemIndex: number, next: string) {
+    setLifestyleByPeriod((prev) => {
+      const items = parseBullets(prev[label] || '')
+      items[itemIndex] = next
+      const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      return updated
+    })
+  }
+  function saveMealItem(label: string, itemIndex: number, next: string) {
+    setMealsByPeriod((prev) => {
+      const items = parseBullets(prev[label] || '')
+      items[itemIndex] = next
+      const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      return updated
+    })
+  }
+
+  const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule || '')
+  function saveScheduleField(lineIndex: number, field: 'time' | 'text', nextValue: string) {
+    const clean = nextValue.replace(/\s*\n\s*/g, ' ').trim()
+    setDailyScheduleText((prev) => {
+      const parsedLines = parseScheduleLines(prev)
+      const current = parsedLines[lineIndex] ?? { time: '', text: '' }
+      const nextEntry = field === 'time' ? { ...current, time: clean } : { ...current, text: clean }
+      const lines = parsedLines.map((item, i) => {
+        const e = i === lineIndex ? nextEntry : item
+        return e.time ? `${e.time} — ${e.text}` : e.text
+      })
+      const updated = lines.join('\n')
+      patchRoadmap({ guide_overrides: { daily_schedule: updated } })
+      return updated
+    })
+  }
 
   // `date` is the specific day-tab's own real calendar date (see
   // dateForWeekDay above), not always today — each day tracks independently.
@@ -351,6 +489,42 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
   const [openGroceryWeek, setOpenGroceryWeek] = useState<number | null>(null)
   const [aiGroceryCache, setAiGroceryCache] = useState<Record<number, GroceryCategory[]>>({})
 
+  // null override means "keep computing it live from this patient's real
+  // matched recipes" (see lib/groceryList.ts); once a coach edits anything,
+  // the whole list becomes their own persisted content — same "override
+  // wins" pattern WeekTemplate uses for this same field.
+  const [groceryOverride, setGroceryOverride] = useState<GroceryCategory[] | null>(data.groceryListOverride)
+  function saveGroceryList(next: GroceryCategory[]) {
+    setGroceryOverride(next)
+    patchRoadmap({ guide_overrides: { grocery_list_override: next } })
+  }
+  function saveGroceryItemText(cats: GroceryCategory[], catHead: string, itemIndex: number, next: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.map((it, i) => (i === itemIndex ? next : it)) } : cat)))
+  }
+  function removeGroceryItem(cats: GroceryCategory[], catHead: string, itemIndex: number) {
+    saveGroceryList(
+      cats
+        .map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.filter((_, i) => i !== itemIndex) } : cat))
+        .filter((cat) => cat.items.length > 0),
+    )
+  }
+  function addGroceryItem(cats: GroceryCategory[], catHead: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === catHead ? { ...cat, items: [...cat.items, 'New item'] } : cat)))
+  }
+  function saveGroceryCategoryName(cats: GroceryCategory[], oldHead: string, next: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === oldHead ? { ...cat, head: next } : cat)))
+  }
+  function removeGroceryCategory(cats: GroceryCategory[], head: string) {
+    saveGroceryList(cats.filter((cat) => cat.head !== head))
+  }
+  function addGroceryCategory(cats: GroceryCategory[]) {
+    saveGroceryList([...cats, { head: 'New category', items: ['New item'] }])
+  }
+  function resetGroceryList() {
+    setGroceryOverride(null)
+    patchRoadmap({ guide_overrides: { grocery_list_override: null } })
+  }
+
   const [boughtItems, setBoughtItems] = useState<Set<string>>(new Set())
   const groceryStorageKey = `clp-grocery-${shareToken}`
   useEffect(() => {
@@ -377,7 +551,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
   // on it — the regex-based list shows immediately and this quietly
   // replaces it when ready, or stays as-is if the call fails.
   useEffect(() => {
-    if (openGroceryWeek == null || data.groceryListOverride || aiGroceryCache[openGroceryWeek]) return
+    if (openGroceryWeek == null || groceryOverride || aiGroceryCache[openGroceryWeek]) return
     const weekRecipes = getSlotRecipes(openGroceryWeek, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
     const candidateItems = buildGroceryList(weekRecipes).flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
     if (candidateItems.length === 0) return
@@ -390,7 +564,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [openGroceryWeek, data.groceryListOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [openGroceryWeek, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
 
   const [openService, setOpenService] = useState<number | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
@@ -553,21 +727,37 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
               {checklistItems.map((item) => {
                 const checked = checkedSet.has(`0:item:${item.id}:${checkinDate}`)
                 return (
-                  <div key={item.id} onClick={() => toggleChecklistItem(item.id, item.text, checkinDate)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', borderRadius: 4, cursor: 'pointer', border: `1px solid ${checked ? ONYX.accent : ONYX.border}`, background: checked ? ONYX.accentSoft : ONYX.bg }}>
+                  <div key={item.id} onClick={() => { if (!editable) toggleChecklistItem(item.id, item.text, checkinDate) }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', borderRadius: 4, cursor: editable ? 'default' : 'pointer', border: `1px solid ${checked ? ONYX.accent : ONYX.border}`, background: checked ? ONYX.accentSoft : ONYX.bg }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
-                      {checked
+                      {!editable && (checked
                         ? <CheckCircle2 size={17} color={ONYX.accent} style={{ flexShrink: 0 }} />
-                        : <Circle size={17} style={{ flexShrink: 0, opacity: 0.4 }} />}
-                      <span style={{ fontSize: 13, fontWeight: 500, color: checked ? ONYX.accent : ONYX.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                        : <Circle size={17} style={{ flexShrink: 0, opacity: 0.4 }} />)}
+                      {editable ? (
+                        <InlineEditableText editable value={item.text} onSave={(next) => saveChecklistItemText(item.id, next)}
+                          style={{ fontSize: 13, fontWeight: 500, color: ONYX.ink, flex: 1 }} />
+                      ) : (
+                        <span style={{ fontSize: 13, fontWeight: 500, color: checked ? ONYX.accent : ONYX.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                      )}
                     </div>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? ONYX.accent : ONYX.accentSoft, color: checked ? ONYX.onAccent : ONYX.accent, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                    {editable ? (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); removeChecklistItem(item.id) }} title="Remove"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: ONYX.muted, flexShrink: 0 }}><X size={15} /></button>
+                    ) : (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? ONYX.accent : ONYX.accentSoft, color: checked ? ONYX.onAccent : ONYX.accent, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                    )}
                   </div>
                 )
               })}
             </div>
           ) : (
             <p style={{ fontSize: 13, color: ONYX.muted, marginTop: 12 }}>Once your coach confirms your supplements or lifestyle guidelines, your daily checklist will show up here.</p>
+          )}
+          {editable && (
+            <button type="button" onClick={addChecklistItem}
+              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 600, padding: '8px 14px', borderRadius: 2, border: `1px dashed ${ONYX.border}`, background: 'none', color: ONYX.accent, cursor: 'pointer' }}>
+              + Add task
+            </button>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 18 }}>
@@ -608,7 +798,12 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
           <div style={{ fontSize: '0.7rem', letterSpacing: '0.08em', color: ONYX.muted, textTransform: 'uppercase', marginBottom: 8 }}>Founder, Living Plus</div>
           <div style={{ fontSize: '0.72rem', color: ONYX.muted }}>Tap the photo to read the note</div>
           <div data-founder-body style={{ display: founderOpen ? 'block' : 'none', textAlign: 'left', marginTop: 16, fontSize: '0.92rem', lineHeight: 1.7, color: ONYX.inkSoft }}>
-            {data.founderNote.split('\n\n').map((para, i) => <p key={i}>{para}</p>)}
+            {editable ? (
+              <InlineEditableText editable multiline value={founderNote} onSave={saveFounderNote}
+                style={{ display: 'block', fontSize: '0.92rem', lineHeight: 1.7, color: ONYX.inkSoft, minHeight: 120 }} />
+            ) : (
+              founderNote.split('\n\n').map((para, i) => <p key={i}>{para}</p>)
+            )}
           </div>
         </Card>
 
@@ -617,16 +812,24 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
             note above. */}
         {data.coach && (
           <Card id="coach" hidden={isHidden('coach')} style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <button data-coach-trigger onClick={() => data.coachQuote && setCoachOpen((v) => !v)}
-              style={{ width: 54, height: 54, borderRadius: '50%', flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : ONYX.accentSoft, border: `1px solid ${ONYX.border}`, padding: 0, cursor: data.coachQuote ? 'pointer' : 'default' }} />
+            <button data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
+              style={{ width: 54, height: 54, borderRadius: '50%', flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : ONYX.accentSoft, border: `1px solid ${ONYX.border}`, padding: 0, cursor: coachQuote || editable ? 'pointer' : 'default' }} />
             <div>
               <Eyebrow>Your coach</Eyebrow>
               <div style={{ fontFamily: SERIF, fontSize: '1.2rem', fontWeight: 500, marginTop: -6, color: ONYX.ink }}>{data.coach.full_name}</div>
               <div style={{ fontSize: '0.8rem', color: ONYX.muted, marginTop: 2 }}>{data.coach.designation}</div>
-              {data.coachQuote && (
+              {editable ? (
+                <>
+                  <div style={{ fontSize: '0.7rem', color: ONYX.muted, marginTop: 6 }}>A note from {coachFirst} (shown to the patient below the photo)</div>
+                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, maxWidth: 560 }}>
+                    <InlineEditableText editable multiline value={coachQuote} onSave={saveCoachQuote} placeholder="Add a personal note…"
+                      style={{ display: 'block', fontStyle: 'italic', color: ONYX.accentDeep, fontSize: '0.88rem' }} />
+                  </div>
+                </>
+              ) : coachQuote && (
                 <>
                   <div style={{ fontSize: '0.7rem', color: ONYX.muted, marginTop: 6 }}>Tap the photo for a note from {coachFirst}</div>
-                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: ONYX.accentDeep, fontSize: '0.88rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(data.coachQuote)}&rdquo;</div>
+                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: ONYX.accentDeep, fontSize: '0.88rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(coachQuote)}&rdquo;</div>
                 </>
               )}
             </div>
@@ -634,25 +837,54 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
         )}
 
         {/* Care team */}
-        {data.careTeam.length > 0 && (
+        {(careTeam.length > 0 || editable) && (
           <Card id="careteam" hidden={isHidden('careteam')}>
             <Eyebrow>Beyond your coach</Eyebrow>
             <SecTitle icon={<HeartPulse size={18} />}>Your care team</SecTitle>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginTop: 16 }}>
-              {data.careTeam.map((m, i) => (
-                <div key={i} style={{ background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '14px 16px' }}>
-                  <div style={{ fontFamily: SERIF, fontSize: '1.05rem', fontWeight: 500, color: ONYX.ink }}>{m.name}</div>
-                  {m.role && <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.muted, marginTop: 2 }}>{m.role}</div>}
-                  {m.intro && <p style={{ fontSize: '0.86rem', lineHeight: 1.5, marginTop: 8, color: ONYX.inkSoft }}>{renderMarkdownBold(m.intro)}</p>}
-                  {m.date && (
-                    <div style={{ fontSize: '0.78rem', color: ONYX.accentDeep, fontWeight: 600, marginTop: 8 }}>
-                      {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
-                    </div>
+              {careTeam.map((m, i) => (
+                <div key={i} style={{ background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '14px 16px', position: 'relative' }}>
+                  {editable ? (
+                    <>
+                      <button type="button" onClick={() => saveCareTeam(careTeam.filter((_, idx) => idx !== i))} title="Remove"
+                        style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: ONYX.muted }}><X size={14} /></button>
+                      <input value={m.name} onChange={(e) => updateCareTeamField(i, 'name', e.target.value)} onBlur={blurCareTeam} placeholder="Name"
+                        style={{ display: 'block', width: '100%', fontFamily: SERIF, fontSize: '1.05rem', fontWeight: 500, color: ONYX.ink, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '2px 4px', marginBottom: 6, boxSizing: 'border-box' }} />
+                      <input value={m.role} onChange={(e) => updateCareTeamField(i, 'role', e.target.value)} onBlur={blurCareTeam} placeholder="Role"
+                        style={{ display: 'block', width: '100%', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.muted, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '2px 4px', marginBottom: 8, boxSizing: 'border-box' }} />
+                      <textarea value={m.intro} onChange={(e) => updateCareTeamField(i, 'intro', e.target.value)} onBlur={blurCareTeam} placeholder="Short intro" rows={2}
+                        style={{ display: 'block', width: '100%', fontSize: '0.86rem', lineHeight: 1.5, color: ONYX.inkSoft, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '2px 4px', marginBottom: 8, boxSizing: 'border-box', resize: 'vertical' }} />
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <input type="date" value={m.date} onChange={(e) => updateCareTeamField(i, 'date', e.target.value)} onBlur={blurCareTeam}
+                          style={{ fontSize: '0.75rem', color: ONYX.ink, background: ONYX.card, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '4px 6px' }} />
+                        <input type="time" value={m.time} onChange={(e) => updateCareTeamField(i, 'time', e.target.value)} onBlur={blurCareTeam}
+                          style={{ fontSize: '0.75rem', color: ONYX.ink, background: ONYX.card, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '4px 6px' }} />
+                        <input value={m.mode} onChange={(e) => updateCareTeamField(i, 'mode', e.target.value)} onBlur={blurCareTeam} placeholder="Mode (e.g. Video)"
+                          style={{ fontSize: '0.75rem', color: ONYX.ink, background: ONYX.card, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '4px 6px', flex: 1, minWidth: 100 }} />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontFamily: SERIF, fontSize: '1.05rem', fontWeight: 500, color: ONYX.ink }}>{m.name}</div>
+                      {m.role && <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.muted, marginTop: 2 }}>{m.role}</div>}
+                      {m.intro && <p style={{ fontSize: '0.86rem', lineHeight: 1.5, marginTop: 8, color: ONYX.inkSoft }}>{renderMarkdownBold(m.intro)}</p>}
+                      {m.date && (
+                        <div style={{ fontSize: '0.78rem', color: ONYX.accentDeep, fontWeight: 600, marginTop: 8 }}>
+                          {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
             </div>
+            {editable && (
+              <button type="button" onClick={() => saveCareTeam([...careTeam, { name: '', role: '', intro: '', date: '', time: '', mode: '' }])}
+                style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 600, padding: '8px 14px', borderRadius: 2, border: `1px dashed ${ONYX.border}`, background: 'none', color: ONYX.accent, cursor: 'pointer' }}>
+                + Add care team member
+              </button>
+            )}
           </Card>
         )}
 
@@ -680,8 +912,11 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
           </div>
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${ONYX.border}` }}>
             <Eyebrow>Your why</Eyebrow>
-            {data.whyReflection ? (
-              <p style={{ fontSize: '0.92rem', lineHeight: 1.65, color: ONYX.inkSoft }}>{renderMarkdownBold(data.whyReflection)}</p>
+            {editable ? (
+              <InlineEditableText editable multiline value={whyReflection} onSave={saveWhyReflection} placeholder="Not filled in yet."
+                style={{ display: 'block', fontSize: '0.92rem', lineHeight: 1.65, color: ONYX.inkSoft, minHeight: 60 }} />
+            ) : whyReflection ? (
+              <p style={{ fontSize: '0.92rem', lineHeight: 1.65, color: ONYX.inkSoft }}>{renderMarkdownBold(whyReflection)}</p>
             ) : (
               <p style={{ fontSize: '0.88rem', color: ONYX.muted }}>Not filled in yet.</p>
             )}
@@ -702,7 +937,12 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
                       {items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                           <Circle size={11} color={ONYX.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
-                          <span style={{ fontSize: 13, lineHeight: 1.5, color: ONYX.inkSoft }}>{renderMarkdownBold(item)}</span>
+                          {editable ? (
+                            <InlineEditableText editable value={item} onSave={(next) => saveLifestyleItem(label, i, next)}
+                              style={{ fontSize: 13, lineHeight: 1.5, color: ONYX.inkSoft, flex: 1 }} />
+                          ) : (
+                            <span style={{ fontSize: 13, lineHeight: 1.5, color: ONYX.inkSoft }}>{renderMarkdownBold(item)}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -727,7 +967,12 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
                       {items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                           <Circle size={11} color={ONYX.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
-                          <span style={{ fontSize: 13, lineHeight: 1.5, color: ONYX.inkSoft }}>{renderMarkdownBold(item)}</span>
+                          {editable ? (
+                            <InlineEditableText editable value={item} onSave={(next) => saveMealItem(label, i, next)}
+                              style={{ fontSize: 13, lineHeight: 1.5, color: ONYX.inkSoft, flex: 1 }} />
+                          ) : (
+                            <span style={{ fontSize: 13, lineHeight: 1.5, color: ONYX.inkSoft }}>{renderMarkdownBold(item)}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -748,8 +993,21 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
                   <span style={{ position: 'absolute', left: -34, top: 0, width: 26, height: 26, borderRadius: '50%', background: ONYX.accentSoft, border: `2px solid ${ONYX.card}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Circle size={9} color={ONYX.accent} />
                   </span>
-                  {item.time && <div style={{ fontSize: 11.5, fontWeight: 700, color: ONYX.accent }}>{item.time}</div>}
-                  <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 2, color: ONYX.inkSoft }}>{item.text}</div>
+                  {editable ? (
+                    <>
+                      <InlineEditableText editable value={item.time} placeholder="Time"
+                        onSave={(next) => saveScheduleField(i, 'time', next)}
+                        style={{ display: 'inline-block', fontSize: 11.5, fontWeight: 700, color: ONYX.accent }} />
+                      <InlineEditableText editable value={item.text} placeholder="Activity"
+                        onSave={(next) => saveScheduleField(i, 'text', next)}
+                        style={{ display: 'block', fontSize: 13, lineHeight: 1.5, marginTop: 2, color: ONYX.inkSoft }} />
+                    </>
+                  ) : (
+                    <>
+                      {item.time && <div style={{ fontSize: 11.5, fontWeight: 700, color: ONYX.accent }}>{item.time}</div>}
+                      <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 2, color: ONYX.inkSoft }}>{item.text}</div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -813,11 +1071,21 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
                                     {(w.days?.[dayIndex] ?? w.actions ?? []).map((action, ai) => {
                                       const checked = checkedSet.has(`${w.week_number}:${ai}:${dayDate}`)
                                       return (
-                                        <li key={ai} data-goal-toggle={`${w.week_number}:${ai}:${dayDate}`} onClick={() => toggleGoal(w.week_number, ai, dayDate)}
-                                          style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', marginBottom: 8, padding: '2px 0' }}>
-                                          <span data-goal-icon-done style={{ display: checked ? 'inline-flex' : 'none', flexShrink: 0, marginTop: 2 }}><CheckCircle2 size={15} color={ONYX.accent} /></span>
-                                          <span data-goal-icon-undone style={{ display: checked ? 'none' : 'inline-flex', flexShrink: 0, marginTop: 2 }}><Circle size={15} color={ONYX.muted} /></span>
-                                          <span data-goal-text style={{ color: checked ? ONYX.muted : ONYX.inkSoft, fontSize: '0.9rem', lineHeight: 1.6, textDecoration: checked ? 'line-through' : 'none' }}>{action}</span>
+                                        <li key={ai} data-goal-toggle={`${w.week_number}:${ai}:${dayDate}`}
+                                          onClick={() => { if (!editable) toggleGoal(w.week_number, ai, dayDate) }}
+                                          style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: editable ? 'default' : 'pointer', marginBottom: 8, padding: '2px 0' }}>
+                                          {!editable && (
+                                            <>
+                                              <span data-goal-icon-done style={{ display: checked ? 'inline-flex' : 'none', flexShrink: 0, marginTop: 2 }}><CheckCircle2 size={15} color={ONYX.accent} /></span>
+                                              <span data-goal-icon-undone style={{ display: checked ? 'none' : 'inline-flex', flexShrink: 0, marginTop: 2 }}><Circle size={15} color={ONYX.muted} /></span>
+                                            </>
+                                          )}
+                                          {editable ? (
+                                            <InlineEditableText editable value={action} onSave={(next) => saveWeekAction(w.week_number, dayIndex, ai, next)}
+                                              style={{ color: ONYX.inkSoft, fontSize: '0.9rem', lineHeight: 1.6, flex: 1 }} />
+                                          ) : (
+                                            <span data-goal-text style={{ color: checked ? ONYX.muted : ONYX.inkSoft, fontSize: '0.9rem', lineHeight: 1.6, textDecoration: checked ? 'line-through' : 'none' }}>{action}</span>
+                                          )}
                                         </li>
                                       )
                                     })}
@@ -934,12 +1202,26 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
         )}
 
         {/* Power points — coach-pasted links each with a short note */}
-        {data.powerPoints.filter((pp) => pp.url).length > 0 && (
+        {(powerPoints.filter((pp) => pp.url).length > 0 || editable) && (
           <Card id="nutrition" hidden={isHidden('nutrition')}>
             <Eyebrow>Worth a look</Eyebrow>
             <SecTitle icon={<LinkIcon size={18} />}>Your power points</SecTitle>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
-              {data.powerPoints.filter((pp) => pp.url).map((pp, i) => (
+              {editable ? powerPoints.map((pp, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderRadius: 2, border: `1px solid ${ONYX.border}` }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 2, background: ONYX.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <LinkIcon size={16} color={ONYX.accent} />
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <input value={pp.note} onChange={(e) => updatePowerPointField(i, 'note', e.target.value)} onBlur={blurPowerPoints} placeholder="Note"
+                      style={{ display: 'block', width: '100%', fontSize: '0.88rem', color: ONYX.ink, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '2px 4px', marginBottom: 6, boxSizing: 'border-box' }} />
+                    <input value={pp.url} onChange={(e) => updatePowerPointField(i, 'url', e.target.value)} onBlur={blurPowerPoints} placeholder="https://…"
+                      style={{ display: 'block', width: '100%', fontSize: '0.78rem', color: ONYX.accent, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '2px 4px', boxSizing: 'border-box' }} />
+                  </div>
+                  <button type="button" onClick={() => savePowerPoints(powerPoints.filter((_, idx) => idx !== i))} title="Remove"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: ONYX.muted, flexShrink: 0 }}><X size={15} /></button>
+                </div>
+              )) : powerPoints.filter((pp) => pp.url).map((pp, i) => (
                 <a key={i} href={pp.url} target="_blank" rel="noopener noreferrer"
                   style={{ display: 'flex', alignItems: 'flex-start', gap: 12, textDecoration: 'none', padding: '12px 14px', borderRadius: 2, border: `1px solid ${ONYX.border}` }}>
                   <div style={{ width: 34, height: 34, borderRadius: 2, background: ONYX.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -951,15 +1233,33 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
                   </div>
                 </a>
               ))}
+              {editable && (
+                <button type="button" onClick={() => savePowerPoints([...powerPoints, { url: '', note: '' }])}
+                  style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 600, padding: '8px 14px', borderRadius: 2, border: `1px dashed ${ONYX.border}`, background: 'none', color: ONYX.accent, cursor: 'pointer' }}>
+                  + Add power point
+                </button>
+              )}
             </div>
           </Card>
         )}
 
         {/* Shopping list */}
         <Card id="grocery" hidden={isHidden('grocery')}>
-          <Eyebrow>What to buy</Eyebrow>
-          <SecTitle icon={<ShoppingCart size={18} />}>Your shopping list</SecTitle>
-          <p style={{ fontSize: '0.87rem', color: ONYX.muted, marginTop: 14, marginBottom: 18 }}>Pulled straight from the ingredients of your matched recipes. Pick a week below to see it.</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <Eyebrow>What to buy</Eyebrow>
+              <SecTitle icon={<ShoppingCart size={18} />}>Your shopping list</SecTitle>
+            </div>
+            {editable && groceryOverride && (
+              <button type="button" onClick={resetGroceryList}
+                style={{ fontSize: '0.75rem', fontWeight: 600, padding: '7px 12px', borderRadius: 2, border: `1px solid ${ONYX.border}`, background: 'none', color: ONYX.accent, cursor: 'pointer' }}>
+                Reset to auto-generated list
+              </button>
+            )}
+          </div>
+          <p style={{ fontSize: '0.87rem', color: ONYX.muted, marginTop: 14, marginBottom: 18 }}>
+            {editable ? 'Pulled from your matched recipes — edit any item, or add your own.' : 'Pulled straight from the ingredients of your matched recipes. Pick a week below to see it.'}
+          </p>
           {months.length === 0 ? (
             <p style={{ fontSize: '0.87rem', color: ONYX.muted }}>Not planned yet, check back once your coach generates your roadmap.</p>
           ) : (
@@ -995,28 +1295,66 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
                     const cats = aiGroceryCache[w.week_number] ?? buildGroceryList(weekRecipes)
                     // A coach-edited list (guide_overrides.grocery_list_override)
                     // wins over the computed one.
-                    const finalCats = data.groceryListOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
+                    const finalCats = groceryOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
                     return (
                       <div key={w.week_number} data-grocery-week-body={w.week_number} style={{ display: openGroceryWeek === w.week_number ? 'grid' : 'none', borderTop: `1px solid ${ONYX.border}`, paddingTop: 18, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 18 }}>
                         {finalCats.map((cat) => (
                           <div key={cat.head}>
-                            <span style={{ fontSize: '0.66rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accentDeep }}>{cat.head}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                              {editable ? (
+                                <InlineEditableText editable value={cat.head} onSave={(next) => saveGroceryCategoryName(finalCats, cat.head, next)}
+                                  style={{ fontSize: '0.66rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accentDeep }} />
+                              ) : (
+                                <span style={{ fontSize: '0.66rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accentDeep }}>{cat.head}</span>
+                              )}
+                              {editable && (
+                                <button type="button" onClick={() => removeGroceryCategory(finalCats, cat.head)} title="Remove category"
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: ONYX.muted, flexShrink: 0 }}><X size={12} /></button>
+                              )}
+                            </div>
                             <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                              {cat.items.map((item) => {
+                              {cat.items.map((item, itemIndex) => {
                                 const itemKey = `${w.week_number}:${cat.head}:${item}`
                                 const bought = boughtItems.has(itemKey)
                                 return (
-                                  <li key={item} data-grocery-item={itemKey} onClick={() => toggleBought(itemKey)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.81rem', color: bought ? ONYX.muted : ONYX.inkSoft, padding: '3px 0', cursor: 'pointer' }}>
-                                    <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={ONYX.accent} /></span>
-                                    <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} color={ONYX.muted} /></span>
-                                    <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                                  <li key={itemIndex} data-grocery-item={itemKey} onClick={() => { if (!editable) toggleBought(itemKey) }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.81rem', color: bought ? ONYX.muted : ONYX.inkSoft, padding: '3px 0', cursor: editable ? 'default' : 'pointer' }}>
+                                    {!editable && (
+                                      <>
+                                        <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={ONYX.accent} /></span>
+                                        <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} color={ONYX.muted} /></span>
+                                      </>
+                                    )}
+                                    {editable ? (
+                                      <>
+                                        <InlineEditableText editable value={item} onSave={(next) => saveGroceryItemText(finalCats, cat.head, itemIndex, next)}
+                                          style={{ flex: 1 }} />
+                                        <button type="button" onClick={() => removeGroceryItem(finalCats, cat.head, itemIndex)} title="Remove"
+                                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: ONYX.muted, flexShrink: 0 }}><X size={11} /></button>
+                                      </>
+                                    ) : (
+                                      <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                                    )}
                                   </li>
                                 )
                               })}
+                              {editable && (
+                                <li>
+                                  <button type="button" onClick={() => addGroceryItem(finalCats, cat.head)}
+                                    style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.74rem', fontWeight: 600, padding: 0, border: 'none', background: 'none', color: ONYX.accent, cursor: 'pointer' }}>
+                                    + Add item
+                                  </button>
+                                </li>
+                              )}
                             </ul>
                           </div>
                         ))}
+                        {editable && (
+                          <button type="button" onClick={() => addGroceryCategory(finalCats)}
+                            style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.76rem', fontWeight: 600, padding: '8px 14px', borderRadius: 2, border: `1px dashed ${ONYX.border}`, background: 'none', color: ONYX.accent, cursor: 'pointer' }}>
+                            + Add category
+                          </button>
+                        )}
                       </div>
                     )
                   })}
@@ -1045,32 +1383,59 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins }: { sh
         )}
 
         {/* What's included in your care */}
-        {data.careServices.length > 0 && (
+        {(careServices.length > 0 || editable) && (
           <Card id="services" hidden={isHidden('services')}>
             <Eyebrow>Your plan</Eyebrow>
             <SecTitle icon={<Star size={18} />}>What&apos;s included in your care</SecTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginTop: 16 }}>
-              {data.careServices.map((svc, i) => {
-                const Icon = CARE_ICON_MAP[svc.icon] || Star
-                const isOpen = openService === i
-                return (
-                  <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
-                    style={{ textAlign: 'left', padding: '13px 12px', borderRadius: 2, cursor: 'pointer', border: `1px solid ${isOpen ? ONYX.accent : ONYX.border}`, background: isOpen ? ONYX.accentSoft : ONYX.bg }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 2, background: ONYX.card, border: `1px solid ${ONYX.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 9 }}>
-                      <Icon size={14} color={ONYX.accent} />
-                    </div>
-                    <div style={{ fontSize: '0.83rem', fontWeight: 600, color: ONYX.ink }}>{svc.name}</div>
-                    {svc.sessions && <div style={{ fontSize: '0.73rem', color: ONYX.muted, marginTop: 2 }}>{svc.sessions}</div>}
-                  </button>
-                )
-              })}
-            </div>
-            {data.careServices.map((svc, i) => svc.description && (
-              <div key={i} data-care-body={i} style={{ display: openService === i ? 'block' : 'none', marginTop: 14, padding: '14px 16px', borderRadius: 2, border: `1px solid ${ONYX.border}`, background: ONYX.bg }}>
-                <div style={{ fontWeight: 600, fontSize: '0.87rem', marginBottom: 6, color: ONYX.ink }}>{svc.name}</div>
-                <p style={{ fontSize: '0.85rem', lineHeight: 1.55, margin: 0, color: ONYX.inkSoft }}>{renderMarkdownBold(svc.description || '')}</p>
+            {editable ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
+                {careServices.map((svc, i) => (
+                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8, padding: '12px 14px', borderRadius: 2, border: `1px solid ${ONYX.border}` }}>
+                    <select value={svc.icon} onChange={(e) => { updateCareServiceField(i, 'icon', e.target.value); patchRoadmap({ guide_overrides: { care_services: careServices.map((s, idx) => (idx === i ? { ...s, icon: e.target.value } : s)) } }) }}
+                      style={{ fontSize: '0.78rem', color: ONYX.ink, background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '5px 6px' }}>
+                      {Object.keys(CARE_ICON_MAP).map((key) => <option key={key} value={key}>{key}</option>)}
+                    </select>
+                    <input value={svc.name} onChange={(e) => updateCareServiceField(i, 'name', e.target.value)} onBlur={blurCareServices} placeholder="Service name"
+                      style={{ fontSize: '0.83rem', fontWeight: 600, color: ONYX.ink, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '5px 6px', flex: 1, minWidth: 120 }} />
+                    <input value={svc.sessions} onChange={(e) => updateCareServiceField(i, 'sessions', e.target.value)} onBlur={blurCareServices} placeholder="Sessions"
+                      style={{ fontSize: '0.78rem', color: ONYX.muted, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '5px 6px', width: 110 }} />
+                    <textarea value={svc.description || ''} onChange={(e) => updateCareServiceField(i, 'description', e.target.value)} onBlur={blurCareServices} placeholder="Description" rows={2}
+                      style={{ fontSize: '0.83rem', lineHeight: 1.5, color: ONYX.inkSoft, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '5px 6px', width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
+                    <button type="button" onClick={() => saveCareServices(careServices.filter((_, idx) => idx !== i))} title="Remove"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: ONYX.muted, flexShrink: 0 }}><X size={15} /></button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => saveCareServices([...careServices, { name: '', icon: Object.keys(CARE_ICON_MAP)[0], sessions: '', description: '' }])}
+                  style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 600, padding: '8px 14px', borderRadius: 2, border: `1px dashed ${ONYX.border}`, background: 'none', color: ONYX.accent, cursor: 'pointer' }}>
+                  + Add service
+                </button>
               </div>
-            ))}
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginTop: 16 }}>
+                  {careServices.map((svc, i) => {
+                    const Icon = CARE_ICON_MAP[svc.icon] || Star
+                    const isOpen = openService === i
+                    return (
+                      <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
+                        style={{ textAlign: 'left', padding: '13px 12px', borderRadius: 2, cursor: 'pointer', border: `1px solid ${isOpen ? ONYX.accent : ONYX.border}`, background: isOpen ? ONYX.accentSoft : ONYX.bg }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 2, background: ONYX.card, border: `1px solid ${ONYX.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 9 }}>
+                          <Icon size={14} color={ONYX.accent} />
+                        </div>
+                        <div style={{ fontSize: '0.83rem', fontWeight: 600, color: ONYX.ink }}>{svc.name}</div>
+                        {svc.sessions && <div style={{ fontSize: '0.73rem', color: ONYX.muted, marginTop: 2 }}>{svc.sessions}</div>}
+                      </button>
+                    )
+                  })}
+                </div>
+                {careServices.map((svc, i) => svc.description && (
+                  <div key={i} data-care-body={i} style={{ display: openService === i ? 'block' : 'none', marginTop: 14, padding: '14px 16px', borderRadius: 2, border: `1px solid ${ONYX.border}`, background: ONYX.bg }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.87rem', marginBottom: 6, color: ONYX.ink }}>{svc.name}</div>
+                    <p style={{ fontSize: '0.85rem', lineHeight: 1.55, margin: 0, color: ONYX.inkSoft }}>{renderMarkdownBold(svc.description || '')}</p>
+                  </div>
+                ))}
+              </>
+            )}
           </Card>
         )}
 

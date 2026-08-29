@@ -35,8 +35,9 @@ import { matchGuideImageDistinct } from '@/lib/pdf/matchGuideImage'
 import { buildInlineExportScript } from '@/lib/pdf/inlineExportScript'
 import { CanvasBlocksSection } from './CanvasBlocksSection'
 import { toBlockTheme } from '@/lib/blocks/BlockRenderer'
-import { splitIntoPeriods, parseScheduleLines } from '@/lib/periodBullets'
+import { splitIntoPeriods, joinPeriods, parseScheduleLines } from '@/lib/periodBullets'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
+import InlineEditableText from '@/components/InlineEditableText'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -258,15 +259,58 @@ function StreakFlame({ lit, pop }: { lit: boolean; pop: boolean }) {
   )
 }
 
-export default function AlmanacTemplate({ shareToken, data, initialCheckins }: { shareToken: string; data: GuideData; initialCheckins: Checkin[] }) {
+export default function AlmanacTemplate({ shareToken, data, initialCheckins, editable = false, roadmapId }: {
+  shareToken: string
+  data: GuideData
+  initialCheckins: Checkin[]
+  // Inline coach editing — see components/InlineEditableText.tsx and
+  // WeekTemplate.tsx (the reference implementation). Defaults to false and
+  // is never passed by the public /share/roadmap/<token> page or the
+  // read-only archived-version viewer, only by the authenticated coach
+  // route that opts into it explicitly.
+  editable?: boolean
+  roadmapId?: string
+}) {
   const firstName = data.patient.full_name?.split(' ')[0] || 'there'
   const coachFirst = data.coach?.full_name?.split(' ')[0] || 'your coach'
-  // Always read-only — a coach's hide/show choice (made in the Classic
-  // editor, the only place editing happens) is just a saved fact here.
+  // A coach's hide/show choice is made in the Classic editor and just a
+  // saved fact here, same as before — unaffected by `editable`.
   const hiddenStyle = (id: string): CSSProperties => ((data.hiddenSections ?? []).includes(id) ? { display: 'none' } : {})
   const isHidden = (id: string) => (data.hiddenSections ?? []).includes(id)
   const parsed = useMemo(() => parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines), [data.roadmap.nutritionist_guidelines])
-  const months = useMemo(() => reshapeRoadmapIntoMonths(data.roadmap.weekly_schedule).filter((m) => m.planned), [data.roadmap.weekly_schedule])
+
+  // Best-effort, fire-and-forget — same helper and tolerance as
+  // WeekTemplate.tsx: local state below already reflects the edit
+  // optimistically, so a failed PATCH is never worse than a missed autosave.
+  function patchRoadmap(body: Record<string, unknown>) {
+    if (!roadmapId) return
+    fetch(`/api/compass/roadmaps/${roadmapId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }).catch(() => {})
+  }
+
+  // "Your roadmap" is normally derived straight from data.roadmap.weekly_schedule
+  // (read-only). In editable mode it instead derives from a local, patchable
+  // copy so a coach's edits show up immediately without a reload, same
+  // "override state seeded from the real data" pattern as everything else
+  // below.
+  const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
+  const months = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+  function saveRoadmapAction(weekNumber: number, dayIndex: number, actionIndex: number, next: string) {
+    setWeeklySchedule((prev) => {
+      const updated = prev.map((w) => {
+        if (w.week_number !== weekNumber) return w
+        if (w.days && w.days.length > 0) {
+          const days = w.days.map((d, i) => (i === dayIndex ? d.map((a, j) => (j === actionIndex ? next : a)) : d))
+          return { ...w, days }
+        }
+        const actions = (w.actions ?? []).map((a, j) => (j === actionIndex ? next : a))
+        return { ...w, actions }
+      })
+      patchRoadmap({ weekly_schedule: updated })
+      return updated
+    })
+  }
 
   // Same real, tappable goal check-off as Classic — striking a goal here
   // persists to the same checkins table, so "Track your progress" and the
@@ -337,7 +381,36 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
 
   const checkedSet = useMemo(() => new Set(checkins.map((c) => (c.item_id ? `0:item:${c.item_id}:${c.checkin_date}` : `${c.week_number}:${c.action_index}:${c.checkin_date}`))), [checkins])
 
-  const checklistItems: ChecklistItem[] = data.dailyChecklistItems || []
+  // Local editable copy, same override pattern as lifestyle/meal/schedule —
+  // stable `id`s mean editing wording or adding/removing items never
+  // reattaches a patient's historical checkmark to a different item.
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(data.dailyChecklistItems || [])
+  const [regenerating, setRegenerating] = useState(false)
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
+  function saveChecklist(next: ChecklistItem[]) {
+    setChecklistItems(next)
+    patchRoadmap({ guide_overrides: { daily_checklist_items: next } })
+  }
+  function saveChecklistItemText(id: string, next: string) {
+    saveChecklist(checklistItems.map((it) => (it.id === id ? { ...it, text: next } : it)))
+  }
+  function addChecklistItem() {
+    saveChecklist([...checklistItems, { id: crypto.randomUUID(), text: 'New task', source: 'coach' }])
+  }
+  function removeChecklistItem(id: string) {
+    saveChecklist(checklistItems.filter((it) => it.id !== id))
+  }
+  async function regenerateChecklist() {
+    setConfirmRegenerate(false)
+    setRegenerating(true)
+    try {
+      const res = await fetch(`/api/compass/roadmaps/${roadmapId}/regenerate-checklist`, { method: 'POST' })
+      const j = await res.json().catch(() => null)
+      if (res.ok && Array.isArray(j?.items)) saveChecklist(j.items)
+    } catch { /* keep the current list on failure */ }
+    finally { setRegenerating(false) }
+  }
+
   const [checkinDate, setCheckinDate] = useState(today)
   const checkinDoneCount = checklistItems.filter((it) => checkedSet.has(`0:item:${it.id}:${checkinDate}`)).length
   const checkinAllDone = checklistItems.length > 0 && checkinDoneCount === checklistItems.length
@@ -382,9 +455,51 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
     saveMetric('energy', Math.max(0, Math.min(10, (metricsCache[checkinDate]?.energy ?? 0) + delta)))
   }
 
-  const lifestyleByPeriod = useMemo(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS), [data.dailyLifestyleGuidelines])
-  const mealsByPeriod = useMemo(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS), [data.mealGuidelines])
-  const dailyScheduleText = data.dailySchedule || ''
+  // Local editable copies, seeded once from the real data — same
+  // per-period split/join round trip WeekTemplate/DashboardClient use, so
+  // every editor always serializes back to the identical "Label: text"
+  // storage format.
+  const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS))
+  const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS))
+  function saveLifestyleItem(label: string, itemIndex: number, next: string) {
+    setLifestyleByPeriod((prev) => {
+      const items = parseBullets(prev[label] || '')
+      items[itemIndex] = next
+      const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      return updated
+    })
+  }
+  function saveMealItem(label: string, itemIndex: number, next: string) {
+    setMealsByPeriod((prev) => {
+      const items = parseBullets(prev[label] || '')
+      items[itemIndex] = next
+      const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      return updated
+    })
+  }
+
+  // Flat ordered list, same as WeekTemplate — each entry is edited as two
+  // separate single-line fields (time/text), never a <textarea>, so a stray
+  // Enter can't insert a real newline into what MUST stay one storage line
+  // (parseScheduleLines splits on \n).
+  const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule || '')
+  function saveScheduleField(lineIndex: number, field: 'time' | 'text', nextValue: string) {
+    const clean = nextValue.replace(/\s*\n\s*/g, ' ').trim()
+    setDailyScheduleText((prev) => {
+      const parsedLines = parseScheduleLines(prev)
+      const current = parsedLines[lineIndex] ?? { time: '', text: '' }
+      const nextEntry = field === 'time' ? { ...current, time: clean } : { ...current, text: clean }
+      const lines = parsedLines.map((item, i) => {
+        const e = i === lineIndex ? nextEntry : item
+        return e.time ? `${e.time} — ${e.text}` : e.text
+      })
+      const updated = lines.join('\n')
+      patchRoadmap({ guide_overrides: { daily_schedule: updated } })
+      return updated
+    })
+  }
 
   // Brief mascot cheer + flame pop when a goal is freshly checked (not on
   // uncheck) — purely a feel-good pulse, never fabricates progress; the
@@ -429,6 +544,44 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
   const [openGroceryWeek, setOpenGroceryWeek] = useState<number | null>(null)
   const [aiGroceryCache, setAiGroceryCache] = useState<Record<number, GroceryCategory[]>>({})
 
+  // Shopping list override — null means "keep computing it live per week"
+  // (see finalCats below); once a coach edits anything, the whole list
+  // becomes their own persisted content, same "override wins" pattern as
+  // WeekTemplate. Note this preserves an existing quirk: one override list
+  // is shown for every week, not a per-week override — unchanged from the
+  // read-only behavior this replaces.
+  const [groceryOverride, setGroceryOverride] = useState<GroceryCategory[] | null>(data.groceryListOverride)
+  function saveGroceryList(next: GroceryCategory[]) {
+    setGroceryOverride(next)
+    patchRoadmap({ guide_overrides: { grocery_list_override: next } })
+  }
+  function saveGroceryItemText(cats: GroceryCategory[], catHead: string, itemIndex: number, next: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.map((it, i) => (i === itemIndex ? next : it)) } : cat)))
+  }
+  function removeGroceryItem(cats: GroceryCategory[], catHead: string, itemIndex: number) {
+    saveGroceryList(
+      cats
+        .map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.filter((_, i) => i !== itemIndex) } : cat))
+        .filter((cat) => cat.items.length > 0),
+    )
+  }
+  function addGroceryItem(cats: GroceryCategory[], catHead: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === catHead ? { ...cat, items: [...cat.items, 'New item'] } : cat)))
+  }
+  function saveGroceryCategoryName(cats: GroceryCategory[], oldHead: string, next: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === oldHead ? { ...cat, head: next } : cat)))
+  }
+  function removeGroceryCategory(cats: GroceryCategory[], head: string) {
+    saveGroceryList(cats.filter((cat) => cat.head !== head))
+  }
+  function addGroceryCategory(cats: GroceryCategory[]) {
+    saveGroceryList([...cats, { head: 'New category', items: ['New item'] }])
+  }
+  function resetGroceryList() {
+    setGroceryOverride(null)
+    patchRoadmap({ guide_overrides: { grocery_list_override: null } })
+  }
+
   // "Bought" checklist — same personal, never-synced-to-the-server
   // localStorage checklist as Classic, under the SAME storage key
   // (clp-grocery-${shareToken}) and the same item-key format, so checking
@@ -459,7 +612,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
   // on it — the regex-based list shows immediately and this quietly
   // replaces it when ready, or stays as-is if the call fails.
   useEffect(() => {
-    if (openGroceryWeek == null || data.groceryListOverride || aiGroceryCache[openGroceryWeek]) return
+    if (openGroceryWeek == null || groceryOverride || aiGroceryCache[openGroceryWeek]) return
     const weekRecipes = getSlotRecipes(openGroceryWeek, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
     const candidateItems = buildGroceryList(weekRecipes).flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
     if (candidateItems.length === 0) return
@@ -472,14 +625,68 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [openGroceryWeek, data.groceryListOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [openGroceryWeek, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
 
-  // What's included in your care — same coach-entered tiles as Classic.
+  // What's included in your care — same coach-entered tiles as Classic,
+  // editable via a local copy patched to guide_overrides.care_services
+  // (same override key DashboardClient's "Save changes" writes).
   const [openService, setOpenService] = useState<number | null>(null)
+  const [careServices, setCareServices] = useState(data.careServices || [])
+  function saveCareServices(next: typeof careServices) {
+    setCareServices(next)
+    patchRoadmap({ guide_overrides: { care_services: next } })
+  }
 
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [founderOpen, setFounderOpen] = useState(false)
   const [coachOpen, setCoachOpen] = useState(false)
+
+  // Founder's note / coach's quote / your why — same
+  // guide_overrides.founder_note / coach_quote / why_reflection keys
+  // DashboardClient's "Save changes" writes, just autosaved per-field here
+  // like every other editable field in this file.
+  const [founderNote, setFounderNote] = useState(data.founderNote)
+  function saveFounderNote(next: string) {
+    setFounderNote(next)
+    patchRoadmap({ guide_overrides: { founder_note: next } })
+  }
+  const [coachQuote, setCoachQuote] = useState(data.coachQuote)
+  function saveCoachQuote(next: string) {
+    setCoachQuote(next)
+    patchRoadmap({ guide_overrides: { coach_quote: next } })
+  }
+  const [whyReflection, setWhyReflection] = useState(data.whyReflection)
+  function saveWhyReflection(next: string) {
+    setWhyReflection(next)
+    patchRoadmap({ guide_overrides: { why_reflection: next } })
+  }
+
+  // Care team — guide_overrides.care_team, same shape as DashboardClient's
+  // AiEditButton "care_team_member" editor, just field-by-field here.
+  const [careTeam, setCareTeam] = useState(data.careTeam || [])
+  function saveCareTeam(next: typeof careTeam) {
+    setCareTeam(next)
+    patchRoadmap({ guide_overrides: { care_team: next } })
+  }
+  function addCareTeamMember() {
+    saveCareTeam([...careTeam, { name: '', role: '', intro: '', date: '', time: '', mode: '' }])
+  }
+  function removeCareTeamMember(i: number) {
+    saveCareTeam(careTeam.filter((_, idx) => idx !== i))
+  }
+
+  // Power points — guide_overrides.power_points.
+  const [powerPoints, setPowerPoints] = useState(data.powerPoints || [])
+  function savePowerPoints(next: typeof powerPoints) {
+    setPowerPoints(next)
+    patchRoadmap({ guide_overrides: { power_points: next } })
+  }
+  function addPowerPoint() {
+    savePowerPoints([...powerPoints, { url: '', note: '' }])
+  }
+  function removePowerPoint(i: number) {
+    savePowerPoints(powerPoints.filter((_, idx) => idx !== i))
+  }
 
   // Same "no real match beats a fabricated one" tag-matched photo as Classic
   // — a plain icon tile shows instead if nothing in the picture bank fits.
@@ -629,11 +836,29 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <SecTitle icon={<CheckCircle2 size={26} />}>Daily Health Check-in</SecTitle>
-            <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
-              style={{ fontSize: 12.5, background: '#fff', border: `1px solid ${PALETTE.line}`, padding: '8px 11px', borderRadius: 9, color: PALETTE.ink, fontWeight: 600 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {editable && (
+                <button type="button" onClick={() => setConfirmRegenerate(true)} disabled={regenerating}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', fontWeight: 700, padding: '8px 12px', borderRadius: 10, border: `1px solid ${PALETTE.line}`, background: '#fff', color: PALETTE.berry, cursor: regenerating ? 'default' : 'pointer', opacity: regenerating ? 0.6 : 1 }}>
+                  <Sparkles size={13} /> {regenerating ? 'Regenerating…' : 'Ask AI to regenerate'}
+                </button>
+              )}
+              <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
+                style={{ fontSize: 12.5, background: '#fff', border: `1px solid ${PALETTE.line}`, padding: '8px 11px', borderRadius: 9, color: PALETTE.ink, fontWeight: 600 }} />
+            </div>
           </div>
 
-          {checklistItems.length > 0 && (
+          {confirmRegenerate && (
+            <div style={{ background: 'rgba(122,51,70,0.08)', border: `1px solid ${PALETTE.berry}`, borderRadius: 12, padding: '12px 16px', margin: '14px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.82rem', color: PALETTE.ink }}>Regenerate from this patient&apos;s current supplements and lifestyle guidelines? Any manual edits to the checklist will be overwritten.</span>
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button type="button" onClick={() => setConfirmRegenerate(false)} style={{ fontSize: '0.78rem', fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: `1px solid ${PALETTE.line}`, background: '#fff', cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={regenerateChecklist} style={{ fontSize: '0.78rem', fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', background: PALETTE.berry, color: '#fff', cursor: 'pointer' }}>Regenerate</button>
+              </div>
+            </div>
+          )}
+
+          {!editable && checklistItems.length > 0 && (
             <p style={{ fontSize: 13, color: PALETTE.berry, fontWeight: 600, margin: '14px 0 4px' }}>
               {checkinAllDone
                 ? 'Everything checked off for today — nice work.'
@@ -648,21 +873,37 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
               {checklistItems.map((item) => {
                 const checked = checkedSet.has(`0:item:${item.id}:${checkinDate}`)
                 return (
-                  <div key={item.id} onClick={() => toggleChecklistItem(item.id, item.text, checkinDate)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${checked ? PALETTE.berry : PALETTE.line}`, background: checked ? 'rgba(122,51,70,0.08)' : 'rgba(255,255,255,0.5)' }}>
+                  <div key={item.id} onClick={() => { if (!editable) toggleChecklistItem(item.id, item.text, checkinDate) }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', borderRadius: 10, cursor: editable ? 'default' : 'pointer', border: `1px solid ${checked ? PALETTE.berry : PALETTE.line}`, background: checked ? 'rgba(122,51,70,0.08)' : 'rgba(255,255,255,0.5)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
-                      {checked
+                      {!editable && (checked
                         ? <CheckCircle2 size={17} color={PALETTE.berry} style={{ flexShrink: 0 }} />
-                        : <Circle size={17} style={{ flexShrink: 0, opacity: 0.4 }} />}
-                      <span style={{ fontSize: 13, fontWeight: 500, color: checked ? PALETTE.berry : PALETTE.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                        : <Circle size={17} style={{ flexShrink: 0, opacity: 0.4 }} />)}
+                      {editable ? (
+                        <InlineEditableText editable value={item.text} onSave={(next) => saveChecklistItemText(item.id, next)}
+                          style={{ fontSize: 13, fontWeight: 500, color: PALETTE.ink, flex: 1 }} />
+                      ) : (
+                        <span style={{ fontSize: 13, fontWeight: 500, color: checked ? PALETTE.berry : PALETTE.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                      )}
                     </div>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? PALETTE.berry : 'rgba(122,51,70,0.1)', color: checked ? '#fff' : PALETTE.berry, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                    {editable ? (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); removeChecklistItem(item.id) }} title="Remove"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.berry, opacity: 0.6, flexShrink: 0 }}><X size={15} /></button>
+                    ) : (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? PALETTE.berry : 'rgba(122,51,70,0.1)', color: checked ? '#fff' : PALETTE.berry, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                    )}
                   </div>
                 )
               })}
             </div>
           ) : (
             <p style={{ fontSize: 13, opacity: 0.65, marginTop: 16 }}>Once your coach confirms your supplements or lifestyle guidelines, your daily checklist will show up here.</p>
+          )}
+          {editable && (
+            <button type="button" onClick={addChecklistItem}
+              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+              + Add task
+            </button>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 24 }}>
@@ -711,7 +952,12 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
             </div>
           </div>
           <div data-founder-body style={{ display: founderOpen ? 'block' : 'none', marginTop: 20, fontSize: '0.95rem', lineHeight: 1.75 }}>
-            {data.founderNote.split('\n\n').map((para, i) => <p key={i}>{para}</p>)}
+            {editable ? (
+              <InlineEditableText editable as="div" multiline value={founderNote} onSave={saveFounderNote}
+                style={{ fontSize: '0.95rem', lineHeight: 1.75, whiteSpace: 'pre-wrap' }} />
+            ) : (
+              founderNote.split('\n\n').map((para, i) => <p key={i}>{para}</p>)
+            )}
           </div>
         </div>
       </section>
@@ -723,16 +969,23 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
       {data.coach && (
         <section id="coach" style={{ background: PALETTE.paper2, borderTop: `1px solid ${PALETTE.line}`, borderBottom: `1px solid ${PALETTE.line}`, padding: '3rem 1.5rem', ...hiddenStyle('coach') }}>
           <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-            <button data-coach-trigger onClick={() => data.coachQuote && setCoachOpen((v) => !v)}
-              style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}`, padding: 0, cursor: data.coachQuote ? 'pointer' : 'default' }} />
+            <button data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
+              style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}`, padding: 0, cursor: (coachQuote || editable) ? 'pointer' : 'default' }} />
             <div>
               <Eyebrow>Your coach</Eyebrow>
               <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 500, marginTop: -8 }}>{data.coach.full_name}</div>
               <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>{data.coach.designation}</div>
-              {data.coachQuote && (
+              {(coachQuote || editable) && (
                 <>
                   <div style={{ fontSize: '0.72rem', opacity: 0.55, marginTop: 8 }}>Tap the photo for a note from {coachFirst}</div>
-                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: PALETTE.berry, fontSize: '0.92rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(data.coachQuote)}&rdquo;</div>
+                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: PALETTE.berry, fontSize: '0.92rem', maxWidth: 560 }}>
+                    {editable ? (
+                      <InlineEditableText editable multiline value={coachQuote || ''} onSave={saveCoachQuote} placeholder="Add a note from your coach…"
+                        style={{ fontStyle: 'italic', color: PALETTE.berry, fontSize: '0.92rem' }} />
+                    ) : (
+                      <>&ldquo;{renderMarkdownBold(coachQuote)}&rdquo;</>
+                    )}
+                  </div>
                 </>
               )}
             </div>
@@ -742,25 +995,54 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
 
       {/* Care team — open, no card border, floating typographic treatment
           rather than a boxed tile. */}
-      {data.careTeam.length > 0 && (
+      {(careTeam.length > 0 || editable) && (
         <section id="careteam" style={{ background: PALETTE.paper3, padding: '4rem 1.5rem', ...hiddenStyle('careteam') }}>
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <Eyebrow>Beyond your coach</Eyebrow>
             <SecTitle icon={<HeartPulse size={26} />}>Your care team</SecTitle>
             <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
-              {data.careTeam.map((m, i) => (
+              {careTeam.map((m, i) => (
                 <div key={i} style={i > 0 ? { paddingTop: 24, borderTop: `1px solid ${PALETTE.line}` } : undefined}>
-                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', fontWeight: 500 }}>{m.name}</div>
-                  {m.role && <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry, marginTop: 4 }}>{m.role}</div>}
-                  {m.intro && <p style={{ fontSize: '0.95rem', lineHeight: 1.6, marginTop: 10, marginBottom: 0 }}>{renderMarkdownBold(m.intro)}</p>}
-                  {m.date && (
-                    <div style={{ fontSize: '0.85rem', color: PALETTE.berry, fontWeight: 600, marginTop: 10 }}>
-                      {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
+                  {editable ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <InlineEditableText editable value={m.name} placeholder="Name" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, name: next } : x)))}
+                          style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', fontWeight: 500, flex: 1 }} />
+                        <button type="button" onClick={() => removeCareTeamMember(i)} title="Remove"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.berry, opacity: 0.6, flexShrink: 0 }}><X size={15} /></button>
+                      </div>
+                      <InlineEditableText editable value={m.role} placeholder="Role" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, role: next } : x)))}
+                        style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }} />
+                      <InlineEditableText editable as="div" multiline value={m.intro} placeholder="Intro" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, intro: next } : x)))}
+                        style={{ fontSize: '0.95rem', lineHeight: 1.6 }} />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <InlineEditableText editable value={m.date} placeholder="Date (YYYY-MM-DD)" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, date: next } : x)))}
+                          style={{ fontSize: '0.85rem', color: PALETTE.berry, fontWeight: 600 }} />
+                        <InlineEditableText editable value={m.time} placeholder="Time (HH:MM)" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, time: next } : x)))}
+                          style={{ fontSize: '0.85rem', color: PALETTE.berry, fontWeight: 600 }} />
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', fontWeight: 500 }}>{m.name}</div>
+                      {m.role && <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry, marginTop: 4 }}>{m.role}</div>}
+                      {m.intro && <p style={{ fontSize: '0.95rem', lineHeight: 1.6, marginTop: 10, marginBottom: 0 }}>{renderMarkdownBold(m.intro)}</p>}
+                      {m.date && (
+                        <div style={{ fontSize: '0.85rem', color: PALETTE.berry, fontWeight: 600, marginTop: 10 }}>
+                          {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
+              {editable && (
+                <button type="button" onClick={addCareTeamMember}
+                  style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+                  + Add team member
+                </button>
+              )}
             </div>
           </div>
         </section>
@@ -790,8 +1072,11 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
           <div style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid ${PALETTE.line}` }}>
             <Eyebrow>Your why</Eyebrow>
             {whyImage && <img src={whyImage.image_url} alt={whyImage.label} style={{ display: 'block', width: '100%', maxWidth: 340, height: 'auto', borderRadius: 12, margin: '12px auto 16px' }} />}
-            {data.whyReflection ? (
-              <p style={{ fontSize: '0.95rem', lineHeight: 1.65 }}>{renderMarkdownBold(data.whyReflection)}</p>
+            {editable ? (
+              <InlineEditableText editable as="div" multiline value={whyReflection || ''} onSave={saveWhyReflection} placeholder="Not filled in yet."
+                style={{ fontSize: '0.95rem', lineHeight: 1.65 }} />
+            ) : whyReflection ? (
+              <p style={{ fontSize: '0.95rem', lineHeight: 1.65 }}>{renderMarkdownBold(whyReflection)}</p>
             ) : (
               <p style={{ fontSize: '0.9rem', opacity: 0.6 }}>Not filled in yet.</p>
             )}
@@ -814,7 +1099,12 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
                       {items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                           <Circle size={11} color={PALETTE.berry} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
-                          <span style={{ fontSize: '0.9rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          {editable ? (
+                            <InlineEditableText editable value={item} onSave={(next) => saveLifestyleItem(label, i, next)}
+                              style={{ fontSize: '0.9rem', lineHeight: 1.5 }} />
+                          ) : (
+                            <span style={{ fontSize: '0.9rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -841,7 +1131,12 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
                       {items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                           <Circle size={11} color={PALETTE.berry} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
-                          <span style={{ fontSize: '0.9rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          {editable ? (
+                            <InlineEditableText editable value={item} onSave={(next) => saveMealItem(label, i, next)}
+                              style={{ fontSize: '0.9rem', lineHeight: 1.5 }} />
+                          ) : (
+                            <span style={{ fontSize: '0.9rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -864,8 +1159,19 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
                   <span style={{ position: 'absolute', left: -34, top: 0, width: 26, height: 26, borderRadius: 13, background: 'rgba(122,51,70,0.1)', border: `2px solid ${PALETTE.paper1}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Circle size={9} color={PALETTE.berry} />
                   </span>
-                  {item.time && <div style={{ fontSize: '0.75rem', fontWeight: 700, color: PALETTE.berry }}>{item.time}</div>}
-                  <div style={{ fontSize: '0.9rem', lineHeight: 1.5, marginTop: 2 }}>{item.text}</div>
+                  {editable ? (
+                    <>
+                      <InlineEditableText editable value={item.time} placeholder="Time" onSave={(next) => saveScheduleField(i, 'time', next)}
+                        style={{ display: 'inline-block', fontSize: '0.75rem', fontWeight: 700, color: PALETTE.berry }} />
+                      <InlineEditableText editable value={item.text} placeholder="Activity" onSave={(next) => saveScheduleField(i, 'text', next)}
+                        style={{ display: 'block', fontSize: '0.9rem', lineHeight: 1.5, marginTop: 2 }} />
+                    </>
+                  ) : (
+                    <>
+                      {item.time && <div style={{ fontSize: '0.75rem', fontWeight: 700, color: PALETTE.berry }}>{item.time}</div>}
+                      <div style={{ fontSize: '0.9rem', lineHeight: 1.5, marginTop: 2 }}>{item.text}</div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -876,13 +1182,29 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
       {/* Power points — coach-pasted links (videos, articles, tools) each
           with a short note. Recipes are still browsable per-week inside
           "Your roadmap" below. */}
-      {data.powerPoints.filter((pp) => pp.url).length > 0 && (
+      {(powerPoints.filter((pp) => pp.url).length > 0 || editable) && (
         <section id="nutrition" style={{ background: PALETTE.paper3, padding: '4rem 1.5rem', ...hiddenStyle('nutrition') }}>
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <Eyebrow>Worth a look</Eyebrow>
             <SecTitle icon={<LinkIcon size={26} />}>Your Power Points</SecTitle>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
-              {data.powerPoints.filter((pp) => pp.url).map((pp, i) => (
+              {editable
+                ? powerPoints.map((pp, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 16px', borderRadius: 10, border: `1px solid ${PALETTE.line}`, background: 'rgba(255,255,255,0.35)' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(122,51,70,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <LinkIcon size={16} color={PALETTE.berry} />
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <InlineEditableText editable value={pp.note} placeholder="Note" onSave={(next) => savePowerPoints(powerPoints.map((x, idx) => (idx === i ? { ...x, note: next } : x)))}
+                        style={{ fontSize: '0.95rem', lineHeight: 1.5, marginBottom: 3, display: 'block' }} />
+                      <InlineEditableText editable value={pp.url} placeholder="https://…" onSave={(next) => savePowerPoints(powerPoints.map((x, idx) => (idx === i ? { ...x, url: next } : x)))}
+                        style={{ fontSize: '0.8rem', color: PALETTE.berry, display: 'block' }} />
+                    </div>
+                    <button type="button" onClick={() => removePowerPoint(i)} title="Remove"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.berry, opacity: 0.6, flexShrink: 0 }}><X size={15} /></button>
+                  </div>
+                ))
+                : powerPoints.filter((pp) => pp.url).map((pp, i) => (
                 <a key={i} href={pp.url} target="_blank" rel="noopener noreferrer"
                   style={{ display: 'flex', alignItems: 'flex-start', gap: 14, textDecoration: 'none', color: PALETTE.ink, padding: '14px 16px', borderRadius: 10, border: `1px solid ${PALETTE.line}`, background: 'rgba(255,255,255,0.35)' }}>
                   <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(122,51,70,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -894,6 +1216,12 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
                   </div>
                 </a>
               ))}
+              {editable && (
+                <button type="button" onClick={addPowerPoint}
+                  style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+                  + Add power point
+                </button>
+              )}
             </div>
           </div>
         </section>
@@ -960,15 +1288,20 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
                                     {(w.days?.[dayIndex] ?? w.actions ?? []).map((action, ai) => {
                                       const checked = checkedSet.has(`${w.week_number}:${ai}:${dayDate}`)
                                       return (
-                                        <li key={ai} data-goal-toggle={`${w.week_number}:${ai}:${dayDate}`} onClick={() => toggleGoal(w.week_number, ai, dayDate)}
-                                          style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', marginBottom: 8, padding: '2px 0' }}>
+                                        <li key={ai} data-goal-toggle={`${w.week_number}:${ai}:${dayDate}`} onClick={() => { if (!editable) toggleGoal(w.week_number, ai, dayDate) }}
+                                          style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: editable ? 'default' : 'pointer', marginBottom: 8, padding: '2px 0' }}>
                                           <svg width="16" height="16" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: 2 }}>
                                             <circle data-goal-check-track data-on-color={PALETTE.gold1} data-off-color="rgba(243,236,218,0.4)" cx="12" cy="12" r="10" fill="none" stroke={checked ? PALETTE.gold1 : 'rgba(243,236,218,0.4)'} strokeWidth="2" style={{ transition: 'stroke 0.25s ease' }} />
                                             <circle data-goal-check-fill cx="12" cy="12" r="10" fill={PALETTE.gold1} style={{ opacity: checked ? 1 : 0, transition: 'opacity 0.25s ease' }} />
                                             <path data-goal-check-tick d="M7 12.5 10.5 16 17 8" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
                                               strokeDasharray="16" style={{ strokeDashoffset: checked ? 0 : 16, transition: 'stroke-dashoffset 0.35s ease 0.05s' }} />
                                           </svg>
-                                          <span data-goal-text style={{ color: PALETTE.cream, opacity: checked ? 0.55 : 0.9, fontSize: '0.92rem', lineHeight: 1.6, textDecoration: checked ? 'line-through' : 'none', transition: 'opacity 0.2s ease' }}>{action}</span>
+                                          {editable ? (
+                                            <InlineEditableText editable value={action} onSave={(next) => saveRoadmapAction(w.week_number, dayIndex, ai, next)}
+                                              style={{ color: PALETTE.cream, fontSize: '0.92rem', lineHeight: 1.6 }} />
+                                          ) : (
+                                            <span data-goal-text style={{ color: PALETTE.cream, opacity: checked ? 0.55 : 0.9, fontSize: '0.92rem', lineHeight: 1.6, textDecoration: checked ? 'line-through' : 'none', transition: 'opacity 0.2s ease' }}>{action}</span>
+                                          )}
                                         </li>
                                       )
                                     })}
@@ -1117,9 +1450,21 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
           inline instead of a popup. */}
       <section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <Eyebrow>What to buy</Eyebrow>
-          <SecTitle icon={<ShoppingCart size={26} />}>Your Shopping List</SecTitle>
-          <p style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: 16, marginBottom: 20 }}>Pulled straight from the ingredients of your matched recipes. Pick a week below to see it.</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <Eyebrow>What to buy</Eyebrow>
+              <SecTitle icon={<ShoppingCart size={26} />}>Your Shopping List</SecTitle>
+            </div>
+            {editable && groceryOverride && (
+              <button type="button" onClick={resetGroceryList}
+                style={{ fontSize: '0.75rem', fontWeight: 700, padding: '7px 12px', borderRadius: 10, border: `1px solid ${PALETTE.line}`, background: '#fff', color: PALETTE.berry, cursor: 'pointer' }}>
+                Reset to auto-generated list
+              </button>
+            )}
+          </div>
+          <p style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: 16, marginBottom: 20 }}>
+            {editable ? 'Pulled from your matched recipes — edit any item, or add your own.' : 'Pulled straight from the ingredients of your matched recipes. Pick a week below to see it.'}
+          </p>
           {months.length === 0 ? (
             <p style={{ fontSize: '0.9rem', opacity: 0.6 }}>Not planned yet, check back once your coach generates your roadmap.</p>
           ) : (
@@ -1155,28 +1500,66 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
                     const cats = aiGroceryCache[w.week_number] ?? buildGroceryList(weekRecipes)
                     // A coach-edited list (guide_overrides.grocery_list_override)
                     // wins over the computed one.
-                    const finalCats = data.groceryListOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
+                    const finalCats = groceryOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
                     return (
                       <div key={w.week_number} data-grocery-week-body={w.week_number} style={{ display: openGroceryWeek === w.week_number ? 'grid' : 'none', borderTop: `1px solid ${PALETTE.line}`, paddingTop: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20 }}>
                         {finalCats.map((cat) => (
                           <div key={cat.head}>
-                            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }}>{cat.head}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {editable ? (
+                                <InlineEditableText editable value={cat.head} onSave={(next) => saveGroceryCategoryName(finalCats, cat.head, next)}
+                                  style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry, flex: 1 }} />
+                              ) : (
+                                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }}>{cat.head}</span>
+                              )}
+                              {editable && (
+                                <span role="button" onClick={() => removeGroceryCategory(finalCats, cat.head)} title="Remove category"
+                                  style={{ display: 'inline-flex', color: PALETTE.berry, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={12} /></span>
+                              )}
+                            </div>
                             <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                              {cat.items.map((item) => {
+                              {cat.items.map((item, itemIndex) => {
                                 const itemKey = `${w.week_number}:${cat.head}:${item}`
                                 const bought = boughtItems.has(itemKey)
                                 return (
-                                  <li key={item} data-grocery-item={itemKey} onClick={() => toggleBought(itemKey)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', opacity: bought ? 0.45 : 0.8, padding: '3px 0', cursor: 'pointer' }}>
-                                    <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={PALETTE.berry} /></span>
-                                    <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} opacity={0.5} /></span>
-                                    <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                                  <li key={itemIndex} data-grocery-item={itemKey} onClick={() => { if (!editable) toggleBought(itemKey) }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', opacity: bought ? 0.45 : 0.8, padding: '3px 0', cursor: editable ? 'default' : 'pointer' }}>
+                                    {!editable && (
+                                      <>
+                                        <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={PALETTE.berry} /></span>
+                                        <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} opacity={0.5} /></span>
+                                      </>
+                                    )}
+                                    {editable ? (
+                                      <>
+                                        <InlineEditableText editable value={item} onSave={(next) => saveGroceryItemText(finalCats, cat.head, itemIndex, next)}
+                                          style={{ flex: 1 }} />
+                                        <span role="button" onClick={() => removeGroceryItem(finalCats, cat.head, itemIndex)} title="Remove"
+                                          style={{ display: 'inline-flex', color: PALETTE.berry, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={12} /></span>
+                                      </>
+                                    ) : (
+                                      <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                                    )}
                                   </li>
                                 )
                               })}
+                              {editable && (
+                                <li>
+                                  <button type="button" onClick={() => addGroceryItem(finalCats, cat.head)}
+                                    style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.76rem', fontWeight: 700, padding: 0, border: 'none', background: 'none', color: PALETTE.berry, cursor: 'pointer', opacity: 0.8 }}>
+                                    + Add item
+                                  </button>
+                                </li>
+                              )}
                             </ul>
                           </div>
                         ))}
+                        {editable && (
+                          <button type="button" onClick={() => addGroceryCategory(finalCats)}
+                            style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+                            + Add category
+                          </button>
+                        )}
                       </div>
                     )
                   })}
@@ -1189,33 +1572,58 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins }: {
 
       {/* What's included in your care — same coach-entered tiles as
           Classic; expands inline instead of a popup. */}
-      {data.careServices.length > 0 && (
+      {(careServices.length > 0 || editable) && (
         <section id="services" style={{ background: PALETTE.paper3, padding: '4rem 1.5rem', ...hiddenStyle('services') }}>
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <Eyebrow>Your plan</Eyebrow>
             <SecTitle icon={<Star size={26} />}>What&apos;s Included In Your Care</SecTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 20 }}>
-              {data.careServices.map((svc, i) => {
-                const Icon = CARE_ICON_MAP[svc.icon] || Star
-                const isOpen = openService === i
-                return (
-                  <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
-                    style={{ textAlign: 'left', padding: '14px 12px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${isOpen ? PALETTE.berry : PALETTE.line}`, background: isOpen ? 'rgba(122,51,70,0.06)' : 'rgba(255,255,255,0.35)' }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: PALETTE.gold1, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                      <Icon size={16} color={PALETTE.ink} />
+            {editable ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
+                {careServices.map((svc, i) => (
+                  <div key={i} style={{ padding: '14px 16px', borderRadius: 12, border: `1px solid ${PALETTE.line}`, background: 'rgba(255,255,255,0.35)' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <InlineEditableText editable value={svc.name} placeholder="Service name" onSave={(next) => saveCareServices(careServices.map((x, idx) => (idx === i ? { ...x, name: next } : x)))}
+                        style={{ fontSize: '0.9rem', fontWeight: 700, flex: 1 }} />
+                      <button type="button" onClick={() => saveCareServices(careServices.filter((_, idx) => idx !== i))} title="Remove"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.berry, opacity: 0.6, flexShrink: 0 }}><X size={15} /></button>
                     </div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{svc.name}</div>
-                    {svc.sessions && <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: 2 }}>{svc.sessions}</div>}
-                  </button>
-                )
-              })}
-            </div>
-            {data.careServices.map((svc, i) => svc.description && (
-              <div key={i} data-care-body={i} style={{ display: openService === i ? 'block' : 'none', marginTop: 16, padding: '16px 18px', borderRadius: 10, border: `1px solid ${PALETTE.line}`, background: 'rgba(255,255,255,0.35)' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 6 }}>{svc.name}</div>
-                <p style={{ fontSize: '0.87rem', lineHeight: 1.55, margin: 0 }}>{renderMarkdownBold(svc.description || '')}</p>
+                    <InlineEditableText editable value={svc.sessions} placeholder="Sessions (e.g. 2x/month)" onSave={(next) => saveCareServices(careServices.map((x, idx) => (idx === i ? { ...x, sessions: next } : x)))}
+                      style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: 4, display: 'block' }} />
+                    <InlineEditableText editable as="div" multiline value={svc.description || ''} placeholder="Description" onSave={(next) => saveCareServices(careServices.map((x, idx) => (idx === i ? { ...x, description: next } : x)))}
+                      style={{ fontSize: '0.87rem', lineHeight: 1.55, marginTop: 8 }} />
+                  </div>
+                ))}
+                <button type="button" onClick={() => saveCareServices([...careServices, { name: '', icon: 'coaching', sessions: '', description: '' }])}
+                  style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+                  + Add service
+                </button>
               </div>
-            ))}
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 20 }}>
+                  {careServices.map((svc, i) => {
+                    const Icon = CARE_ICON_MAP[svc.icon] || Star
+                    const isOpen = openService === i
+                    return (
+                      <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
+                        style={{ textAlign: 'left', padding: '14px 12px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${isOpen ? PALETTE.berry : PALETTE.line}`, background: isOpen ? 'rgba(122,51,70,0.06)' : 'rgba(255,255,255,0.35)' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: PALETTE.gold1, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                          <Icon size={16} color={PALETTE.ink} />
+                        </div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{svc.name}</div>
+                        {svc.sessions && <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: 2 }}>{svc.sessions}</div>}
+                      </button>
+                    )
+                  })}
+                </div>
+                {careServices.map((svc, i) => svc.description && (
+                  <div key={i} data-care-body={i} style={{ display: openService === i ? 'block' : 'none', marginTop: 16, padding: '16px 18px', borderRadius: 10, border: `1px solid ${PALETTE.line}`, background: 'rgba(255,255,255,0.35)' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 6 }}>{svc.name}</div>
+                    <p style={{ fontSize: '0.87rem', lineHeight: 1.55, margin: 0 }}>{renderMarkdownBold(svc.description || '')}</p>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         </section>
       )}

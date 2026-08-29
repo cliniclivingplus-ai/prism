@@ -28,8 +28,9 @@ import { buildInlineExportScript } from '@/lib/pdf/inlineExportScript'
 import { CanvasBlocksSection } from './CanvasBlocksSection'
 import { toBlockTheme } from '@/lib/blocks/BlockRenderer'
 import { PALETTES } from './palettes'
-import { splitIntoPeriods, parseScheduleLines } from '@/lib/periodBullets'
+import { splitIntoPeriods, parseScheduleLines, joinPeriods } from '@/lib/periodBullets'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
+import InlineEditableText from '@/components/InlineEditableText'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -116,7 +117,18 @@ const TOC_ITEMS: { label: string; id: string }[] = [
   { label: 'FAQ', id: 'faq' },
 ]
 
-export default function PulseTemplate({ shareToken, data, initialCheckins }: { shareToken: string; data: GuideData; initialCheckins: Checkin[] }) {
+export default function PulseTemplate({ shareToken, data, initialCheckins, editable = false, roadmapId }: {
+  shareToken: string
+  data: GuideData
+  initialCheckins: Checkin[]
+  // Inline coach editing — see components/InlineEditableText.tsx and
+  // WeekTemplate's own identical prop pair. Defaults to false and is never
+  // passed by the public /share/roadmap/<token> page or the read-only
+  // archived-version viewer, only by the authenticated coach route that
+  // opts into it explicitly.
+  editable?: boolean
+  roadmapId?: string
+}) {
   const theme = data.theme && PALETTES[data.theme] ? data.theme : 'classic'
   const p = PALETTES[theme]
   // Pulse's own shape: some tokens map straight from the shared palette,
@@ -127,6 +139,15 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
     ink: p.ink, inkSoft: p.inkSoft, muted: p.muted,
     accent: p.accent, accentSoft: p.accentSoft, accentDeep: p.greenDeep,
     warn: '#D85A30',
+  }
+
+  // Best-effort, fire-and-forget — same "local state already reflects the
+  // edit optimistically" tolerance as WeekTemplate's own patchRoadmap.
+  function patchRoadmap(body: Record<string, unknown>) {
+    if (!roadmapId) return
+    fetch(`/api/compass/roadmaps/${roadmapId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }).catch(() => {})
   }
 
   function Eyebrow({ children }: { children: React.ReactNode }) {
@@ -209,7 +230,78 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
   const parsed = useMemo(() => parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines), [data.roadmap.nutritionist_guidelines])
   const lifestyleBullets = useMemo(() => parseBullets(data.roadmap.lifestyle_guidelines), [data.roadmap.lifestyle_guidelines])
 
-  const months = useMemo(() => reshapeRoadmapIntoMonths(data.roadmap.weekly_schedule).filter((m) => m.planned), [data.roadmap.weekly_schedule])
+  // Local editable copy of the weekly schedule — same override pattern as
+  // WeekTemplate's own weeklySchedule state, just reshaped into months for
+  // Pulse's multi-week roadmap section instead of showing week 1 alone.
+  const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
+  const months = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+
+  // A week with no per-day breakdown (`days`) falls back to sharing one
+  // `actions` list across every day (see the render below) — editing any
+  // day's action in that case has to edit the same shared `actions` array,
+  // matching WeekTemplate's saveScheduleAction exactly.
+  function saveScheduleAction(weekNumber: number, dayIndex: number, actionIndex: number, next: string) {
+    setWeeklySchedule((prev) => {
+      const updated = prev.map((w) => {
+        if (w.week_number !== weekNumber) return w
+        if (w.days && w.days.length > 0) {
+          const days = w.days.map((d, i) => (i === dayIndex ? d.map((a, j) => (j === actionIndex ? next : a)) : d))
+          return { ...w, days }
+        }
+        const actions = (w.actions ?? []).map((a, j) => (j === actionIndex ? next : a))
+        return { ...w, actions }
+      })
+      patchRoadmap({ weekly_schedule: updated })
+      return updated
+    })
+  }
+
+  // Founder's note / coach's note / care team / "your why" / power points /
+  // care services — same per-field autosave pattern as Onyx/Almanac/Vitals,
+  // committed immediately via patchRoadmap instead of a "Save changes"
+  // button.
+  const [founderNote, setFounderNote] = useState(data.founderNote)
+  function saveFounderNote(next: string) {
+    setFounderNote(next)
+    patchRoadmap({ guide_overrides: { founder_note: next } })
+  }
+  const [coachQuote, setCoachQuote] = useState(data.coachQuote)
+  function saveCoachQuote(next: string) {
+    setCoachQuote(next)
+    patchRoadmap({ guide_overrides: { coach_quote: next } })
+  }
+  const [whyReflection, setWhyReflection] = useState(data.whyReflection)
+  function saveWhyReflection(next: string) {
+    setWhyReflection(next)
+    patchRoadmap({ guide_overrides: { why_reflection: next } })
+  }
+  const [careTeam, setCareTeam] = useState(data.careTeam || [])
+  function saveCareTeam(next: typeof careTeam) {
+    setCareTeam(next)
+    patchRoadmap({ guide_overrides: { care_team: next } })
+  }
+  function updateCareTeamField(i: number, field: keyof (typeof careTeam)[number], value: string) {
+    setCareTeam((prev) => prev.map((m, idx) => (idx === i ? { ...m, [field]: value } : m)))
+  }
+  function blurCareTeam() { patchRoadmap({ guide_overrides: { care_team: careTeam } }) }
+  const [powerPoints, setPowerPoints] = useState(data.powerPoints || [])
+  function savePowerPoints(next: typeof powerPoints) {
+    setPowerPoints(next)
+    patchRoadmap({ guide_overrides: { power_points: next } })
+  }
+  function updatePowerPointField(i: number, field: keyof (typeof powerPoints)[number], value: string) {
+    setPowerPoints((prev) => prev.map((p, idx) => (idx === i ? { ...p, [field]: value } : p)))
+  }
+  function blurPowerPoints() { patchRoadmap({ guide_overrides: { power_points: powerPoints } }) }
+  const [careServices, setCareServices] = useState(data.careServices || [])
+  function saveCareServices(next: typeof careServices) {
+    setCareServices(next)
+    patchRoadmap({ guide_overrides: { care_services: next } })
+  }
+  function updateCareServiceField(i: number, field: keyof (typeof careServices)[number], value: string) {
+    setCareServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)))
+  }
+  function blurCareServices() { patchRoadmap({ guide_overrides: { care_services: careServices } }) }
 
   const [checkins, setCheckins] = useState<Checkin[]>(initialCheckins)
 
@@ -269,7 +361,37 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
 
   const checkedSet = useMemo(() => new Set(checkins.map((c) => (c.item_id ? `0:item:${c.item_id}:${c.checkin_date}` : `${c.week_number}:${c.action_index}:${c.checkin_date}`))), [checkins])
 
-  const checklistItems: ChecklistItem[] = data.dailyChecklistItems || []
+  // Local editable copy, same override pattern as WeekTemplate — stable
+  // `id`s mean editing wording or adding/removing items never reattaches a
+  // patient's historical checkmark to a different item.
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(data.dailyChecklistItems || [])
+  const [regenerating, setRegenerating] = useState(false)
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
+
+  function saveChecklist(next: ChecklistItem[]) {
+    setChecklistItems(next)
+    patchRoadmap({ guide_overrides: { daily_checklist_items: next } })
+  }
+  function saveChecklistItemText(id: string, next: string) {
+    saveChecklist(checklistItems.map((it) => (it.id === id ? { ...it, text: next } : it)))
+  }
+  function addChecklistItem() {
+    saveChecklist([...checklistItems, { id: crypto.randomUUID(), text: 'New task', source: 'coach' }])
+  }
+  function removeChecklistItem(id: string) {
+    saveChecklist(checklistItems.filter((it) => it.id !== id))
+  }
+  async function regenerateChecklist() {
+    setConfirmRegenerate(false)
+    setRegenerating(true)
+    try {
+      const res = await fetch(`/api/compass/roadmaps/${roadmapId}/regenerate-checklist`, { method: 'POST' })
+      const j = await res.json().catch(() => null)
+      if (res.ok && Array.isArray(j?.items)) saveChecklist(j.items)
+    } catch { /* keep the current list on failure */ }
+    finally { setRegenerating(false) }
+  }
+
   const [checkinDate, setCheckinDate] = useState(today)
   const checkinDoneCount = checklistItems.filter((it) => checkedSet.has(`0:item:${it.id}:${checkinDate}`)).length
   const checkinAllDone = checklistItems.length > 0 && checkinDoneCount === checklistItems.length
@@ -314,9 +436,52 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
     saveMetric('energy', Math.max(0, Math.min(10, (metricsCache[checkinDate]?.energy ?? 0) + delta)))
   }
 
-  const lifestyleByPeriod = useMemo(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS), [data.dailyLifestyleGuidelines])
-  const mealsByPeriod = useMemo(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS), [data.mealGuidelines])
-  const dailyScheduleText = data.dailySchedule || ''
+  // Local editable copies, seeded once from the real data — same
+  // split/join round trip WeekTemplate's own editor uses for these two
+  // fields, so both editors always serialize back to the identical
+  // "Label: text" storage format.
+  const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS))
+  const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS))
+
+  function saveLifestyleItem(label: string, itemIndex: number, next: string) {
+    setLifestyleByPeriod((prev) => {
+      const items = parseBullets(prev[label] || '')
+      items[itemIndex] = next
+      const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      return updated
+    })
+  }
+  function saveMealItem(label: string, itemIndex: number, next: string) {
+    setMealsByPeriod((prev) => {
+      const items = parseBullets(prev[label] || '')
+      items[itemIndex] = next
+      const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      return updated
+    })
+  }
+
+  // Full-day timeline, same flat-list-by-index editing as WeekTemplate's
+  // saveScheduleField — time and activity are two separate single-line
+  // fields (never multiline, see InlineEditableText's `multiline` prop),
+  // reconstructed back into one storage line on save.
+  const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule || '')
+  function saveScheduleField(lineIndex: number, field: 'time' | 'text', nextValue: string) {
+    const clean = nextValue.replace(/\s*\n\s*/g, ' ').trim()
+    setDailyScheduleText((prev) => {
+      const parsed = parseScheduleLines(prev)
+      const current = parsed[lineIndex] ?? { time: '', text: '' }
+      const nextEntry = field === 'time' ? { ...current, time: clean } : { ...current, text: clean }
+      const lines = parsed.map((item, i) => {
+        const e = i === lineIndex ? nextEntry : item
+        return e.time ? `${e.time} — ${e.text}` : e.text
+      })
+      const updated = lines.join('\n')
+      patchRoadmap({ guide_overrides: { daily_schedule: updated } })
+      return updated
+    })
+  }
 
   // `date` is the specific day-tab's own real calendar date (see
   // dateForWeekDay above), not always today — each day tracks independently.
@@ -344,6 +509,44 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
   const [openGroceryWeek, setOpenGroceryWeek] = useState<number | null>(null)
   const [aiGroceryCache, setAiGroceryCache] = useState<Record<number, GroceryCategory[]>>({})
 
+  // Shopping list — null override means "keep computing it live from real
+  // matched recipes" (see lib/groceryList.ts); once a coach edits anything,
+  // the whole list becomes their own persisted content, same "override
+  // wins" pattern as WeekTemplate. One override list applies across every
+  // week shown here, same as the read-only `data.groceryListOverride`
+  // behavior this replaces.
+  const [groceryOverride, setGroceryOverride] = useState<GroceryCategory[] | null>(data.groceryListOverride)
+  function saveGroceryList(next: GroceryCategory[]) {
+    setGroceryOverride(next)
+    patchRoadmap({ guide_overrides: { grocery_list_override: next } })
+  }
+  function saveGroceryItemText(cats: GroceryCategory[], catHead: string, itemIndex: number, next: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.map((it, i) => (i === itemIndex ? next : it)) } : cat)))
+  }
+  function removeGroceryItem(cats: GroceryCategory[], catHead: string, itemIndex: number) {
+    saveGroceryList(
+      cats
+        .map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.filter((_, i) => i !== itemIndex) } : cat))
+        .filter((cat) => cat.items.length > 0),
+    )
+  }
+  function addGroceryItem(cats: GroceryCategory[], catHead: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === catHead ? { ...cat, items: [...cat.items, 'New item'] } : cat)))
+  }
+  function saveGroceryCategoryName(cats: GroceryCategory[], oldHead: string, next: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === oldHead ? { ...cat, head: next } : cat)))
+  }
+  function removeGroceryCategory(cats: GroceryCategory[], head: string) {
+    saveGroceryList(cats.filter((cat) => cat.head !== head))
+  }
+  function addGroceryCategory(cats: GroceryCategory[]) {
+    saveGroceryList([...cats, { head: 'New category', items: ['New item'] }])
+  }
+  function resetGroceryList() {
+    setGroceryOverride(null)
+    patchRoadmap({ guide_overrides: { grocery_list_override: null } })
+  }
+
   const [boughtItems, setBoughtItems] = useState<Set<string>>(new Set())
   const groceryStorageKey = `clp-grocery-${shareToken}`
   useEffect(() => {
@@ -370,7 +573,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
   // on it — the regex-based list shows immediately and this quietly
   // replaces it when ready, or stays as-is if the call fails.
   useEffect(() => {
-    if (openGroceryWeek == null || data.groceryListOverride || aiGroceryCache[openGroceryWeek]) return
+    if (openGroceryWeek == null || groceryOverride || aiGroceryCache[openGroceryWeek]) return
     const weekRecipes = getSlotRecipes(openGroceryWeek, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
     const candidateItems = buildGroceryList(weekRecipes).flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
     if (candidateItems.length === 0) return
@@ -383,7 +586,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [openGroceryWeek, data.groceryListOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [openGroceryWeek, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
 
   const [openService, setOpenService] = useState<number | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
@@ -530,11 +733,29 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
         <Card id="checkin" hidden={isHidden('checkin')}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
             <SecTitle icon={<CheckCircle2 size={20} />}>Daily Health Check-in</SecTitle>
-            <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
-              style={{ fontSize: 12.5, background: PULSE.bg, border: `1px solid ${PULSE.border}`, padding: '8px 11px', borderRadius: 9, color: PULSE.ink, fontWeight: 600 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {editable && (
+                <button type="button" onClick={() => setConfirmRegenerate(true)} disabled={regenerating}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', fontWeight: 700, padding: '8px 12px', borderRadius: 10, border: `1px solid ${PULSE.border}`, background: PULSE.bg, color: PULSE.accentDeep, cursor: regenerating ? 'default' : 'pointer', opacity: regenerating ? 0.6 : 1 }}>
+                  <Sparkles size={13} /> {regenerating ? 'Regenerating…' : 'Ask AI to regenerate'}
+                </button>
+              )}
+              <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
+                style={{ fontSize: 12.5, background: PULSE.bg, border: `1px solid ${PULSE.border}`, padding: '8px 11px', borderRadius: 9, color: PULSE.ink, fontWeight: 600 }} />
+            </div>
           </div>
 
-          {checklistItems.length > 0 && (
+          {confirmRegenerate && (
+            <div style={{ background: PULSE.accentSoft, border: `1px solid ${PULSE.accent}`, borderRadius: 12, padding: '12px 16px', margin: '12px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.82rem', color: PULSE.ink }}>Regenerate from this patient&apos;s current supplements and lifestyle guidelines? Any manual edits to the checklist will be overwritten.</span>
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button type="button" onClick={() => setConfirmRegenerate(false)} style={{ fontSize: '0.78rem', fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: `1px solid ${PULSE.border}`, background: '#fff', cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={regenerateChecklist} style={{ fontSize: '0.78rem', fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', background: PULSE.accent, color: '#fff', cursor: 'pointer' }}>Regenerate</button>
+              </div>
+            </div>
+          )}
+
+          {!editable && checklistItems.length > 0 && (
             <p style={{ fontSize: 12.5, color: PULSE.accent, fontWeight: 600, margin: '8px 0 12px' }}>
               {checkinAllDone
                 ? 'Everything checked off for today — nice work.'
@@ -549,21 +770,37 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
               {checklistItems.map((item) => {
                 const checked = checkedSet.has(`0:item:${item.id}:${checkinDate}`)
                 return (
-                  <div key={item.id} onClick={() => toggleChecklistItem(item.id, item.text, checkinDate)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${checked ? PULSE.accent : PULSE.border}`, background: checked ? PULSE.accentSoft : PULSE.bg }}>
+                  <div key={item.id} onClick={() => { if (!editable) toggleChecklistItem(item.id, item.text, checkinDate) }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', borderRadius: 12, cursor: editable ? 'default' : 'pointer', border: `1px solid ${checked ? PULSE.accent : PULSE.border}`, background: checked ? PULSE.accentSoft : PULSE.bg }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
-                      {checked
+                      {!editable && (checked
                         ? <CheckCircle2 size={17} color={PULSE.accent} style={{ flexShrink: 0 }} />
-                        : <Circle size={17} style={{ flexShrink: 0, opacity: 0.4 }} />}
-                      <span style={{ fontSize: 13, fontWeight: 500, color: checked ? PULSE.accent : PULSE.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                        : <Circle size={17} style={{ flexShrink: 0, opacity: 0.4 }} />)}
+                      {editable ? (
+                        <InlineEditableText editable value={item.text} onSave={(next) => saveChecklistItemText(item.id, next)}
+                          style={{ fontSize: 13, fontWeight: 500, color: PULSE.ink, flex: 1 }} />
+                      ) : (
+                        <span style={{ fontSize: 13, fontWeight: 500, color: checked ? PULSE.accent : PULSE.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                      )}
                     </div>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? PULSE.accent : PULSE.accentSoft, color: checked ? '#fff' : PULSE.accent, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                    {editable ? (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); removeChecklistItem(item.id) }} title="Remove"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: PULSE.accent, opacity: 0.6, flexShrink: 0 }}><X size={15} /></button>
+                    ) : (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? PULSE.accent : PULSE.accentSoft, color: checked ? '#fff' : PULSE.accent, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                    )}
                   </div>
                 )
               })}
             </div>
           ) : (
             <p style={{ fontSize: 13, color: PULSE.muted, marginTop: 12 }}>Once your coach confirms your supplements or lifestyle guidelines, your daily checklist will show up here.</p>
+          )}
+          {editable && (
+            <button type="button" onClick={addChecklistItem}
+              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PULSE.border}`, background: 'none', color: PULSE.accentDeep, cursor: 'pointer' }}>
+              + Add task
+            </button>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 18 }}>
@@ -604,7 +841,12 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
           <div style={{ fontSize: '0.72rem', letterSpacing: '0.06em', color: PULSE.muted, textTransform: 'uppercase', marginBottom: 8 }}>Founder, Living Plus</div>
           <div style={{ fontSize: '0.75rem', color: PULSE.muted }}>Tap the photo to read the note</div>
           <div data-founder-body style={{ display: founderOpen ? 'block' : 'none', textAlign: 'left', marginTop: 16, fontSize: '0.92rem', lineHeight: 1.7, color: PULSE.inkSoft }}>
-            {data.founderNote.split('\n\n').map((para, i) => <p key={i}>{para}</p>)}
+            {editable ? (
+              <InlineEditableText editable multiline value={founderNote} onSave={saveFounderNote}
+                style={{ display: 'block', fontSize: '0.92rem', lineHeight: 1.7, color: PULSE.inkSoft, minHeight: 120 }} />
+            ) : (
+              founderNote.split('\n\n').map((para, i) => <p key={i}>{para}</p>)
+            )}
           </div>
         </Card>
 
@@ -613,16 +855,24 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
             note above. */}
         {data.coach && (
           <Card id="coach" hidden={isHidden('coach')} style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <button data-coach-trigger onClick={() => data.coachQuote && setCoachOpen((v) => !v)}
-              style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PULSE.accentSoft, border: `1px solid ${PULSE.border}`, padding: 0, cursor: data.coachQuote ? 'pointer' : 'default' }} />
+            <button data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
+              style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PULSE.accentSoft, border: `1px solid ${PULSE.border}`, padding: 0, cursor: coachQuote || editable ? 'pointer' : 'default' }} />
             <div>
               <Eyebrow>Your coach</Eyebrow>
               <div style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: -4 }}>{data.coach.full_name}</div>
               <div style={{ fontSize: '0.82rem', color: PULSE.muted, marginTop: 2 }}>{data.coach.designation}</div>
-              {data.coachQuote && (
+              {editable ? (
+                <>
+                  <div style={{ fontSize: '0.72rem', color: PULSE.muted, marginTop: 6 }}>A note from {coachFirst} (shown to the patient below the photo)</div>
+                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, maxWidth: 560 }}>
+                    <InlineEditableText editable multiline value={coachQuote} onSave={saveCoachQuote} placeholder="Add a personal note…"
+                      style={{ display: 'block', fontStyle: 'italic', color: PULSE.accentDeep, fontSize: '0.88rem' }} />
+                  </div>
+                </>
+              ) : coachQuote && (
                 <>
                   <div style={{ fontSize: '0.72rem', color: PULSE.muted, marginTop: 6 }}>Tap the photo for a note from {coachFirst}</div>
-                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: PULSE.accentDeep, fontSize: '0.88rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(data.coachQuote)}&rdquo;</div>
+                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: PULSE.accentDeep, fontSize: '0.88rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(coachQuote)}&rdquo;</div>
                 </>
               )}
             </div>
@@ -630,25 +880,54 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
         )}
 
         {/* Care team */}
-        {data.careTeam.length > 0 && (
+        {(careTeam.length > 0 || editable) && (
           <Card id="careteam" hidden={isHidden('careteam')}>
             <Eyebrow>Beyond your coach</Eyebrow>
             <SecTitle icon={<HeartPulse size={20} />}>Your care team</SecTitle>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginTop: 16 }}>
-              {data.careTeam.map((m, i) => (
-                <div key={i} style={{ background: PULSE.bg, border: `1px solid ${PULSE.border}`, borderRadius: 14, padding: '14px 16px' }}>
-                  <div style={{ fontSize: '0.98rem', fontWeight: 700 }}>{m.name}</div>
-                  {m.role && <div style={{ fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.muted, marginTop: 2 }}>{m.role}</div>}
-                  {m.intro && <p style={{ fontSize: '0.86rem', lineHeight: 1.5, marginTop: 8, color: PULSE.inkSoft }}>{renderMarkdownBold(m.intro)}</p>}
-                  {m.date && (
-                    <div style={{ fontSize: '0.78rem', color: PULSE.accentDeep, fontWeight: 700, marginTop: 8 }}>
-                      {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
-                    </div>
+              {careTeam.map((m, i) => (
+                <div key={i} style={{ background: PULSE.bg, border: `1px solid ${PULSE.border}`, borderRadius: 14, padding: '14px 16px', position: 'relative' }}>
+                  {editable ? (
+                    <>
+                      <button type="button" onClick={() => saveCareTeam(careTeam.filter((_, idx) => idx !== i))} title="Remove"
+                        style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: PULSE.muted }}><X size={14} /></button>
+                      <input value={m.name} onChange={(e) => updateCareTeamField(i, 'name', e.target.value)} onBlur={blurCareTeam} placeholder="Name"
+                        style={{ display: 'block', width: '100%', fontSize: '0.98rem', fontWeight: 700, color: PULSE.ink, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '2px 4px', marginBottom: 6, boxSizing: 'border-box' }} />
+                      <input value={m.role} onChange={(e) => updateCareTeamField(i, 'role', e.target.value)} onBlur={blurCareTeam} placeholder="Role"
+                        style={{ display: 'block', width: '100%', fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.muted, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '2px 4px', marginBottom: 8, boxSizing: 'border-box' }} />
+                      <textarea value={m.intro} onChange={(e) => updateCareTeamField(i, 'intro', e.target.value)} onBlur={blurCareTeam} placeholder="Short intro" rows={2}
+                        style={{ display: 'block', width: '100%', fontSize: '0.86rem', lineHeight: 1.5, color: PULSE.inkSoft, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '2px 4px', marginBottom: 8, boxSizing: 'border-box', resize: 'vertical' }} />
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <input type="date" value={m.date} onChange={(e) => updateCareTeamField(i, 'date', e.target.value)} onBlur={blurCareTeam}
+                          style={{ fontSize: '0.75rem', color: PULSE.ink, background: PULSE.card, border: `1px solid ${PULSE.border}`, borderRadius: 6, padding: '4px 6px' }} />
+                        <input type="time" value={m.time} onChange={(e) => updateCareTeamField(i, 'time', e.target.value)} onBlur={blurCareTeam}
+                          style={{ fontSize: '0.75rem', color: PULSE.ink, background: PULSE.card, border: `1px solid ${PULSE.border}`, borderRadius: 6, padding: '4px 6px' }} />
+                        <input value={m.mode} onChange={(e) => updateCareTeamField(i, 'mode', e.target.value)} onBlur={blurCareTeam} placeholder="Mode (e.g. Video)"
+                          style={{ fontSize: '0.75rem', color: PULSE.ink, background: PULSE.card, border: `1px solid ${PULSE.border}`, borderRadius: 6, padding: '4px 6px', flex: 1, minWidth: 100 }} />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '0.98rem', fontWeight: 700 }}>{m.name}</div>
+                      {m.role && <div style={{ fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.muted, marginTop: 2 }}>{m.role}</div>}
+                      {m.intro && <p style={{ fontSize: '0.86rem', lineHeight: 1.5, marginTop: 8, color: PULSE.inkSoft }}>{renderMarkdownBold(m.intro)}</p>}
+                      {m.date && (
+                        <div style={{ fontSize: '0.78rem', color: PULSE.accentDeep, fontWeight: 700, marginTop: 8 }}>
+                          {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
             </div>
+            {editable && (
+              <button type="button" onClick={() => saveCareTeam([...careTeam, { name: '', role: '', intro: '', date: '', time: '', mode: '' }])}
+                style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, padding: '8px 14px', borderRadius: 9, border: `1px dashed ${PULSE.border}`, background: 'none', color: PULSE.accent, cursor: 'pointer' }}>
+                + Add care team member
+              </button>
+            )}
           </Card>
         )}
 
@@ -676,8 +955,11 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
           </div>
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${PULSE.border}` }}>
             <Eyebrow>Your why</Eyebrow>
-            {data.whyReflection ? (
-              <p style={{ fontSize: '0.92rem', lineHeight: 1.65, color: PULSE.inkSoft }}>{renderMarkdownBold(data.whyReflection)}</p>
+            {editable ? (
+              <InlineEditableText editable multiline value={whyReflection} onSave={saveWhyReflection} placeholder="Not filled in yet."
+                style={{ display: 'block', fontSize: '0.92rem', lineHeight: 1.65, color: PULSE.inkSoft, minHeight: 60 }} />
+            ) : whyReflection ? (
+              <p style={{ fontSize: '0.92rem', lineHeight: 1.65, color: PULSE.inkSoft }}>{renderMarkdownBold(whyReflection)}</p>
             ) : (
               <p style={{ fontSize: '0.88rem', color: PULSE.muted }}>Not filled in yet.</p>
             )}
@@ -698,7 +980,12 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
                       {items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                           <Circle size={11} color={PULSE.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
-                          <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          {editable ? (
+                            <InlineEditableText editable value={item} onSave={(next) => saveLifestyleItem(label, i, next)}
+                              style={{ fontSize: 13, lineHeight: 1.5 }} />
+                          ) : (
+                            <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -723,7 +1010,12 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
                       {items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                           <Circle size={11} color={PULSE.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
-                          <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          {editable ? (
+                            <InlineEditableText editable value={item} onSave={(next) => saveMealItem(label, i, next)}
+                              style={{ fontSize: 13, lineHeight: 1.5 }} />
+                          ) : (
+                            <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -744,8 +1036,21 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
                   <span style={{ position: 'absolute', left: -34, top: 0, width: 26, height: 26, borderRadius: 13, background: PULSE.accentSoft, border: `2px solid ${PULSE.card}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Circle size={9} color={PULSE.accent} />
                   </span>
-                  {item.time && <div style={{ fontSize: 11.5, fontWeight: 700, color: PULSE.accent }}>{item.time}</div>}
-                  <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 2 }}>{item.text}</div>
+                  {editable ? (
+                    <>
+                      <InlineEditableText editable value={item.time} placeholder="Time"
+                        onSave={(next) => saveScheduleField(i, 'time', next)}
+                        style={{ display: 'inline-block', fontSize: 11.5, fontWeight: 700, color: PULSE.accent }} />
+                      <InlineEditableText editable value={item.text} placeholder="Activity"
+                        onSave={(next) => saveScheduleField(i, 'text', next)}
+                        style={{ display: 'block', fontSize: 13, lineHeight: 1.5, marginTop: 2 }} />
+                    </>
+                  ) : (
+                    <>
+                      {item.time && <div style={{ fontSize: 11.5, fontWeight: 700, color: PULSE.accent }}>{item.time}</div>}
+                      <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 2 }}>{item.text}</div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -809,11 +1114,20 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
                                     {(w.days?.[dayIndex] ?? w.actions ?? []).map((action, ai) => {
                                       const checked = checkedSet.has(`${w.week_number}:${ai}:${dayDate}`)
                                       return (
-                                        <li key={ai} data-goal-toggle={`${w.week_number}:${ai}:${dayDate}`} onClick={() => toggleGoal(w.week_number, ai, dayDate)}
-                                          style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', marginBottom: 8, padding: '2px 0' }}>
-                                          <span data-goal-icon-done style={{ display: checked ? 'inline-flex' : 'none', flexShrink: 0, marginTop: 2 }}><CheckCircle2 size={16} color={PULSE.accent} /></span>
-                                          <span data-goal-icon-undone style={{ display: checked ? 'none' : 'inline-flex', flexShrink: 0, marginTop: 2 }}><Circle size={16} color={PULSE.muted} /></span>
-                                          <span data-goal-text style={{ color: checked ? PULSE.muted : PULSE.inkSoft, fontSize: '0.9rem', lineHeight: 1.6, textDecoration: checked ? 'line-through' : 'none' }}>{action}</span>
+                                        <li key={ai} data-goal-toggle={`${w.week_number}:${ai}:${dayDate}`} onClick={() => { if (!editable) toggleGoal(w.week_number, ai, dayDate) }}
+                                          style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: editable ? 'default' : 'pointer', marginBottom: 8, padding: '2px 0' }}>
+                                          {!editable && (
+                                            <>
+                                              <span data-goal-icon-done style={{ display: checked ? 'inline-flex' : 'none', flexShrink: 0, marginTop: 2 }}><CheckCircle2 size={16} color={PULSE.accent} /></span>
+                                              <span data-goal-icon-undone style={{ display: checked ? 'none' : 'inline-flex', flexShrink: 0, marginTop: 2 }}><Circle size={16} color={PULSE.muted} /></span>
+                                            </>
+                                          )}
+                                          {editable ? (
+                                            <InlineEditableText editable value={action} onSave={(next) => saveScheduleAction(w.week_number, dayIndex, ai, next)}
+                                              style={{ color: PULSE.inkSoft, fontSize: '0.9rem', lineHeight: 1.6 }} />
+                                          ) : (
+                                            <span data-goal-text style={{ color: checked ? PULSE.muted : PULSE.inkSoft, fontSize: '0.9rem', lineHeight: 1.6, textDecoration: checked ? 'line-through' : 'none' }}>{action}</span>
+                                          )}
                                         </li>
                                       )
                                     })}
@@ -930,12 +1244,26 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
         )}
 
         {/* Power points — coach-pasted links each with a short note */}
-        {data.powerPoints.filter((pp) => pp.url).length > 0 && (
+        {(powerPoints.filter((pp) => pp.url).length > 0 || editable) && (
           <Card id="nutrition" hidden={isHidden('nutrition')}>
             <Eyebrow>Worth a look</Eyebrow>
             <SecTitle icon={<LinkIcon size={20} />}>Your power points</SecTitle>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
-              {data.powerPoints.filter((pp) => pp.url).map((pp, i) => (
+              {editable ? powerPoints.map((pp, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderRadius: 14, border: `1px solid ${PULSE.border}` }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: PULSE.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <LinkIcon size={16} color={PULSE.accentDeep} />
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <input value={pp.note} onChange={(e) => updatePowerPointField(i, 'note', e.target.value)} onBlur={blurPowerPoints} placeholder="Note"
+                      style={{ display: 'block', width: '100%', fontSize: '0.88rem', color: PULSE.ink, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '2px 4px', marginBottom: 6, boxSizing: 'border-box' }} />
+                    <input value={pp.url} onChange={(e) => updatePowerPointField(i, 'url', e.target.value)} onBlur={blurPowerPoints} placeholder="https://…"
+                      style={{ display: 'block', width: '100%', fontSize: '0.78rem', color: PULSE.accent, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '2px 4px', boxSizing: 'border-box' }} />
+                  </div>
+                  <button type="button" onClick={() => savePowerPoints(powerPoints.filter((_, idx) => idx !== i))} title="Remove"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: PULSE.muted, flexShrink: 0 }}><X size={15} /></button>
+                </div>
+              )) : powerPoints.filter((pp) => pp.url).map((pp, i) => (
                 <a key={i} href={pp.url} target="_blank" rel="noopener noreferrer"
                   style={{ display: 'flex', alignItems: 'flex-start', gap: 12, textDecoration: 'none', padding: '12px 14px', borderRadius: 14, border: `1px solid ${PULSE.border}`, background: PULSE.bg }}>
                   <div style={{ width: 34, height: 34, borderRadius: 9, background: PULSE.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -947,15 +1275,33 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
                   </div>
                 </a>
               ))}
+              {editable && (
+                <button type="button" onClick={() => savePowerPoints([...powerPoints, { url: '', note: '' }])}
+                  style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, padding: '8px 14px', borderRadius: 9, border: `1px dashed ${PULSE.border}`, background: 'none', color: PULSE.accent, cursor: 'pointer' }}>
+                  + Add power point
+                </button>
+              )}
             </div>
           </Card>
         )}
 
         {/* Shopping list */}
         <Card id="grocery" hidden={isHidden('grocery')}>
-          <Eyebrow>What to buy</Eyebrow>
-          <SecTitle icon={<ShoppingCart size={20} />}>Your shopping list</SecTitle>
-          <p style={{ fontSize: '0.87rem', color: PULSE.muted, marginTop: 14, marginBottom: 18 }}>Pulled straight from the ingredients of your matched recipes. Pick a week below to see it.</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <Eyebrow>What to buy</Eyebrow>
+              <SecTitle icon={<ShoppingCart size={20} />}>Your shopping list</SecTitle>
+            </div>
+            {editable && groceryOverride && (
+              <button type="button" onClick={resetGroceryList}
+                style={{ fontSize: '0.75rem', fontWeight: 700, padding: '7px 12px', borderRadius: 10, border: `1px solid ${PULSE.border}`, background: PULSE.bg, color: PULSE.accentDeep, cursor: 'pointer' }}>
+                Reset to auto-generated list
+              </button>
+            )}
+          </div>
+          <p style={{ fontSize: '0.87rem', color: PULSE.muted, marginTop: 14, marginBottom: 18 }}>
+            {editable ? 'Pulled from your matched recipes — edit any item, or add your own.' : 'Pulled straight from the ingredients of your matched recipes. Pick a week below to see it.'}
+          </p>
           {months.length === 0 ? (
             <p style={{ fontSize: '0.87rem', color: PULSE.muted }}>Not planned yet, check back once your coach generates your roadmap.</p>
           ) : (
@@ -991,28 +1337,66 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
                     const cats = aiGroceryCache[w.week_number] ?? buildGroceryList(weekRecipes)
                     // A coach-edited list (guide_overrides.grocery_list_override)
                     // wins over the computed one.
-                    const finalCats = data.groceryListOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
+                    const finalCats = groceryOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
                     return (
                       <div key={w.week_number} data-grocery-week-body={w.week_number} style={{ display: openGroceryWeek === w.week_number ? 'grid' : 'none', borderTop: `1px solid ${PULSE.border}`, paddingTop: 18, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 18 }}>
                         {finalCats.map((cat) => (
                           <div key={cat.head}>
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accentDeep }}>{cat.head}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                              {editable ? (
+                                <InlineEditableText editable value={cat.head} onSave={(next) => saveGroceryCategoryName(finalCats, cat.head, next)}
+                                  style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accentDeep }} />
+                              ) : (
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accentDeep }}>{cat.head}</span>
+                              )}
+                              {editable && (
+                                <span role="button" onClick={() => removeGroceryCategory(finalCats, cat.head)} title="Remove category"
+                                  style={{ display: 'inline-flex', color: PULSE.accent, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={13} /></span>
+                              )}
+                            </div>
                             <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                              {cat.items.map((item) => {
+                              {cat.items.map((item, itemIndex) => {
                                 const itemKey = `${w.week_number}:${cat.head}:${item}`
                                 const bought = boughtItems.has(itemKey)
                                 return (
-                                  <li key={item} data-grocery-item={itemKey} onClick={() => toggleBought(itemKey)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.81rem', color: bought ? PULSE.muted : PULSE.inkSoft, padding: '3px 0', cursor: 'pointer' }}>
-                                    <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={PULSE.accent} /></span>
-                                    <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} color={PULSE.muted} /></span>
-                                    <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                                  <li key={itemIndex} data-grocery-item={itemKey} onClick={() => { if (!editable) toggleBought(itemKey) }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.81rem', color: bought ? PULSE.muted : PULSE.inkSoft, padding: '3px 0', cursor: editable ? 'default' : 'pointer' }}>
+                                    {!editable && (
+                                      <>
+                                        <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={PULSE.accent} /></span>
+                                        <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} color={PULSE.muted} /></span>
+                                      </>
+                                    )}
+                                    {editable ? (
+                                      <>
+                                        <InlineEditableText editable value={item} onSave={(next) => saveGroceryItemText(finalCats, cat.head, itemIndex, next)}
+                                          style={{ flex: 1 }} />
+                                        <span role="button" onClick={() => removeGroceryItem(finalCats, cat.head, itemIndex)} title="Remove"
+                                          style={{ display: 'inline-flex', color: PULSE.accent, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={12} /></span>
+                                      </>
+                                    ) : (
+                                      <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                                    )}
                                   </li>
                                 )
                               })}
+                              {editable && (
+                                <li>
+                                  <button type="button" onClick={() => addGroceryItem(finalCats, cat.head)}
+                                    style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.76rem', fontWeight: 700, padding: 0, border: 'none', background: 'none', color: PULSE.accentDeep, cursor: 'pointer', opacity: 0.8 }}>
+                                    + Add item
+                                  </button>
+                                </li>
+                              )}
                             </ul>
                           </div>
                         ))}
+                        {editable && (
+                          <button type="button" onClick={() => addGroceryCategory(finalCats)}
+                            style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PULSE.border}`, background: 'none', color: PULSE.accentDeep, cursor: 'pointer' }}>
+                            + Add category
+                          </button>
+                        )}
                       </div>
                     )
                   })}
@@ -1041,32 +1425,59 @@ export default function PulseTemplate({ shareToken, data, initialCheckins }: { s
         )}
 
         {/* What's included in your care */}
-        {data.careServices.length > 0 && (
+        {(careServices.length > 0 || editable) && (
           <Card id="services" hidden={isHidden('services')}>
             <Eyebrow>Your plan</Eyebrow>
             <SecTitle icon={<Star size={20} />}>What&apos;s included in your care</SecTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginTop: 16 }}>
-              {data.careServices.map((svc, i) => {
-                const Icon = CARE_ICON_MAP[svc.icon] || Star
-                const isOpen = openService === i
-                return (
-                  <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
-                    style={{ textAlign: 'left', padding: '13px 12px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${isOpen ? PULSE.accent : PULSE.border}`, background: isOpen ? PULSE.accentSoft : PULSE.bg }}>
-                    <div style={{ width: 30, height: 30, borderRadius: 8, background: '#fff', border: `1px solid ${PULSE.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 9 }}>
-                      <Icon size={15} color={PULSE.accent} />
-                    </div>
-                    <div style={{ fontSize: '0.83rem', fontWeight: 700, color: PULSE.ink }}>{svc.name}</div>
-                    {svc.sessions && <div style={{ fontSize: '0.73rem', color: PULSE.muted, marginTop: 2 }}>{svc.sessions}</div>}
-                  </button>
-                )
-              })}
-            </div>
-            {data.careServices.map((svc, i) => svc.description && (
-              <div key={i} data-care-body={i} style={{ display: openService === i ? 'block' : 'none', marginTop: 14, padding: '14px 16px', borderRadius: 12, border: `1px solid ${PULSE.border}`, background: PULSE.bg }}>
-                <div style={{ fontWeight: 700, fontSize: '0.87rem', marginBottom: 6, color: PULSE.ink }}>{svc.name}</div>
-                <p style={{ fontSize: '0.85rem', lineHeight: 1.55, margin: 0, color: PULSE.inkSoft }}>{renderMarkdownBold(svc.description || '')}</p>
+            {editable ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
+                {careServices.map((svc, i) => (
+                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8, padding: '12px 14px', borderRadius: 14, border: `1px solid ${PULSE.border}` }}>
+                    <select value={svc.icon} onChange={(e) => { updateCareServiceField(i, 'icon', e.target.value); patchRoadmap({ guide_overrides: { care_services: careServices.map((s, idx) => (idx === i ? { ...s, icon: e.target.value } : s)) } }) }}
+                      style={{ fontSize: '0.78rem', color: PULSE.ink, background: PULSE.bg, border: `1px solid ${PULSE.border}`, borderRadius: 6, padding: '5px 6px' }}>
+                      {Object.keys(CARE_ICON_MAP).map((key) => <option key={key} value={key}>{key}</option>)}
+                    </select>
+                    <input value={svc.name} onChange={(e) => updateCareServiceField(i, 'name', e.target.value)} onBlur={blurCareServices} placeholder="Service name"
+                      style={{ fontSize: '0.83rem', fontWeight: 700, color: PULSE.ink, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '5px 6px', flex: 1, minWidth: 120 }} />
+                    <input value={svc.sessions} onChange={(e) => updateCareServiceField(i, 'sessions', e.target.value)} onBlur={blurCareServices} placeholder="Sessions"
+                      style={{ fontSize: '0.78rem', color: PULSE.muted, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '5px 6px', width: 110 }} />
+                    <textarea value={svc.description || ''} onChange={(e) => updateCareServiceField(i, 'description', e.target.value)} onBlur={blurCareServices} placeholder="Description" rows={2}
+                      style={{ fontSize: '0.83rem', lineHeight: 1.5, color: PULSE.inkSoft, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '5px 6px', width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
+                    <button type="button" onClick={() => saveCareServices(careServices.filter((_, idx) => idx !== i))} title="Remove"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: PULSE.muted, flexShrink: 0 }}><X size={15} /></button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => saveCareServices([...careServices, { name: '', icon: Object.keys(CARE_ICON_MAP)[0], sessions: '', description: '' }])}
+                  style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, padding: '8px 14px', borderRadius: 9, border: `1px dashed ${PULSE.border}`, background: 'none', color: PULSE.accent, cursor: 'pointer' }}>
+                  + Add service
+                </button>
               </div>
-            ))}
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginTop: 16 }}>
+                  {careServices.map((svc, i) => {
+                    const Icon = CARE_ICON_MAP[svc.icon] || Star
+                    const isOpen = openService === i
+                    return (
+                      <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
+                        style={{ textAlign: 'left', padding: '13px 12px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${isOpen ? PULSE.accent : PULSE.border}`, background: isOpen ? PULSE.accentSoft : PULSE.bg }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 8, background: '#fff', border: `1px solid ${PULSE.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 9 }}>
+                          <Icon size={15} color={PULSE.accent} />
+                        </div>
+                        <div style={{ fontSize: '0.83rem', fontWeight: 700, color: PULSE.ink }}>{svc.name}</div>
+                        {svc.sessions && <div style={{ fontSize: '0.73rem', color: PULSE.muted, marginTop: 2 }}>{svc.sessions}</div>}
+                      </button>
+                    )
+                  })}
+                </div>
+                {careServices.map((svc, i) => svc.description && (
+                  <div key={i} data-care-body={i} style={{ display: openService === i ? 'block' : 'none', marginTop: 14, padding: '14px 16px', borderRadius: 12, border: `1px solid ${PULSE.border}`, background: PULSE.bg }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.87rem', marginBottom: 6, color: PULSE.ink }}>{svc.name}</div>
+                    <p style={{ fontSize: '0.85rem', lineHeight: 1.55, margin: 0, color: PULSE.inkSoft }}>{renderMarkdownBold(svc.description || '')}</p>
+                  </div>
+                ))}
+              </>
+            )}
           </Card>
         )}
 

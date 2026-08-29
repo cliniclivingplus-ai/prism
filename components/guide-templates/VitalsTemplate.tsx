@@ -33,8 +33,9 @@ import { Ring as PrimRing, Wheel, Card as PrimCard, PullQuote, DEFAULT_WHEEL_COL
 import { CanvasBlocksSection } from './CanvasBlocksSection'
 import { toBlockTheme } from '@/lib/blocks/BlockRenderer'
 import { PALETTES } from './palettes'
-import { splitIntoPeriods, parseScheduleLines } from '@/lib/periodBullets'
+import { splitIntoPeriods, parseScheduleLines, joinPeriods } from '@/lib/periodBullets'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
+import InlineEditableText from '@/components/InlineEditableText'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -128,7 +129,18 @@ const TOC_ITEMS: { label: string; id: string }[] = [
   { label: 'FAQ', id: 'faq' },
 ]
 
-export default function VitalsTemplate({ shareToken, data, initialCheckins }: { shareToken: string; data: GuideData; initialCheckins: Checkin[] }) {
+export default function VitalsTemplate({ shareToken, data, initialCheckins, editable = false, roadmapId }: {
+  shareToken: string
+  data: GuideData
+  initialCheckins: Checkin[]
+  // Inline coach editing — see components/InlineEditableText.tsx and
+  // WeekTemplate's identical prop shape/comment. Defaults to false and is
+  // never passed by the public /share/roadmap/<token> page or the read-only
+  // archived-version viewer, only by the authenticated coach route that
+  // opts into it explicitly.
+  editable?: boolean
+  roadmapId?: string
+}) {
   const theme = data.theme && PALETTES[data.theme] ? data.theme : 'classic'
   const p = PALETTES[theme]
   // Vitals' own shape: most tokens map straight from the shared palette;
@@ -166,7 +178,71 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
   const isHidden = (id: string) => (data.hiddenSections ?? []).includes(id)
   const parsed = useMemo(() => parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines), [data.roadmap.nutritionist_guidelines])
   const lifestyleBullets = useMemo(() => parseBullets(data.roadmap.lifestyle_guidelines), [data.roadmap.lifestyle_guidelines])
-  const months = useMemo(() => reshapeRoadmapIntoMonths(data.roadmap.weekly_schedule).filter((m) => m.planned), [data.roadmap.weekly_schedule])
+
+  // Best-effort, fire-and-forget — same helper/tolerance as WeekTemplate.
+  function patchRoadmap(body: Record<string, unknown>) {
+    if (!roadmapId) return
+    fetch(`/api/compass/roadmaps/${roadmapId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }).catch(() => {})
+  }
+
+  // Weekly goals — unlike WeekTemplate (always exactly one week), Vitals
+  // shows every month/week, so the editable copy stays the full raw
+  // weekly_schedule and `months` is re-derived from it live.
+  const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
+  const months = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+
+  // Founder's note / coach's note / your why — real coach/patient text, not
+  // covered by WeekTemplate's editable scope, but same InlineEditableText +
+  // patchRoadmap autosave mechanism, using the same guide_overrides keys
+  // DashboardClient's batch "Save changes" already writes to
+  // (founder_note / coach_quote / why_reflection / care_team).
+  const [founderNote, setFounderNote] = useState(data.founderNote)
+  const [coachQuote, setCoachQuote] = useState(data.coachQuote)
+  const [whyReflection, setWhyReflection] = useState(data.whyReflection)
+  const [careTeam, setCareTeam] = useState(data.careTeam || [])
+  function saveFounderNote(next: string) {
+    setFounderNote(next)
+    patchRoadmap({ guide_overrides: { founder_note: next } })
+  }
+  function saveCoachQuote(next: string) {
+    setCoachQuote(next)
+    patchRoadmap({ guide_overrides: { coach_quote: next } })
+  }
+  function saveWhyReflection(next: string) {
+    setWhyReflection(next)
+    patchRoadmap({ guide_overrides: { why_reflection: next } })
+  }
+  function saveCareTeam(next: typeof careTeam) {
+    setCareTeam(next)
+    patchRoadmap({ guide_overrides: { care_team: next } })
+  }
+  function saveCareTeamField(i: number, field: 'name' | 'role' | 'intro', next: string) {
+    saveCareTeam(careTeam.map((m, idx) => (idx === i ? { ...m, [field]: next } : m)))
+  }
+  function removeCareTeamMember(i: number) {
+    saveCareTeam(careTeam.filter((_, idx) => idx !== i))
+  }
+  function addCareTeamMember() {
+    saveCareTeam([...careTeam, { name: 'New team member', role: '', intro: '', date: '', time: '', mode: '' }])
+  }
+
+  function saveScheduleAction(weekNumber: number, dayIndex: number, actionIndex: number, next: string) {
+    setWeeklySchedule((prev) => {
+      const updated = prev.map((w) => {
+        if (w.week_number !== weekNumber) return w
+        if (w.days && w.days.length > 0) {
+          const days = w.days.map((d, i) => (i === dayIndex ? d.map((a, j) => (j === actionIndex ? next : a)) : d))
+          return { ...w, days }
+        }
+        const actions = (w.actions ?? []).map((a, j) => (j === actionIndex ? next : a))
+        return { ...w, actions }
+      })
+      patchRoadmap({ weekly_schedule: updated })
+      return updated
+    })
+  }
 
   const [checkins, setCheckins] = useState<Checkin[]>(initialCheckins)
   const weekMealMatches = useMemo(() => selectRecipesForPatient(
@@ -216,15 +292,40 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
   const adherencePct = totalActionsInPlan > 0 ? Math.round((goalsDone / totalActionsInPlan) * 100) : 0
   const checkedSet = useMemo(() => new Set(checkins.map((c) => (c.item_id ? `0:item:${c.item_id}:${c.checkin_date}` : `${c.week_number}:${c.action_index}:${c.checkin_date}`))), [checkins])
 
-  // Daily Health Check-in — same feature as the Week-family templates,
-  // ported here read-only (Vitals never runs in editable mode; a coach
-  // always edits in the Classic editor regardless of which template is
-  // picked). Items toggle by stable item_id, not position.
-  const checklistItems: ChecklistItem[] = data.dailyChecklistItems || []
+  // Daily Health Check-in — same feature as the Week-family templates.
+  // Items toggle by stable item_id, not position; when `editable` the coach
+  // can add/remove/reword items, same pattern as WeekTemplate.
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(data.dailyChecklistItems || [])
+  const [regenerating, setRegenerating] = useState(false)
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [checkinDate, setCheckinDate] = useState(today)
   const checkinDoneCount = checklistItems.filter((it) => checkedSet.has(`0:item:${it.id}:${checkinDate}`)).length
   const checkinAllDone = checklistItems.length > 0 && checkinDoneCount === checklistItems.length
   const checkinNoneDone = checkinDoneCount === 0
+
+  function saveChecklist(next: ChecklistItem[]) {
+    setChecklistItems(next)
+    patchRoadmap({ guide_overrides: { daily_checklist_items: next } })
+  }
+  function saveChecklistItemText(id: string, next: string) {
+    saveChecklist(checklistItems.map((it) => (it.id === id ? { ...it, text: next } : it)))
+  }
+  function addChecklistItem() {
+    saveChecklist([...checklistItems, { id: crypto.randomUUID(), text: 'New task', source: 'coach' }])
+  }
+  function removeChecklistItem(id: string) {
+    saveChecklist(checklistItems.filter((it) => it.id !== id))
+  }
+  async function regenerateChecklist() {
+    setConfirmRegenerate(false)
+    setRegenerating(true)
+    try {
+      const res = await fetch(`/api/compass/roadmaps/${roadmapId}/regenerate-checklist`, { method: 'POST' })
+      const j = await res.json().catch(() => null)
+      if (res.ok && Array.isArray(j?.items)) saveChecklist(j.items)
+    } catch { /* keep the current list on failure */ }
+    finally { setRegenerating(false) }
+  }
 
   async function toggleChecklistItem(itemId: string, itemText: string, date: string) {
     const key = `0:item:${itemId}:${date}`
@@ -269,12 +370,46 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
   }
 
   // Daily Lifestyle Guidelines / Breakfast-Lunch-Dinner / Daily Schedule —
-  // the same period-split coach content Classic and Week render, shown
-  // read-only here; each sub-section only appears if it actually has
-  // content.
-  const lifestyleByPeriod = useMemo(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS), [data.dailyLifestyleGuidelines])
-  const mealsByPeriod = useMemo(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS), [data.mealGuidelines])
-  const dailyScheduleText = data.dailySchedule || ''
+  // the same period-split coach content Classic and Week render; editable
+  // copies + save helpers follow WeekTemplate's exact pattern, each
+  // sub-section only appears if it actually has content.
+  const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS))
+  const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS))
+  function saveLifestyleItem(label: string, itemIndex: number, next: string) {
+    setLifestyleByPeriod((prev) => {
+      const items = parseBullets(prev[label] || '')
+      items[itemIndex] = next
+      const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      return updated
+    })
+  }
+  function saveMealItem(label: string, itemIndex: number, next: string) {
+    setMealsByPeriod((prev) => {
+      const items = parseBullets(prev[label] || '')
+      items[itemIndex] = next
+      const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      return updated
+    })
+  }
+
+  const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule || '')
+  function saveScheduleField(lineIndex: number, field: 'time' | 'text', nextValue: string) {
+    const clean = nextValue.replace(/\s*\n\s*/g, ' ').trim()
+    setDailyScheduleText((prev) => {
+      const parsedLines = parseScheduleLines(prev)
+      const current = parsedLines[lineIndex] ?? { time: '', text: '' }
+      const nextEntry = field === 'time' ? { ...current, time: clean } : { ...current, text: clean }
+      const lines = parsedLines.map((item, i) => {
+        const e = i === lineIndex ? nextEntry : item
+        return e.time ? `${e.time} — ${e.text}` : e.text
+      })
+      const updated = lines.join('\n')
+      patchRoadmap({ guide_overrides: { daily_schedule: updated } })
+      return updated
+    })
+  }
 
   async function toggleGoal(weekNumber: number, actionIndex: number, date: string) {
     const key = `${weekNumber}:${actionIndex}:${date}`
@@ -297,6 +432,43 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
   const [openGroceryMonth, setOpenGroceryMonth] = useState<number | null>(null)
   const [openGroceryWeek, setOpenGroceryWeek] = useState<number | null>(null)
   const [boughtItems, setBoughtItems] = useState<Set<string>>(new Set())
+
+  // Shopping list override — same "null means keep computing it live"
+  // pattern as WeekTemplate. Note this applies the SAME override to every
+  // week shown (pre-existing behavior: `data.groceryListOverride` was
+  // already applied identically to every week before this change), so
+  // editing doesn't change which week(s) the override affects.
+  const [groceryOverride, setGroceryOverride] = useState<GroceryCategory[] | null>(data.groceryListOverride)
+  function saveGroceryList(next: GroceryCategory[]) {
+    setGroceryOverride(next)
+    patchRoadmap({ guide_overrides: { grocery_list_override: next } })
+  }
+  function saveGroceryItemText(cats: GroceryCategory[], catHead: string, itemIndex: number, next: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.map((it, i) => (i === itemIndex ? next : it)) } : cat)))
+  }
+  function removeGroceryItem(cats: GroceryCategory[], catHead: string, itemIndex: number) {
+    saveGroceryList(
+      cats
+        .map((cat) => (cat.head === catHead ? { ...cat, items: cat.items.filter((_, i) => i !== itemIndex) } : cat))
+        .filter((cat) => cat.items.length > 0),
+    )
+  }
+  function addGroceryItem(cats: GroceryCategory[], catHead: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === catHead ? { ...cat, items: [...cat.items, 'New item'] } : cat)))
+  }
+  function saveGroceryCategoryName(cats: GroceryCategory[], oldHead: string, next: string) {
+    saveGroceryList(cats.map((cat) => (cat.head === oldHead ? { ...cat, head: next } : cat)))
+  }
+  function removeGroceryCategory(cats: GroceryCategory[], head: string) {
+    saveGroceryList(cats.filter((cat) => cat.head !== head))
+  }
+  function addGroceryCategory(cats: GroceryCategory[]) {
+    saveGroceryList([...cats, { head: 'New category', items: ['New item'] }])
+  }
+  function resetGroceryList() {
+    setGroceryOverride(null)
+    patchRoadmap({ guide_overrides: { grocery_list_override: null } })
+  }
   const groceryStorageKey = `clp-grocery-${shareToken}`
   useEffect(() => {
     try {
@@ -447,11 +619,29 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
         <Card id="checkin" hidden={isHidden('checkin')}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
             <SecTitle icon={<CheckCircle2 size={20} />}>Daily Health Check-in</SecTitle>
-            <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
-              style={{ fontSize: 12.5, background: V.bg, border: `1px solid ${V.line}`, padding: '8px 11px', borderRadius: 9, color: V.ink, fontWeight: 600 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {editable && (
+                <button type="button" onClick={() => setConfirmRegenerate(true)} disabled={regenerating}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '8px 12px', borderRadius: 9, border: `1px solid ${V.line}`, background: V.bg, color: V.accent, cursor: regenerating ? 'default' : 'pointer', opacity: regenerating ? 0.6 : 1 }}>
+                  <Sparkles size={13} /> {regenerating ? 'Regenerating…' : 'Ask AI to regenerate'}
+                </button>
+              )}
+              <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)}
+                style={{ fontSize: 12.5, background: V.bg, border: `1px solid ${V.line}`, padding: '8px 11px', borderRadius: 9, color: V.ink, fontWeight: 600 }} />
+            </div>
           </div>
 
-          {checklistItems.length > 0 && (
+          {confirmRegenerate && (
+            <div style={{ background: V.accentSoft, border: `1px solid ${V.accent}`, borderRadius: 12, padding: '12px 16px', margin: '12px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12.5, color: V.ink }}>Regenerate from this patient&apos;s current supplements and lifestyle guidelines? Any manual edits to the checklist will be overwritten.</span>
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button type="button" onClick={() => setConfirmRegenerate(false)} style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: `1px solid ${V.line}`, background: '#fff', cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={regenerateChecklist} style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', background: V.accent, color: '#fff', cursor: 'pointer' }}>Regenerate</button>
+              </div>
+            </div>
+          )}
+
+          {!editable && checklistItems.length > 0 && (
             <p style={{ fontSize: 12.5, color: V.accent, fontWeight: 600, margin: '8px 0 12px' }}>
               {checkinAllDone
                 ? 'Everything checked off for today — nice work.'
@@ -466,21 +656,37 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
               {checklistItems.map((item) => {
                 const checked = checkedSet.has(`0:item:${item.id}:${checkinDate}`)
                 return (
-                  <div key={item.id} onClick={() => toggleChecklistItem(item.id, item.text, checkinDate)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${checked ? V.accent : V.line}`, background: checked ? V.accentSoft : V.bg }}>
+                  <div key={item.id} onClick={() => { if (!editable) toggleChecklistItem(item.id, item.text, checkinDate) }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', borderRadius: 12, cursor: editable ? 'default' : 'pointer', border: `1px solid ${checked ? V.accent : V.line}`, background: checked ? V.accentSoft : V.bg }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
-                      {checked
+                      {!editable && (checked
                         ? <CheckCircle2 size={17} color={V.accent} style={{ flexShrink: 0 }} />
-                        : <Circle size={17} style={{ flexShrink: 0, opacity: 0.4 }} />}
-                      <span style={{ fontSize: 13, fontWeight: 500, color: checked ? V.accent : V.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                        : <Circle size={17} style={{ flexShrink: 0, opacity: 0.4 }} />)}
+                      {editable ? (
+                        <InlineEditableText editable value={item.text} onSave={(next) => saveChecklistItemText(item.id, next)}
+                          style={{ fontSize: 13, fontWeight: 500, color: V.ink, flex: 1 }} />
+                      ) : (
+                        <span style={{ fontSize: 13, fontWeight: 500, color: checked ? V.accent : V.ink, textDecoration: checked ? 'line-through' : 'none' }}>{item.text}</span>
+                      )}
                     </div>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? V.accent : V.accentSoft, color: checked ? '#fff' : V.accent, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                    {editable ? (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); removeChecklistItem(item.id) }} title="Remove"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: V.accent, opacity: 0.6, flexShrink: 0 }}><X size={15} /></button>
+                    ) : (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: checked ? V.accent : V.accentSoft, color: checked ? '#fff' : V.accent, flexShrink: 0 }}>{checked ? 'Done' : 'Pending'}</span>
+                    )}
                   </div>
                 )
               })}
             </div>
           ) : (
             <p style={{ fontSize: 13, color: V.muted, marginTop: 12 }}>Once your coach confirms your supplements or lifestyle guidelines, your daily checklist will show up here.</p>
+          )}
+          {editable && (
+            <button type="button" onClick={addChecklistItem}
+              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${V.line}`, background: 'none', color: V.accent, cursor: 'pointer' }}>
+              + Add task
+            </button>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 18 }}>
@@ -512,38 +718,87 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
         {/* Founder's note */}
         <Card id="founder" hidden={isHidden('founder')}>
           <Eyebrow>A note from the founder</Eyebrow>
-          <PullQuote initials="RS" name="Roshni Sanghvi" role="Founder, Living Plus"
-            accentColor={V.accent} accentSoft={V.accentSoft} borderColor={V.line}
-            quote={data.founderNote.split('\n\n').join(' ')} />
+          {editable ? (
+            <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div style={{ width: 84, height: 84, borderRadius: 22, flexShrink: 0, background: V.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 26, fontWeight: 800 }}>RS</div>
+              <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+                <InlineEditableText editable as="div" multiline value={founderNote} onSave={saveFounderNote}
+                  style={{ fontSize: '1.05rem', lineHeight: 1.5, color: V.ink, fontWeight: 500 }} />
+                <div style={{ fontSize: 14, fontWeight: 700, color: V.ink, marginTop: 8 }}>Roshni Sanghvi</div>
+                <div style={{ fontSize: 12.5, color: V.muted, marginTop: 1 }}>Founder, Living Plus</div>
+              </div>
+            </div>
+          ) : (
+            <PullQuote initials="RS" name="Roshni Sanghvi" role="Founder, Living Plus"
+              accentColor={V.accent} accentSoft={V.accentSoft} borderColor={V.line}
+              quote={founderNote.split('\n\n').join(' ')} />
+          )}
         </Card>
 
         {/* Coach's note */}
         {data.coach && (
           <Card id="coach" hidden={isHidden('coach')}>
             <Eyebrow>Your coach</Eyebrow>
-            <PullQuote photo={data.coach.photo_url} initials={(data.coach.full_name || '?').charAt(0)} name={data.coach.full_name} role={data.coach.designation || 'Nutritional coach'}
-              accentColor={V.accent} accentSoft={V.accentSoft} borderColor={V.line}
-              quote={data.coachQuote || `${coachFirst} is your dedicated coach for this plan.`} quoteIsItalic={!!data.coachQuote} />
+            {editable ? (
+              <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ width: 84, height: 84, borderRadius: 22, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : V.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 26, fontWeight: 800 }}>
+                  {!data.coach.photo_url && (data.coach.full_name || '?').charAt(0)}
+                </div>
+                <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+                  <InlineEditableText editable as="div" multiline value={coachQuote} placeholder={`${coachFirst} is your dedicated coach for this plan.`} onSave={saveCoachQuote}
+                    style={{ fontSize: '1.05rem', lineHeight: 1.5, color: V.ink, fontWeight: 500, fontStyle: 'italic' }} />
+                  <div style={{ fontSize: 14, fontWeight: 700, color: V.ink, marginTop: 8 }}>{data.coach.full_name}</div>
+                  <div style={{ fontSize: 12.5, color: V.muted, marginTop: 1 }}>{data.coach.designation || 'Nutritional coach'}</div>
+                </div>
+              </div>
+            ) : (
+              <PullQuote photo={data.coach.photo_url} initials={(data.coach.full_name || '?').charAt(0)} name={data.coach.full_name} role={data.coach.designation || 'Nutritional coach'}
+                accentColor={V.accent} accentSoft={V.accentSoft} borderColor={V.line}
+                quote={coachQuote || `${coachFirst} is your dedicated coach for this plan.`} quoteIsItalic={!!coachQuote} />
+            )}
           </Card>
         )}
 
         {/* Care team */}
-        {data.careTeam.length > 0 && (
+        {(careTeam.length > 0 || editable) && (
           <Card id="careteam" hidden={isHidden('careteam')}>
             <Eyebrow>Beyond your coach</Eyebrow>
             <SecTitle icon={<Users size={20} />}>Your care team</SecTitle>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginTop: 16 }}>
-              {data.careTeam.map((m, i) => (
-                <div key={i} style={{ border: `1px solid ${V.line}`, borderRadius: 14, padding: '14px 16px' }}>
+              {careTeam.map((m, i) => (
+                <div key={i} style={{ border: `1px solid ${V.line}`, borderRadius: 14, padding: '14px 16px', position: 'relative' }}>
+                  {editable && (
+                    <button type="button" onClick={() => removeCareTeamMember(i)} title="Remove"
+                      style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: V.accent, opacity: 0.6 }}><X size={14} /></button>
+                  )}
                   <div style={{ width: 40, height: 40, borderRadius: 12, background: V.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: V.accentDeep, marginBottom: 10 }}>
                     {(m.name || '?').charAt(0)}
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>{m.name}</div>
-                  {m.role && <div style={{ fontSize: 11, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 3 }}>{m.role}</div>}
-                  {m.intro && <p style={{ fontSize: 12.5, color: V.inkSoft, lineHeight: 1.5, marginTop: 8, marginBottom: 0 }}>{renderMarkdownBold(m.intro)}</p>}
+                  {editable ? (
+                    <>
+                      <InlineEditableText editable value={m.name} placeholder="Name" onSave={(next) => saveCareTeamField(i, 'name', next)}
+                        style={{ fontWeight: 700, fontSize: 13.5, display: 'block' }} />
+                      <InlineEditableText editable value={m.role} placeholder="Role" onSave={(next) => saveCareTeamField(i, 'role', next)}
+                        style={{ fontSize: 11, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 3, display: 'block' }} />
+                      <InlineEditableText editable as="div" multiline value={m.intro} placeholder="Short intro" onSave={(next) => saveCareTeamField(i, 'intro', next)}
+                        style={{ fontSize: 12.5, color: V.inkSoft, lineHeight: 1.5, marginTop: 8 }} />
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontWeight: 700, fontSize: 13.5 }}>{m.name}</div>
+                      {m.role && <div style={{ fontSize: 11, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 3 }}>{m.role}</div>}
+                      {m.intro && <p style={{ fontSize: 12.5, color: V.inkSoft, lineHeight: 1.5, marginTop: 8, marginBottom: 0 }}>{renderMarkdownBold(m.intro)}</p>}
+                    </>
+                  )}
                 </div>
               ))}
             </div>
+            {editable && (
+              <button type="button" onClick={addCareTeamMember}
+                style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${V.line}`, background: 'none', color: V.accent, cursor: 'pointer' }}>
+                + Add team member
+              </button>
+            )}
           </Card>
         )}
 
@@ -568,10 +823,20 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
           </div>
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${V.line}` }}>
             <Eyebrow>Your why</Eyebrow>
-            {data.whyReflection ? (
+            {editable ? (
+              <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ width: 84, height: 84, borderRadius: 22, flexShrink: 0, background: V.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 26, fontWeight: 800 }}>{firstName.charAt(0)}</div>
+                <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+                  <InlineEditableText editable as="div" multiline value={whyReflection} placeholder="Not filled in yet." onSave={saveWhyReflection}
+                    style={{ fontSize: '1.05rem', lineHeight: 1.5, color: V.ink, fontWeight: 500, fontStyle: 'italic' }} />
+                  <div style={{ fontSize: 14, fontWeight: 700, color: V.ink, marginTop: 8 }}>{data.patient.full_name}</div>
+                  <div style={{ fontSize: 12.5, color: V.muted, marginTop: 1 }}>In your own words</div>
+                </div>
+              </div>
+            ) : whyReflection ? (
               <PullQuote initials={firstName.charAt(0)} name={data.patient.full_name} role="In your own words"
                 accentColor={V.accent} accentSoft={V.accentSoft} borderColor={V.line}
-                quote={data.whyReflection} quoteIsItalic />
+                quote={whyReflection} quoteIsItalic />
             ) : (
               <p style={{ fontSize: 13, color: V.muted }}>Not filled in yet.</p>
             )}
@@ -592,7 +857,12 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
                       {items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                           <Circle size={11} color={V.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
-                          <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          {editable ? (
+                            <InlineEditableText editable value={item} onSave={(next) => saveLifestyleItem(label, i, next)}
+                              style={{ fontSize: 13, lineHeight: 1.5 }} />
+                          ) : (
+                            <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -617,7 +887,12 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
                       {items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                           <Circle size={11} color={V.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
-                          <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          {editable ? (
+                            <InlineEditableText editable value={item} onSave={(next) => saveMealItem(label, i, next)}
+                              style={{ fontSize: 13, lineHeight: 1.5 }} />
+                          ) : (
+                            <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -638,8 +913,19 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
                   <span style={{ position: 'absolute', left: -34, top: 0, width: 26, height: 26, borderRadius: 13, background: V.accentSoft, border: `2px solid ${V.card}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Circle size={9} color={V.accent} />
                   </span>
-                  {item.time && <div style={{ fontSize: 11.5, fontWeight: 700, color: V.accent }}>{item.time}</div>}
-                  <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 2 }}>{item.text}</div>
+                  {editable ? (
+                    <>
+                      <InlineEditableText editable value={item.time} placeholder="Time" onSave={(next) => saveScheduleField(i, 'time', next)}
+                        style={{ display: 'inline-block', fontSize: 11.5, fontWeight: 700, color: V.accent }} />
+                      <InlineEditableText editable value={item.text} placeholder="Activity" onSave={(next) => saveScheduleField(i, 'text', next)}
+                        style={{ display: 'block', fontSize: 13, lineHeight: 1.5, marginTop: 2 }} />
+                    </>
+                  ) : (
+                    <>
+                      {item.time && <div style={{ fontSize: 11.5, fontWeight: 700, color: V.accent }}>{item.time}</div>}
+                      <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 2 }}>{item.text}</div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -731,10 +1017,15 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
                                 {(w.days?.[dayIndex] ?? w.actions ?? []).map((action, ai) => {
                                   const checked = checkedSet.has(`${w.week_number}:${ai}:${dayDate}`)
                                   return (
-                                    <li key={ai} data-goal-toggle={`${w.week_number}:${ai}:${dayDate}`} onClick={() => toggleGoal(w.week_number, ai, dayDate)}
-                                      style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', marginBottom: 8 }}>
-                                      {checked ? <CheckCircle2 size={16} color={V.accent} style={{ flexShrink: 0, marginTop: 1 }} /> : <Circle size={16} color={V.faint} style={{ flexShrink: 0, marginTop: 1 }} />}
-                                      <span data-goal-text style={{ fontSize: 13, color: checked ? V.muted : V.ink, textDecoration: checked ? 'line-through' : 'none' }}>{action}</span>
+                                    <li key={ai} data-goal-toggle={`${w.week_number}:${ai}:${dayDate}`} onClick={() => { if (!editable) toggleGoal(w.week_number, ai, dayDate) }}
+                                      style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: editable ? 'default' : 'pointer', marginBottom: 8 }}>
+                                      {!editable && (checked ? <CheckCircle2 size={16} color={V.accent} style={{ flexShrink: 0, marginTop: 1 }} /> : <Circle size={16} color={V.faint} style={{ flexShrink: 0, marginTop: 1 }} />)}
+                                      {editable ? (
+                                        <InlineEditableText editable value={action} onSave={(next) => saveScheduleAction(w.week_number, dayIndex, ai, next)}
+                                          style={{ fontSize: 13, color: V.ink }} />
+                                      ) : (
+                                        <span data-goal-text style={{ fontSize: 13, color: checked ? V.muted : V.ink, textDecoration: checked ? 'line-through' : 'none' }}>{action}</span>
+                                      )}
                                     </li>
                                   )
                                 })}
@@ -853,9 +1144,21 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
 
         {/* Shopping list */}
         <Card id="grocery" hidden={isHidden('grocery')}>
-          <Eyebrow>What to buy</Eyebrow>
-          <SecTitle icon={<ShoppingCart size={20} />}>Your shopping list</SecTitle>
-          <p style={{ fontSize: 12.5, color: V.muted, marginTop: 12, marginBottom: 16 }}>Pulled straight from the ingredients of your matched recipes. Pick a week below to see it.</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <Eyebrow>What to buy</Eyebrow>
+              <SecTitle icon={<ShoppingCart size={20} />}>Your shopping list</SecTitle>
+            </div>
+            {editable && groceryOverride && (
+              <button type="button" onClick={resetGroceryList}
+                style={{ fontSize: 11.5, fontWeight: 700, padding: '7px 12px', borderRadius: 10, border: `1px solid ${V.line}`, background: V.bg, color: V.accent, cursor: 'pointer' }}>
+                Reset to auto-generated list
+              </button>
+            )}
+          </div>
+          <p style={{ fontSize: 12.5, color: V.muted, marginTop: 12, marginBottom: 16 }}>
+            {editable ? 'Pulled from your matched recipes — edit any item, or add your own. Applies to every week shown.' : 'Pulled straight from the ingredients of your matched recipes. Pick a week below to see it.'}
+          </p>
           {months.length === 0 ? (
             <p style={{ fontSize: 12.5, color: V.muted }}>Not planned yet, check back once your coach generates your roadmap.</p>
           ) : (
@@ -881,30 +1184,70 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins }: { 
                   {m.weeks.map((w) => {
                     const weekRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
                     const cats = buildGroceryList(weekRecipes)
-                    // A coach-edited list (guide_overrides.grocery_list_override)
-                    // wins over the computed one.
-                    const finalCats: GroceryCategory[] = data.groceryListOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
+                    // A coach-edited list (groceryOverride, persisted to
+                    // guide_overrides.grocery_list_override) wins over the
+                    // computed one — same fallback chain as before, now
+                    // sourced from local state so it's live-editable.
+                    const finalCats: GroceryCategory[] = groceryOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
                     return (
                       <div key={w.week_number} data-grocery-week-body={w.week_number} style={{ display: openGroceryWeek === w.week_number ? 'grid' : 'none', borderTop: `1px solid ${V.line}`, paddingTop: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16 }}>
                         {finalCats.map((cat) => (
                           <div key={cat.head}>
-                            <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{cat.head}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                              {editable ? (
+                                <InlineEditableText editable value={cat.head} onSave={(next) => saveGroceryCategoryName(finalCats, cat.head, next)}
+                                  style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }} />
+                              ) : (
+                                <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{cat.head}</span>
+                              )}
+                              {editable && (
+                                <span role="button" onClick={() => removeGroceryCategory(finalCats, cat.head)} title="Remove category"
+                                  style={{ display: 'inline-flex', color: V.accent, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={12} /></span>
+                              )}
+                            </div>
                             <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                              {cat.items.map((item) => {
+                              {cat.items.map((item, itemIndex) => {
                                 const itemKey = `${w.week_number}:${cat.head}:${item}`
                                 const bought = boughtItems.has(itemKey)
                                 return (
-                                  <li key={item} data-grocery-item={itemKey} onClick={() => toggleBought(itemKey)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, opacity: bought ? 0.45 : 1, padding: '3px 0', cursor: 'pointer' }}>
-                                    <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={V.accent} /></span>
-                                    <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} color={V.faint} /></span>
-                                    <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                                  <li key={itemIndex} data-grocery-item={itemKey} onClick={() => { if (!editable) toggleBought(itemKey) }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, opacity: bought ? 0.45 : 1, padding: '3px 0', cursor: editable ? 'default' : 'pointer' }}>
+                                    {!editable && (
+                                      <>
+                                        <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={V.accent} /></span>
+                                        <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} color={V.faint} /></span>
+                                      </>
+                                    )}
+                                    {editable ? (
+                                      <>
+                                        <InlineEditableText editable value={item} onSave={(next) => saveGroceryItemText(finalCats, cat.head, itemIndex, next)}
+                                          style={{ flex: 1 }} />
+                                        <span role="button" onClick={() => removeGroceryItem(finalCats, cat.head, itemIndex)} title="Remove"
+                                          style={{ display: 'inline-flex', color: V.accent, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={12} /></span>
+                                      </>
+                                    ) : (
+                                      <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                                    )}
                                   </li>
                                 )
                               })}
+                              {editable && (
+                                <li>
+                                  <button type="button" onClick={() => addGroceryItem(finalCats, cat.head)}
+                                    style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, padding: 0, border: 'none', background: 'none', color: V.accent, cursor: 'pointer', opacity: 0.8 }}>
+                                    + Add item
+                                  </button>
+                                </li>
+                              )}
                             </ul>
                           </div>
                         ))}
+                        {editable && (
+                          <button type="button" onClick={() => addGroceryCategory(finalCats)}
+                            style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${V.line}`, background: 'none', color: V.accent, cursor: 'pointer' }}>
+                            + Add category
+                          </button>
+                        )}
                       </div>
                     )
                   })}
