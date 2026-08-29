@@ -1368,9 +1368,12 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
               )
             })}
           </div>
-          <div style={{ color: V.faint, fontSize: 11, marginTop: 28 }}>Living Plus Pvt Ltd™</div>
         </Card>
         <CanvasBlocksSection blocks={data.canvasBlocks} recipesById={Object.fromEntries(data.recipeBank.map((r) => [r.id, r]))} imagesById={Object.fromEntries(data.imageBank.map((im) => [im.id, im]))} theme={toBlockTheme(V)} />
+        {/* Footer — belongs at the true end of the page, after custom
+            blocks (not before them, which put it in the middle when a
+            roadmap has any). */}
+        <div style={{ color: V.faint, fontSize: 11, marginTop: 28, textAlign: 'center' }}>Living Plus Pvt Ltd™</div>
       </div>
     </div>
   )

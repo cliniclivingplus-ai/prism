@@ -1631,13 +1631,12 @@ function clpToggleGroceryCat(head){
               )
             })}
           </div>
-          <div style={{ color: PALETTE.cream, opacity: 0.4, fontSize: '0.75rem', marginTop: 40, fontFamily: "'Karla', monospace" }}>Living Plus Pvt Ltd™</div>
           </div>
         </div>
       </section>
       {data.canvasBlocks.length > 0 && (
         <section style={{ background: PALETTE.paper1, padding: '2rem 1.5rem' }}>
-          <div style={{ maxWidth: 720, margin: '0 auto' }}>
+          <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <CanvasBlocksSection
               blocks={data.canvasBlocks}
               recipesById={Object.fromEntries(data.recipeBank.map((r) => [r.id, r]))}
@@ -1654,6 +1653,12 @@ function clpToggleGroceryCat(head){
           </div>
         </section>
       )}
+      {/* Footer — belongs at the true end of the page, after custom
+          blocks (not before them, which put it in the middle when a
+          roadmap has any). */}
+      <div style={{ background: PALETTE.night2, padding: '0 1.5rem 3rem', textAlign: 'center' }}>
+        <div style={{ color: PALETTE.cream, opacity: 0.4, fontSize: '0.75rem', fontFamily: "'Karla', monospace" }}>Living Plus Pvt Ltd™</div>
+      </div>
     </div>
   )
 }

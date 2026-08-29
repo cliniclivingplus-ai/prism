@@ -1533,8 +1533,11 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
           </div>
         </Card>
 
-        <div style={{ color: ONYX.muted, fontSize: '0.72rem', marginTop: 24, textAlign: 'center', letterSpacing: '0.04em' }}>CLINIC LIVING PLUS PVT LTD™</div>
         <CanvasBlocksSection blocks={data.canvasBlocks} recipesById={Object.fromEntries(data.recipeBank.map((r) => [r.id, r]))} imagesById={Object.fromEntries(data.imageBank.map((im) => [im.id, im]))} theme={toBlockTheme(ONYX)} />
+        {/* Footer — belongs at the true end of the page, after custom
+            blocks (not before them, which put it in the middle when a
+            roadmap has any). */}
+        <div style={{ color: ONYX.muted, fontSize: '0.72rem', marginTop: 24, textAlign: 'center', letterSpacing: '0.04em' }}>CLINIC LIVING PLUS PVT LTD™</div>
       </div>
     </div>
   )
