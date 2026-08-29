@@ -472,16 +472,24 @@ Exactly ${weeksInChunk} items, week_number ${startWeek} through ${endWeek}. Each
         // The real ceiling here is this org's Groq on-demand TPM cap (8000
         // tokens per request, prompt + max_tokens combined) — not the
         // model's own output limit. This budget only covers the completion
-        // half; leaving it well under 8000 (rather than up against it, as
-        // the old 1000/week + up-to-8000 formula did) reserves real room
-        // for this call's own prompt (patient facts, KB context, the JSON
-        // schema example) so the two combined don't trip the same 413 that
-        // motivated shrinking WEEKS_PER_CHUNK above. Actions/days got
-        // shorter too (12-word cap, no "why" clause), so 700/week plus a
-        // fixed buffer for hidden reasoning tokens is enough per week.
-        max_tokens: Math.min(4000, weeksInChunk * 700 + 400),
+        // half, so it still needs to leave real room for this call's own
+        // prompt (patient facts, KB context, the JSON schema example) —
+        // roughly 2500-3000 tokens observed — so the two combined don't
+        // trip the same 413 that motivated shrinking WEEKS_PER_CHUNK to 3.
+        // 700/week (2500 total) turned out too tight the other direction:
+        // a `days` array is real content — 7 entries x 3 items each, not
+        // shortened by the 12-word action cap the way `actions` itself
+        // was — and a response that runs short mid-array produces exactly
+        // the same-goal-every-day symptom hasValidDays()'s fallback exists
+        // to catch, just far more often than it should. 1200/week (4000
+        // total for a 3-week chunk) leaves days enough room to actually
+        // finish while keeping the combined request comfortably under 8000.
+        max_tokens: Math.min(4800, weeksInChunk * 1200 + 400),
       })
       const raw = res.choices[0]?.message?.content ?? ''
+      if (res.choices[0]?.finish_reason === 'length') {
+        console.log(`Weekly chunk ${startWeek}-${endWeek} hit max_tokens — response likely truncated, days may fall back to the deterministic floor.`)
+      }
       const parsed = extractJSON(raw)
       if (!Array.isArray(parsed)) throw new Error(`Not an array (weeks ${startWeek}-${endWeek}). Raw: ${raw.slice(0, 200)}`)
       // Don't trust the model's own week_number — observed it start a chunk
