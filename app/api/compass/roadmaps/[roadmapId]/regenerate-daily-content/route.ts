@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplements'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
@@ -7,8 +6,6 @@ import { generateDailyContent } from '@/lib/pdf/generateDailyContent'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 // Coach-triggered "Regenerate" on the Daily Lifestyle Guidelines /
 // Breakfast-Lunch-Dinner / Daily Schedule sections, for any template —
@@ -54,7 +51,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ roadma
     return NextResponse.json({ error: 'Not enough real content on this roadmap yet to ground a regeneration — this needs at least an overview or nutritionist guidelines.' }, { status: 422 })
   }
 
-  const { lifestyle_guidelines, meal_guidelines, daily_schedule } = await generateDailyContent(groq, patientFacts, '')
+  const { lifestyle_guidelines, meal_guidelines, daily_schedule } = await generateDailyContent(patientFacts, '')
 
   const { error: updateError } = await supabaseAdmin
     .from('roadmaps')

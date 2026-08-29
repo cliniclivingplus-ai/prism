@@ -3,9 +3,6 @@ import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplemen
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
 import { generateDailyContent } from '@/lib/pdf/generateDailyContent'
 import { generateAIChecklist, buildDeterministicChecklist } from '@/lib/dailyChecklist'
-import Groq from 'groq-sdk'
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 type RoadmapRow = {
   id: string
@@ -58,7 +55,7 @@ export async function ensureDailyContent(roadmap: RoadmapRow): Promise<void> {
       ? `${patientFacts}\n\nConfirmed supplements:\n${supplementsForPrompt.join('\n')}`
       : patientFacts
 
-    const { lifestyle_guidelines, meal_guidelines, daily_schedule } = await generateDailyContent(groq, fullFacts, '')
+    const { lifestyle_guidelines, meal_guidelines, daily_schedule } = await generateDailyContent(fullFacts, '')
 
     // Backfill the AI checklist too, same trigger — same long-vs-short
     // mismatch as above, and it reads lifestyle_guidelines as one of its

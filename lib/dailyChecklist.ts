@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 
 // Shared by buildGuideData.ts (deterministic fallback), interpret/route.ts
 // (AI generation, Step 3E) + the coach's manual "Ask AI to regenerate"
@@ -62,12 +62,11 @@ export async function generateAIChecklist(
   lifestyleGuidelines: string,
 ): Promise<ChecklistItem[]> {
   try {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
     const supplementLines = confirmedSupplements.slice(0, 6).map((s) => `${s.name}${s.timing ? ` (${s.timing})` : ''}`)
     const lifestyleLines = (lifestyleGuidelines || '').split('\n').map((l) => l.trim()).filter(Boolean)
     if (supplementLines.length === 0 && lifestyleLines.length === 0) return []
 
-    const res = await groq.chat.completions.create({
+    const res = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       reasoning_effort: 'low',
       temperature: 0.2,

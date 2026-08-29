@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 import { supabaseAdmin } from '@/lib/supabase'
 import { supabaseBlood } from '@/lib/supabase'
 import { supabaseMrx } from '@/lib/supabase'
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 import { embedText } from '@/lib/embeddings'
 import { buildMarkerTrends, buildTrendSnapshot, buildBloodMarkersPromptBlock, type ExtractedMarker } from '@/lib/bloodTrends'
 import { parsePrescriptionRow, buildPrescriptionPromptBlock } from '@/lib/mrxPrescription'
@@ -18,7 +18,6 @@ import { generateDailyContent } from '@/lib/pdf/generateDailyContent'
 // once it started including a 7-day escalation breakdown, not just one
 // shared set of actions — well beyond the old 60s budget.
 export const maxDuration = 280
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 function extractJSON(text: string): unknown {
   const clean = text.replace(/```json|```/g, '').trim()
@@ -234,7 +233,7 @@ export async function POST(req: NextRequest) {
     // ── STEP 1: Extract specific patient facts ────────────────
     // This is the key step — pull exact facts before generating
     console.log('Step 1: Extracting patient facts...')
-    const factsRes = await groq.chat.completions.create({
+    const factsRes = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       reasoning_effort: 'low',
       messages: [
@@ -270,7 +269,7 @@ Return as a bullet list. Every point must be specific and sourced from the data 
     console.log('Facts extracted:', patientFacts.slice(0, 200))
 
     // ── STEP 2: Overview ─────────────────────────────────────
-    const overviewRes = await groq.chat.completions.create({
+    const overviewRes = await groqChatCompletion({
       model: 'openai/gpt-oss-120b',
       reasoning_effort: 'low',
       messages: [
@@ -307,7 +306,7 @@ Use "you" throughout. Reference their real details. No generic health advice.` }
     // so a roadmap generated fresh and one backfilled later get identically
     // grounded content — regardless of which template (Week-family or
     // Classic/Almanac/Pulse/Onyx/Vitals) is picked.
-    const { lifestyle_guidelines, meal_guidelines, daily_schedule } = await generateDailyContent(groq, patientFacts, kbContext)
+    const { lifestyle_guidelines, meal_guidelines, daily_schedule } = await generateDailyContent(patientFacts, kbContext)
 
     // ── STEP 3E: Daily Health Check-in checklist ──────────────
     // See lib/dailyChecklist.ts — selects/rephrases from confirmed
@@ -319,7 +318,7 @@ Use "you" throughout. Reference their real details. No generic health advice.` }
     const daily_checklist_items: ChecklistItem[] = await generateAIChecklist(confirmedSupplementsForChecklist, lifestyle_guidelines)
 
     // ── STEP 4: Clinical notes ────────────────────────────────
-    const clinicalRes = await groq.chat.completions.create({
+    const clinicalRes = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       reasoning_effort: 'low',
       messages: [
@@ -405,7 +404,7 @@ Each bullet under a section starts with •. Specific to this patient. No generi
 
     async function generateWeeklyChunk(startWeek: number, endWeek: number, usedThemes: string[]): Promise<unknown[]> {
       const weeksInChunk = endWeek - startWeek + 1
-      const res = await groq.chat.completions.create({
+      const res = await groqChatCompletion({
         model: 'openai/gpt-oss-120b',
         reasoning_effort: 'low',
         messages: [

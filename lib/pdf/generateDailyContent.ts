@@ -1,4 +1,4 @@
-import type Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 
 // Shared by roadmap generation (interpret/route.ts Steps 3/3B/3C) and the
 // coach-triggered "Regenerate" action on an existing roadmap's Daily
@@ -7,8 +7,8 @@ import type Groq from 'groq-sdk'
 // prompts, so an existing roadmap regenerated later gets content grounded
 // the exact same way a freshly generated one does, regardless of which
 // template (Week-family or Classic/Almanac/Pulse/Onyx/Vitals) it uses.
-export async function generateDailyContent(groq: Groq, patientFacts: string, kbContext: string) {
-  const lifestyleRes = await groq.chat.completions.create({
+export async function generateDailyContent(patientFacts: string, kbContext: string) {
+  const lifestyleRes = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     reasoning_effort: 'low',
     messages: [
@@ -35,7 +35,7 @@ Return only 6 lines, 2 per period, in the order Morning, Morning, Afternoon, Aft
   })
   const lifestyle_guidelines = lifestyleRes.choices[0]?.message?.content?.trim() ?? ''
 
-  const mealRes = await groq.chat.completions.create({
+  const mealRes = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     reasoning_effort: 'low',
     messages: [
@@ -65,7 +65,7 @@ Return only 6 lines, 2 per meal, in the order Breakfast, Breakfast, Lunch, Lunch
   })
   const meal_guidelines = mealRes.choices[0]?.message?.content?.trim() ?? ''
 
-  const scheduleRes = await groq.chat.completions.create({
+  const scheduleRes = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     reasoning_effort: 'low',
     messages: [
