@@ -13,6 +13,7 @@ export default function CompassLayout({ children }: { children: React.ReactNode 
         <Link href="/compass/coaches" style={navLinkStyle}>Coaches</Link>
         <Link href="/compass/guide-images" style={navLinkStyle}>Picture bank</Link>
         <Link href="/compass/recipe-bank" style={navLinkStyle}>Recipe bank</Link>
+        <Link href="/compass/knowledge-base" style={navLinkStyle}>Knowledge Base</Link>
       </nav>
       {children}
     </div>
