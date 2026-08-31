@@ -112,7 +112,7 @@ export default async function DashboardPage({
           </div>
           <Link
             href="/patients/new"
-            className="flex items-center gap-[7px] rounded-[9px] px-[17px] py-2.5 text-[13px] font-semibold text-white"
+            className="btn-primary flex items-center gap-[7px] rounded-[9px] px-[17px] py-2.5 text-[13px] font-semibold text-white"
             style={{ background: 'var(--teal-700)' }}
           >
             <IconPlus /> Add patient
