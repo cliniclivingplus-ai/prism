@@ -3,13 +3,21 @@
 /* ═══════════════════════════════════════════════════════════════════
    CLP — SHARED DESIGN SYSTEM
 
-   Tokens taken literally from design-reference/home.html and
-   clp-patient-workspace.html. Teal + gold + paper.
+   Originally taken literally from design-reference/home.html and
+   clp-patient-workspace.html (teal + gold on cream paper). Deliberately
+   moved off that spec on request: background is now white instead of
+   cream, and the --teal-* ramp (still named --teal-* since ~150 files
+   reference these var names directly for headers/sidebar/nav — renaming
+   the tokens would mean touching every one of them for no visual gain)
+   now holds a desaturated forest/emerald green instead of a teal-blue,
+   so "CLP Compass brand color" reads as a genuine green app-wide, not a
+   distinct hue from MicrobiomeRx's own pista-green accent below.
 
    NOTE: this supersedes the earlier "MicrobiomeRx token architecture
-   re-skinned with --clp-green" decision recorded in CLAUDE.md. The
-   mockups are the spec. --clp-green survives as --pista-600 (#538A22),
-   which the mockups use for the MicrobiomeRx tool accent.
+   re-skinned with --clp-green" decision recorded in CLAUDE.md. --clp-green
+   survives as --pista-600 (#538A22), MicrobiomeRx's own accent — kept
+   deliberately distinct from the --teal-* brand green so the two tools
+   still read as separate within one app.
 
    The mockups define no dark mode, so neither does this file.
    Never hardcode hex outside here.
@@ -17,21 +25,23 @@
 
 :root {
   /* Paper + ink */
-  --paper: #FAF6EE;
+  --paper: #FFFFFF;
   --paper-raised: #FFFFFF;
-  --ink: #1C2B29;
+  --ink: #182420;
   --ink-soft: #5B6664;
   --ink-faint: #8C948F;
-  --line: #E3DAC6;
-  --line-soft: #EEE7D6;
+  --line: #E2E6E1;
+  --line-soft: #EDF0EB;
 
-  /* Teal — primary brand / CLP Compass accent */
-  --teal-950: #0A2C28;
-  --teal-900: #0E3B36;
-  --teal-800: #123F39;
-  --teal-700: #155048;
-  --teal-600: #1F6E63;
-  --teal-100: #E4EFEA;
+  /* Teal — primary brand / CLP Compass accent. Named --teal-* for
+     historical reasons (see file header) but holds a forest/emerald
+     green ramp now, not teal. */
+  --teal-950: #0B2A1D;
+  --teal-900: #123A28;
+  --teal-800: #174632;
+  --teal-700: #1E5E3F;
+  --teal-600: #2A7A52;
+  --teal-100: #E1F0E6;
 
   /* Gold — brand mark, active nav, review states */
   --gold-500: #C9A227;
