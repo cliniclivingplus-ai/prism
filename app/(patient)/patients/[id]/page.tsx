@@ -6,6 +6,7 @@ import { Ring, WeeklyBars, Donut, RangeBar, BarTrack } from '@/components/ui/cha
 import {
   IconCompass, IconMrx, IconBlood, IconArrowOut, IconUpload, IconLock,
 } from '@/components/ui/icons'
+import { CheckCircle2, AlertTriangle } from 'lucide-react'
 import { loadPatientWorkspace, rangePosition } from '@/lib/clinical/patient'
 import { ageFrom, formatDate, relativeDays } from '@/lib/clinical/derive'
 
@@ -297,10 +298,10 @@ export default async function PatientWorkspacePage({
                         <BarTrack pct={mrx.rychIndex} color="var(--pista-600)" />
                         {mrx.prescriptionApprovedAt && (
                           <span
-                            className="font-mono-clp w-fit rounded-full px-2 py-[3px] text-[10px] font-medium"
+                            className="font-mono-clp w-fit rounded-full px-2 py-[3px] text-[10px] font-medium inline-flex items-center gap-1"
                             style={{ background: 'var(--pista-100)', color: 'var(--pista-600)' }}
                           >
-                            ✓ Supplement plan approved
+                            <CheckCircle2 size={11} /> Supplement plan approved
                           </span>
                         )}
                       </>
@@ -567,7 +568,7 @@ export default async function PatientWorkspacePage({
                   className="mb-[18px] rounded-[10px] px-4 py-2.5 text-[12.5px]"
                   style={{ background: 'var(--amber-50, #FFF8E9)', border: '1px solid var(--gold-300, #E9CE86)', color: 'var(--amber-700, #8A5A00)' }}
                 >
-                  ⚠ This report&apos;s own patient name is &quot;{mrx.nameMismatch}&quot;, not &quot;{patient.full_name}&quot; — double-check this is the right report before relying on it.
+                  <AlertTriangle size={13} style={{ display: 'inline', verticalAlign: -2, marginRight: 4 }} /> This report&apos;s own patient name is &quot;{mrx.nameMismatch}&quot;, not &quot;{patient.full_name}&quot; — double-check this is the right report before relying on it.
                 </div>
               )}
 
@@ -646,10 +647,10 @@ export default async function PatientWorkspacePage({
                       <div className="flex items-center justify-between gap-4">
                         <div>
                           <span
-                            className="font-mono-clp inline-block rounded-full px-2.5 py-1 text-[10.5px] font-medium"
+                            className="font-mono-clp inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-medium"
                             style={{ background: 'var(--pista-100)', color: 'var(--pista-600)' }}
                           >
-                            ✓ Approved {formatDate(mrx.prescriptionApprovedAt)}
+                            <CheckCircle2 size={11} /> Approved {formatDate(mrx.prescriptionApprovedAt)}
                           </span>
                           <p className="m-0 mt-2 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
                             Doctor-approved supplements, therapies and dietary protocol for this patient.
@@ -723,7 +724,7 @@ export default async function PatientWorkspacePage({
                   className="mb-[18px] rounded-[10px] px-4 py-2.5 text-[12.5px]"
                   style={{ background: 'var(--amber-50, #FFF8E9)', border: '1px solid var(--gold-300, #E9CE86)', color: 'var(--amber-700, #8A5A00)' }}
                 >
-                  ⚠ This report&apos;s own patient name is &quot;{blood.nameMismatch}&quot;, not &quot;{patient.full_name}&quot; — double-check this is the right report before relying on it.
+                  <AlertTriangle size={13} style={{ display: 'inline', verticalAlign: -2, marginRight: 4 }} /> This report&apos;s own patient name is &quot;{blood.nameMismatch}&quot;, not &quot;{patient.full_name}&quot; — double-check this is the right report before relying on it.
                 </div>
               )}
 

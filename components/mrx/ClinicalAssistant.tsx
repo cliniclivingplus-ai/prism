@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { usePageContext }  from '@/components/mrx/PageContext'
 import { useAssistant }    from '@/lib/mrx/AssistantContext'
 import { usePdfPanel, PDF_PANEL_W, ASSISTANT_W } from '@/lib/mrx/PdfPanelContext'
+import { FileText } from 'lucide-react'
 
 // ─── Markdown renderer ────────────────────────────────────────────────────────
 
@@ -264,8 +265,8 @@ export default function ClinicalAssistant() {
                   : 'bg-[#F2F9EC] text-gray-800 border border-[#E2F3D0] rounded-bl-sm'
               }`}>
                 {m.role === 'user' && m.content.startsWith('From the PDF report:') && (
-                  <div className="text-[10px] font-mono bg-white/20 rounded px-1.5 py-0.5 mb-1.5 inline-block">
-                    📄 From PDF
+                  <div className="text-[10px] font-mono bg-white/20 rounded px-1.5 py-0.5 mb-1.5 inline-flex items-center gap-1">
+                    <FileText size={10} /> From PDF
                   </div>
                 )}
                 <MessageContent content={m.content} />

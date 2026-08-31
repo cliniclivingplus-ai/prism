@@ -16,7 +16,7 @@ import {
   HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Flame, Target, TrendingUp,
   Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon,
-  type LucideIcon,
+  type LucideIcon, AlertTriangle,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
@@ -1374,7 +1374,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                 <div key={i} style={{ background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '12px 14px' }}>
                   <div style={{ color: ONYX.ink, fontWeight: 600, fontSize: '0.9rem' }}>{s.name}</div>
                   <div style={{ color: ONYX.inkSoft, fontSize: '0.82rem', marginTop: 4 }}>{[s.dose, s.timing, s.duration].filter(Boolean).join(' · ')}</div>
-                  {s.notes && <div style={{ color: ONYX.warn, fontSize: '0.78rem', marginTop: 6 }}>⚠ {s.notes}</div>}
+                  {s.notes && <div style={{ color: ONYX.warn, fontSize: '0.78rem', marginTop: 6 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</div>}
                 </div>
               ))}
             </div>

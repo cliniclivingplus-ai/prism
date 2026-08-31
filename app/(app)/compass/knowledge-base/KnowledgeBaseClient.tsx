@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
-import { BookOpen, Podcast, FileText, Sparkles, Upload, Search, X, CheckCircle, Loader2, ChevronDown, Globe, Video } from 'lucide-react'
+import { BookOpen, Podcast, FileText, Sparkles, Upload, Search, X, CheckCircle, CheckCircle2, Loader2, ChevronDown, Globe, Video, Lightbulb, Pencil } from 'lucide-react'
 
 type KbDoc = {
   id: string
@@ -164,8 +164,8 @@ export default function KnowledgeBaseClient({ initialDocuments, initialTotal, in
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {(['library', 'upload', 'search'] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={tabStyle(tab)}>
-              {tab === 'library' ? '📚 Library' : tab === 'upload' ? '⬆️ Upload' : '🔍 Test Search'}
+            <button key={tab} onClick={() => setActiveTab(tab)} style={{ ...tabStyle(tab), display: 'flex', alignItems: 'center', gap: 6 }}>
+              {tab === 'library' ? <><BookOpen size={14} /> Library</> : tab === 'upload' ? <><Upload size={14} /> Upload</> : <><Search size={14} /> Test Search</>}
             </button>
           ))}
         </div>
@@ -280,8 +280,8 @@ export default function KnowledgeBaseClient({ initialDocuments, initialTotal, in
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                 {(['txt', 'text'] as const).map(mode => (
-                  <button key={mode} onClick={() => setUploadMode(mode)} style={{ padding: '6px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: '1px solid', borderColor: uploadMode === mode ? '#538A22' : '#d1d5db', background: uploadMode === mode ? '#F2F9EC' : '#fff', color: uploadMode === mode ? '#538A22' : '#6b7280' }}>
-                    {mode === 'txt' ? '📄 Upload .txt File' : '✏️ Paste Text'}
+                  <button key={mode} onClick={() => setUploadMode(mode)} style={{ padding: '6px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: '1px solid', borderColor: uploadMode === mode ? '#538A22' : '#d1d5db', background: uploadMode === mode ? '#F2F9EC' : '#fff', color: uploadMode === mode ? '#538A22' : '#6b7280', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {mode === 'txt' ? <><FileText size={14} /> Upload .txt File</> : <><Pencil size={14} /> Paste Text</>}
                   </button>
                 ))}
               </div>
@@ -305,8 +305,8 @@ export default function KnowledgeBaseClient({ initialDocuments, initialTotal, in
                     )}
                   </div>
                   {/* How to convert tip */}
-                  <div style={{ marginTop: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
-                    💡 <strong>To convert a PDF to .txt:</strong> Open in Adobe Reader or browser → File → Save as Text, or copy-paste the content into Notepad and save as .txt
+                  <div style={{ marginTop: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                    <Lightbulb size={14} style={{ flexShrink: 0, marginTop: 1 }} /> <span><strong>To convert a PDF to .txt:</strong> Open in Adobe Reader or browser → File → Save as Text, or copy-paste the content into Notepad and save as .txt</span>
                   </div>
                 </div>
               ) : (
@@ -320,7 +320,7 @@ export default function KnowledgeBaseClient({ initialDocuments, initialTotal, in
 
             {uploadResult && (
               <div style={{ background: '#F2F9EC', border: '1px solid #C8E9A8', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
-                <div style={{ fontWeight: 600, color: '#3a6118', fontSize: 14 }}>✅ Ingested successfully</div>
+                <div style={{ fontWeight: 600, color: '#3a6118', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={16} /> Ingested successfully</div>
                 <div style={{ fontSize: 13, color: '#538A22', marginTop: 4 }}>
                   {uploadResult.chunks_created} chunks created · {uploadResult.characters.toLocaleString()} characters processed
                 </div>

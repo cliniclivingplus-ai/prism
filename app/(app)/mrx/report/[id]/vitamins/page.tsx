@@ -5,6 +5,7 @@ import { SectionHeader } from '@/components/mrx/SectionHeader'
 import SectionAiPanel from '@/components/mrx/SectionAiPanel'
 import SectionPageShell, { SectionLoading } from '@/components/mrx/SectionPageShell'
 import { buildAiContextFields, useSectionAnalysis, useSectionReport } from '@/lib/mrx/sectionPage'
+import { AlertTriangle } from 'lucide-react'
 
 interface VitaminEntry {
   key: string
@@ -151,8 +152,8 @@ export default function VitaminsPage() {
 
       {/* No data state */}
       {!vitamins && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 mb-6">
-          ⚠️ No vitamin data found in this report. Re-upload the PDF to extract scores.
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 mb-6 flex items-center gap-1.5">
+          <AlertTriangle size={14} /> No vitamin data found in this report. Re-upload the PDF to extract scores.
         </div>
       )}
 

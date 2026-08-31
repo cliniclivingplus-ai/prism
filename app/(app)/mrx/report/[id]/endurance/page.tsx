@@ -6,12 +6,13 @@ import { SectionHeader } from '@/components/mrx/SectionHeader'
 import SectionAiPanel from '@/components/mrx/SectionAiPanel'
 import SectionPageShell, { SectionLoading } from '@/components/mrx/SectionPageShell'
 import { buildAiContextFields, useSectionAnalysis, useSectionReport } from '@/lib/mrx/sectionPage'
+import { Activity, Dumbbell, CheckCircle2, AlertTriangle, type LucideIcon } from 'lucide-react'
 
 interface EnduranceMetric {
   label: string
   key: string
   refThreshold: number
-  icon: string
+  icon: LucideIcon
   description: string
   microbiomeRole: string
   trainingTip: string
@@ -26,7 +27,7 @@ const ENDURANCE_METRICS: EnduranceMetric[] = [
     label: 'Aerobic Endurance Potential',
     key: 'aerobic',
     refThreshold: 59.8,
-    icon: '🏃',
+    icon: Activity,
     description: 'Microbial support for sustained aerobic activity via SCFA production, VO₂-related metabolite activity, and oxygen utilisation pathways.',
     microbiomeRole: 'Key genera include Lactobacillus, Bifidobacterium, and Veillonella - which converts lactate to propionate, enhancing aerobic capacity.',
     trainingTip: 'Cardio performance may be suboptimal. Incorporate butyrate-producing prebiotic foods (oats, banana, legumes) and ensure adequate B-vitamin status.',
@@ -35,7 +36,7 @@ const ENDURANCE_METRICS: EnduranceMetric[] = [
     label: 'Physical Endurance Potential',
     key: 'physical',
     refThreshold: 46.22,
-    icon: '💪',
+    icon: Dumbbell,
     description: 'Overall microbial contribution to muscular endurance, recovery rate, and sustained physical output.',
     microbiomeRole: 'Short-chain fatty acid producers support mitochondrial function and reduce exercise-induced inflammation, improving overall physical stamina.',
     trainingTip: 'Microbial support for physical endurance is adequate. Maintain gut diversity with varied dietary fibre sources and post-workout fermented foods.',
@@ -48,7 +49,7 @@ function getStatus(score: number, threshold: number): EnduranceStatus {
   return score >= threshold ? 'supported' : 'suboptimal'
 }
 
-function RadialGauge({ score, threshold, label, icon }: { score: number; threshold: number; label: string; icon: string }) {
+function RadialGauge({ score, threshold, label, icon: Icon }: { score: number; threshold: number; label: string; icon: LucideIcon }) {
   const pct = Math.min((score / (threshold * 1.4)) * 100, 100)
   const status = getStatus(score, threshold)
   const color = status === 'supported' ? '#8BC44F' : '#F59E0B'
@@ -65,7 +66,7 @@ function RadialGauge({ score, threshold, label, icon }: { score: number; thresho
             strokeDasharray={`${dash} ${circumference}`} strokeLinecap="round" />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl">{icon}</span>
+          <span className="text-xl"><Icon size={20} /></span>
           <span className="text-sm font-bold text-gray-800">{pct.toFixed(0)}%</span>
         </div>
       </div>
@@ -168,7 +169,7 @@ export default function EndurancePage() {
                 >
                   <div className="flex items-start justify-between gap-4 mb-2">
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl">{m.icon}</span>
+                      <span className="text-3xl"><m.icon size={30} /></span>
                       <div>
                         <p className="font-semibold text-gray-800">{m.label}</p>
                         <p className="text-xs text-gray-400 mt-0.5 leading-snug">{m.description}</p>
@@ -177,8 +178,8 @@ export default function EndurancePage() {
                     {m.score != null && (
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className="text-2xl font-bold text-[#2A4D0D]">{m.score.toFixed(3)}</span>
-                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${status === 'supported' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`}>
-                          {status === 'supported' ? '✓ Supported' : '↓ Suboptimal'}
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1 ${status === 'supported' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`}>
+                          {status === 'supported' ? <><CheckCircle2 size={11} /> Supported</> : <>↓ Suboptimal</>}
                         </span>
                       </div>
                     )}
@@ -204,7 +205,7 @@ export default function EndurancePage() {
 
                       <div className={`mt-3 rounded-xl border p-3 ${status === 'suboptimal' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
                         <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${status === 'suboptimal' ? 'text-amber-700' : 'text-green-700'}`}>
-                          {status === 'suboptimal' ? '⚠ Training & Nutrition Note' : '✓ Maintenance Tip'}
+                          {status === 'suboptimal' ? <span className="inline-flex items-center gap-1"><AlertTriangle size={11} /> Training & Nutrition Note</span> : <span className="inline-flex items-center gap-1"><CheckCircle2 size={11} /> Maintenance Tip</span>}
                         </p>
                         <p className="text-xs text-gray-600 leading-relaxed">{m.trainingTip}</p>
                       </div>

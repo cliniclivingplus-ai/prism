@@ -9,6 +9,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import { usePdfPanel, PDF_PANEL_W } from '@/lib/mrx/PdfPanelContext'
 import { useAssistant } from '@/lib/mrx/AssistantContext'
+import { Lightbulb } from 'lucide-react'
 
 // PDF.js worker, served from our own origin rather than unpkg.
 //
@@ -122,8 +123,8 @@ export default function PdfViewerPanel() {
 
       {/* ── Selection hint ───────────────────────────────────────────────── */}
       <div className="px-4 py-2 bg-[#F2F9EC] border-b border-[#E2F3D0] flex-shrink-0">
-        <p className="text-[10px] font-mono text-[#538A22]">
-          💡 Best viewed at 70% zoom
+        <p className="text-[10px] font-mono text-[#538A22] flex items-center gap-1">
+          <Lightbulb size={11} /> Best viewed at 70% zoom
         </p>
       </div>
 

@@ -7,6 +7,7 @@ import { SectionHeader } from '@/components/mrx/SectionHeader'
 import SectionAiPanel from '@/components/mrx/SectionAiPanel'
 import SectionPageShell, { SectionLoading } from '@/components/mrx/SectionPageShell'
 import { buildAiContextFields, useSectionAnalysis, useSectionReport } from '@/lib/mrx/sectionPage'
+import { AlertTriangle, X } from 'lucide-react'
 
 const PROBIOTIC_BENEFITS: Record<string, string> = {
   'Lactobacillus acidophilus':      'Lactase production, gut barrier, immune modulation',
@@ -178,8 +179,8 @@ export default function ProbioticsPage() {
 
       {!hasData && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3
-          text-sm text-amber-700 mb-6">
-          ⚠️ No probiotic data found. Re-upload the PDF to extract probiotic status.
+          text-sm text-amber-700 mb-6 flex items-center gap-1.5">
+          <AlertTriangle size={14} /> No probiotic data found. Re-upload the PDF to extract probiotic status.
         </div>
       )}
 
@@ -257,7 +258,7 @@ export default function ProbioticsPage() {
               <div className="grid grid-cols-2 gap-2">
                 {probiotics.absent.map((name: string) => (
                   <div key={name} className="flex items-start gap-2">
-                    <span className="text-red-400 flex-shrink-0 text-xs mt-0.5">✗</span>
+                    <span className="text-red-400 flex-shrink-0 mt-0.5"><X size={12} /></span>
                     <div>
                       <span className="text-xs font-medium text-red-800 italic">{name}</span>
                       {PROBIOTIC_BENEFITS[name] && (

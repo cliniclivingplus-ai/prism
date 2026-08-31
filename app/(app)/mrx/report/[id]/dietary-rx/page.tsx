@@ -8,6 +8,7 @@ import { usePrescription } from '@/lib/mrx/hooks/usePrescription'
 import LoadingState from '@/components/mrx/LoadingState'
 import PrescriptionResult from '@/components/mrx/PrescriptionResult'
 import type { PatientInput } from '@/lib/mrx/types'
+import { Salad } from 'lucide-react'
 
 type Report = {
   id: string
@@ -111,7 +112,7 @@ export default function DietaryRxPage() {
       </Link>
 
       <div className="bg-white border border-gray-100 rounded-2xl p-10">
-        <div className="text-5xl mb-5">🥗</div>
+        <div className="mb-5 text-[#538A22]"><Salad size={48} /></div>
         <h2 className="text-2xl font-light text-gray-900 mb-2">
           Dietary prescription
         </h2>

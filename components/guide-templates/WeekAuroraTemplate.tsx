@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
-  Droplet, Zap, Sun, Moon, Footprints, Wind, Link as LinkIcon, type LucideIcon,
+  Droplet, Zap, Sun, Moon, Footprints, Wind, Link as LinkIcon, type LucideIcon, AlertTriangle,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { parseBullets, splitIntoPeriods, joinPeriods, parseScheduleLines } from '@/lib/periodBullets'
@@ -1413,7 +1413,7 @@ function clpToggleGroceryCat(head){
                 <div key={i} style={{ background: 'rgba(241,245,249,0.06)', border: '1px solid rgba(241,245,249,0.22)', borderRadius: 10, padding: '14px 16px' }}>
                   <div style={{ color: PALETTE.cream, fontWeight: 600, fontSize: '0.95rem' }}>{s.name}</div>
                   <div style={{ color: PALETTE.cream, opacity: 0.75, fontSize: '0.85rem', marginTop: 4 }}>{[s.dose, s.timing, s.duration].filter(Boolean).join(' · ')}</div>
-                  {s.notes && <div style={{ color: PALETTE.gold1, fontSize: '0.8rem', marginTop: 6 }}>⚠ {s.notes}</div>}
+                  {s.notes && <div style={{ color: PALETTE.gold1, fontSize: '0.8rem', marginTop: 6 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</div>}
                 </div>
               ))}
             </div>

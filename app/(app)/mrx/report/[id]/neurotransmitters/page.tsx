@@ -5,6 +5,7 @@ import { SectionHeader } from '@/components/mrx/SectionHeader'
 import SectionAiPanel from '@/components/mrx/SectionAiPanel'
 import SectionPageShell, { SectionLoading } from '@/components/mrx/SectionPageShell'
 import { buildAiContextFields, useSectionAnalysis, useSectionReport } from '@/lib/mrx/sectionPage'
+import { Microscope, AlertTriangle } from 'lucide-react'
 
 interface NTEntry {
   key: string
@@ -179,14 +180,14 @@ export default function NeurotransmittersPage() {
         Dr Shammi Kapoor · 63 Yrs · Male · BS041850
       </p>
       <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5 text-xs text-blue-700 mb-8">
-        🔬 <span className="font-medium">Gut-Brain Axis:</span> 90% of serotonin is produced in the gut.
+        <Microscope size={13} style={{display:'inline', verticalAlign:-2}} /> <span className="font-medium">Gut-Brain Axis:</span> 90% of serotonin is produced in the gut.
         Low tryptophan → low serotonin. These scores reflect microbial production potential, not serum levels.
       </div>
 
       {/* No data state */}
       {!nt && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 mb-6">
-          ⚠️ No neurotransmitter data found in this report. Re-upload the PDF to extract scores.
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 mb-6 flex items-center gap-1.5">
+          <AlertTriangle size={14} /> No neurotransmitter data found in this report. Re-upload the PDF to extract scores.
         </div>
       )}
 
@@ -271,8 +272,8 @@ export default function NeurotransmittersPage() {
           {/* Critical alert - tryptophan */}
           {nt?.tryptophan === 0 && (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-5 mb-8">
-              <p className="text-xs font-mono text-red-600 uppercase tracking-widest mb-2">
-                ⚠ Critical Finding
+              <p className="text-xs font-mono text-red-600 uppercase tracking-widest mb-2 flex items-center gap-1">
+                <AlertTriangle size={11} /> Critical Finding
               </p>
               <p className="text-sm text-red-800 leading-relaxed">
                 <span className="font-medium">Tryptophan score is 0.0</span> - the microbiome is producing

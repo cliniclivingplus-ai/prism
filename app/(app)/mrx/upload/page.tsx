@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { extractFromPDF } from '@/lib/mrx/extractSpecies'
 import { uploadReportPdf } from '@/lib/mrx/reportPdf'
 import { supabase } from '@/lib/mrx/supabase'
+import { FileText, CheckCircle2 } from 'lucide-react'
 
 type PatientForm = {
   name: string; clinic_id: string; age_sex: string; patient_id: string; sample_type: string
@@ -202,7 +203,7 @@ export default function UploadPage() {
           >
             <input ref={fileInputRef} type="file" accept=".pdf" className="hidden"
               onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
-            <div className="text-4xl mb-3">📄</div>
+            <div className="mb-3 flex justify-center text-gray-400"><FileText size={40} /></div>
             <p className="text-sm font-medium text-gray-700 mb-1">Drop your PDF here or click to browse</p>
             <p className="text-xs text-gray-400 font-mono">BugSpeaks gut microbiome reports</p>
           </div>
@@ -213,13 +214,13 @@ export default function UploadPage() {
           <div className="bg-white border border-[#E2F3D0] rounded-2xl overflow-hidden mb-4">
             <div className="px-5 py-4 border-b border-[#E2F3D0] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="text-lg">📄</div>
+                <div className="text-lg text-gray-400"><FileText size={18} /></div>
                 <div>
                   <div className="text-xs font-medium text-gray-900">{file?.name}</div>
-                  <div className="text-xs font-mono text-gray-400 mt-0.5">
+                  <div className="text-xs font-mono text-gray-400 mt-0.5 flex items-center gap-1">
                     {processing
                       ? 'Processing…'
-                      : `✓ ${species.length} species · ${foodCount > 0 ? `${foodCount} foods extracted` : 'dietary data unavailable'}`}
+                      : <><CheckCircle2 size={11} /> {`${species.length} species · ${foodCount > 0 ? `${foodCount} foods extracted` : 'dietary data unavailable'}`}</>}
                   </div>
                 </div>
               </div>

@@ -5,6 +5,7 @@ import SectionPageShell from '@/components/mrx/SectionPageShell'
 import { useSectionReport } from '@/lib/mrx/sectionPage'
 import { useParams, useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
+import { Dna, X, CheckCircle2, AlertTriangle, PenLine, NotebookPen, Unlock, FlaskConical, Salad, Pill } from 'lucide-react'
 
 type ItemStatus = 'kb' | 'modified' | 'added' | 'removed'
 interface EditableItem {
@@ -187,7 +188,7 @@ function FilterPanel({ supplements, onApply, onClose,
     <div style={{ position:'fixed', top:0, right:0, bottom:0, width:440, background:'#fff', borderLeft:'1px solid #E2E8F0', zIndex:50, display:'flex', flexDirection:'column', boxShadow:'-4px 0 24px rgba(0,0,0,.08)' }}>
       <div style={{ padding:'14px 16px', borderBottom:'1px solid #E2E8F0', display:'flex', alignItems:'center', justifyContent:'space-between', background:'#F2F9EC', flexShrink:0 }}>
         <div>
-          <p style={{ fontSize:13, fontWeight:600, color:'#1A3207', margin:0 }}>🧬 AI Supplement Filter</p>
+          <p style={{ fontSize:13, fontWeight:600, color:'#1A3207', margin:0, display:'flex', alignItems:'center', gap:6 }}><Dna size={14} /> AI Supplement Filter</p>
           <p style={{ fontSize:11, color:'#538A22', margin:0 }}>
             {phase === 'chat' ? `${supplements.length} supplements · conversational filter` : `Filter complete · ${grouped.must.length + grouped.recommended.length} to keep`}
           </p>
@@ -205,7 +206,7 @@ function FilterPanel({ supplements, onApply, onClose,
               View results →
             </button>
           )}
-          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'#6B7280', lineHeight:1 }}>✕</button>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'#6B7280', lineHeight:1, display:'flex' }}><X size={20} /></button>
         </div>
       </div>
 
@@ -255,7 +256,7 @@ function FilterPanel({ supplements, onApply, onClose,
                   return (
                     <button key={t.key} onClick={() => { setApplyTiers(prev => { const next = new Set(prev); next.has(t.key) ? next.delete(t.key) : next.add(t.key); return next }) }}
                       style={{ fontSize:11, fontWeight:600, padding:'4px 10px', borderRadius:20, cursor:'pointer', background:active?t.bg:'#fff', color:active?t.text:'#9CA3AF', border:`1px solid ${active?t.border:'#E2E8F0'}` }}>
-                      {active ? '✓ ' : ''}{t.label} ({grouped[t.key as keyof typeof grouped]?.length || 0})
+                      {active ? <CheckCircle2 size={11} style={{display:'inline', verticalAlign:-2, marginRight:3}} /> : ''}{t.label} ({grouped[t.key as keyof typeof grouped]?.length || 0})
                     </button>
                   )
                 })}
@@ -298,8 +299,8 @@ function FilterPanel({ supplements, onApply, onClose,
         ) : (
           <button onClick={() => onApply(results.filter(r => r.tier === 'remove' || applyTiers.has(r.tier)))}
             className="btn-primary-mrx"
-            style={{ width:'100%', padding:'11px 0', background:'#538A22', color:'#fff', border:'none', borderRadius:10, fontSize:13, fontWeight:600, cursor:'pointer' }}>
-            ✓ Apply filter to prescription
+            style={{ width:'100%', padding:'11px 0', background:'#538A22', color:'#fff', border:'none', borderRadius:10, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            <CheckCircle2 size={14} /> Apply filter to prescription
           </button>
         )}
       </div>
@@ -388,10 +389,10 @@ function ItemCard({ item, isFlashing, onToggle, onNoteChange, onDetailChange, on
           })}
         </div>
         <div className="flex items-center justify-between pt-1">
-          <button type="button" onClick={() => onDiscard(item.key)} className="text-xs text-red-400 hover:text-red-600">✕ Discard</button>
+          <button type="button" onClick={() => onDiscard(item.key)} className="text-xs text-red-400 hover:text-red-600 inline-flex items-center gap-1"><X size={11} /> Discard</button>
           <button type="button" onClick={() => onConfirmNew(item.key)} disabled={!item.label.trim()}
-            className="text-xs font-semibold px-4 py-1.5 rounded-full disabled:opacity-40"
-            style={{ background:'#538A22', color:'#fff' }}>✓ Add Item</button>
+            className="text-xs font-semibold px-4 py-1.5 rounded-full disabled:opacity-40 inline-flex items-center gap-1"
+            style={{ background:'#538A22', color:'#fff' }}><CheckCircle2 size={11} /> Add Item</button>
         </div>
       </div>
     )
@@ -425,7 +426,7 @@ function ItemCard({ item, isFlashing, onToggle, onNoteChange, onDetailChange, on
               </p>
             )}
             {item.rationale && <p className="mt-1.5 text-xs text-slate-400 leading-relaxed border-l-2 border-slate-200 pl-2">{item.rationale}</p>}
-            {item.contraindications && <p className="mt-1.5 text-xs text-red-600 font-medium">⚠ {item.contraindications}</p>}
+            {item.contraindications && <p className="mt-1.5 text-xs text-red-600 font-medium flex items-center gap-1"><AlertTriangle size={11} /> {item.contraindications}</p>}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
@@ -444,7 +445,7 @@ function ItemCard({ item, isFlashing, onToggle, onNoteChange, onDetailChange, on
         ) : (
           <button onClick={() => !disabled&&!isRemoved&&setEditingNote(true)} disabled={disabled}
             className={`w-full text-left text-xs text-slate-400 transition-colors ${!disabled?'hover:text-[#538A22]':'cursor-default'}`}>
-            {item.doctorNote ? <span className="text-[#3D6B16] font-medium">📝 {item.doctorNote}</span> : <span className="italic">{disabled?'':'+ Add doctor note'}</span>}
+            {item.doctorNote ? <span className="text-[#3D6B16] font-medium inline-flex items-center gap-1"><NotebookPen size={11} /> {item.doctorNote}</span> : <span className="italic">{disabled?'':'+ Add doctor note'}</span>}
           </button>
         )}
       </div>
@@ -455,15 +456,15 @@ function ItemCard({ item, isFlashing, onToggle, onNoteChange, onDetailChange, on
 // ─────────────────────────────────────────────────────────────────
 // SECTION
 // ─────────────────────────────────────────────────────────────────
-function Section({ title, icon, count, children, onAddItem, disabled, extraAction }: {
-  title: string; icon: string; count: number; children: React.ReactNode
+function Section({ title, icon: Icon, count, children, onAddItem, disabled, extraAction }: {
+  title: string; icon: React.ComponentType<{ size?: number }>; count: number; children: React.ReactNode
   onAddItem: () => void; disabled?: boolean; extraAction?: React.ReactNode
 }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3.5 bg-[#F2F9EC] border-b border-[#C8E9A8]">
         <div className="flex items-center gap-2">
-          <span className="text-lg">{icon}</span>
+          <span className="text-lg"><Icon size={18} /></span>
           <h3 className="font-semibold text-[#2A4D0D] text-sm">{title}</h3>
           <span className="text-xs text-[#538A22] bg-[#E2F3D0] px-2 py-0.5 rounded-full font-medium">{count}</span>
         </div>
@@ -784,13 +785,13 @@ export default function DoctorReviewPage() {
             <span className="text-slate-500 text-xs">{report.conditions_flagged.length} conditions</span>
           </div>
           <div className="flex items-center gap-2">
-            {isApproved&&!isEditMode&&<span className="text-xs text-[#538A22] hidden sm:block">✓ Approved {approvedAt?new Date(approvedAt).toLocaleDateString():''}</span>}
-            {isEditMode&&<span className="text-xs text-amber-500 hidden sm:block animate-pulse">✏ Editing approved RX</span>}
+            {isApproved&&!isEditMode&&<span className="text-xs text-[#538A22] hidden sm:flex items-center gap-1"><CheckCircle2 size={11} /> Approved {approvedAt?new Date(approvedAt).toLocaleDateString():''}</span>}
+            {isEditMode&&<span className="text-xs text-amber-500 hidden sm:flex items-center gap-1 animate-pulse"><PenLine size={11} /> Editing approved RX</span>}
             {/* A failed approval used to be console.error only, so the UI just
                 looked like nothing happened. */}
             {approveError&&(
-              <span role="alert" className="text-xs font-semibold" style={{color:'var(--rust-600)'}}>
-                ⚠ {approveError}
+              <span role="alert" className="text-xs font-semibold flex items-center gap-1" style={{color:'var(--rust-600)'}}>
+                <AlertTriangle size={11} /> {approveError}
               </span>
             )}
           </div>
@@ -799,7 +800,7 @@ export default function DoctorReviewPage() {
 
       {isApproved&&isEditMode&&(
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5">
-          <div className="max-w-7xl mx-auto"><span className="text-amber-600 text-xs font-medium">✏ You are editing an approved prescription. Re-approve to lock changes.</span></div>
+          <div className="max-w-7xl mx-auto"><span className="text-amber-600 text-xs font-medium inline-flex items-center gap-1"><PenLine size={11} /> You are editing an approved prescription. Re-approve to lock changes.</span></div>
         </div>
       )}
 
@@ -808,7 +809,7 @@ export default function DoctorReviewPage() {
 
           {report.contraindication_alerts.length>0&&(
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-2">
-              <p className="text-sm font-semibold text-red-700 flex items-center gap-2"><span>⚠</span> Contraindication Alerts</p>
+              <p className="text-sm font-semibold text-red-700 flex items-center gap-2"><AlertTriangle size={14} /> Contraindication Alerts</p>
               {report.contraindication_alerts.map((a,i)=>(
                 <div key={i} className={`text-xs rounded-lg px-3 py-2 ${a.severity==='CRITICAL'?'bg-red-100 text-red-700 font-medium border border-red-200':'bg-amber-50 text-amber-700 border border-amber-200'}`}>
                   <span className="font-semibold">{a.marker}:</span> {a.alert}
@@ -825,16 +826,16 @@ export default function DoctorReviewPage() {
 
           {filterApplied&&(
             <div style={{ background:'#EFF6FF', border:'1px solid #BFDBFE', borderRadius:10, padding:'8px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <span style={{ fontSize:12, color:'#1D4ED8' }}>🧬 Filter applied: {filterSummary}</span>
-              <button onClick={()=>{setFilterApplied(false);setFilterSummary('')}} style={{ fontSize:11, color:'#6B7280', background:'none', border:'none', cursor:'pointer' }}>✕ Clear</button>
+              <span style={{ fontSize:12, color:'#1D4ED8', display:'flex', alignItems:'center', gap:6 }}><Dna size={12} /> Filter applied: {filterSummary}</span>
+              <button onClick={()=>{setFilterApplied(false);setFilterSummary('')}} style={{ fontSize:11, color:'#6B7280', background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:4 }}><X size={11} /> Clear</button>
             </div>
           )}
 
-          <Section title="Supplements" icon="💊" count={activeSupps.length} onAddItem={()=>addItem('supplements')} disabled={!isEditable}
+          <Section title="Supplements" icon={Pill} count={activeSupps.length} onAddItem={()=>addItem('supplements')} disabled={!isEditable}
             extraAction={isEditable?(
               <button onClick={()=>setShowFilter(true)}
                 style={{ fontSize:11, fontWeight:600, padding:'5px 10px', background:'#EFF6FF', color:'#1D4ED8', border:'1px solid #BFDBFE', borderRadius:20, cursor:'pointer', display:'flex', alignItems:'center', gap:4 }}>
-                🧬 AI Filter
+                <Dna size={12} /> AI Filter
               </button>
             ):undefined}>
             {sections.supplements.length===0
@@ -859,7 +860,7 @@ export default function DoctorReviewPage() {
             }
           </Section>
 
-          <Section title="LP Therapies" icon="⚗️" count={activeTherapies.length} onAddItem={()=>addItem('therapies')} disabled={!isEditable}>
+          <Section title="LP Therapies" icon={FlaskConical} count={activeTherapies.length} onAddItem={()=>addItem('therapies')} disabled={!isEditable}>
             {sections.therapies.length===0
               ?<p className="text-xs text-slate-400 italic text-center py-4">No therapies generated.</p>
               :sections.therapies.map(item=>(
@@ -875,7 +876,7 @@ export default function DoctorReviewPage() {
             }
           </Section>
 
-          <Section title="Dietary Protocol" icon="🥗" count={activeDietary.length} onAddItem={()=>addItem('dietary')} disabled={!isEditable}>
+          <Section title="Dietary Protocol" icon={Salad} count={activeDietary.length} onAddItem={()=>addItem('dietary')} disabled={!isEditable}>
             {sections.dietary.length===0
               ?<p className="text-xs text-slate-400 italic text-center py-4">No dietary protocols generated.</p>
               :groupDietaryByPhase(sections.dietary).map(({phase,items})=>(
@@ -939,10 +940,10 @@ export default function DoctorReviewPage() {
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            {saveStatus==='saved'&&<span className="text-xs text-[#538A22] animate-pulse whitespace-nowrap">✓ Draft saved</span>}
+            {saveStatus==='saved'&&<span className="text-xs text-[#538A22] animate-pulse whitespace-nowrap flex items-center gap-1"><CheckCircle2 size={11} /> Draft saved</span>}
             {saveStatus==='error'&&<span className="text-xs text-red-500 whitespace-nowrap">Save failed - try again</span>}
-            {isApproved&&!isEditMode&&saveStatus==='idle'&&<span className="text-xs text-[#538A22] truncate">✓ Approved · {approvedAt?new Date(approvedAt).toLocaleString():''}</span>}
-            {isEditMode&&saveStatus==='idle'&&<span className="text-xs text-amber-500 whitespace-nowrap">✏ Editing - re-approve to lock</span>}
+            {isApproved&&!isEditMode&&saveStatus==='idle'&&<span className="text-xs text-[#538A22] truncate flex items-center gap-1"><CheckCircle2 size={11} /> Approved · {approvedAt?new Date(approvedAt).toLocaleString():''}</span>}
+            {isEditMode&&saveStatus==='idle'&&<span className="text-xs text-amber-500 whitespace-nowrap flex items-center gap-1"><PenLine size={11} /> Editing - re-approve to lock</span>}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
           <button
@@ -958,13 +959,13 @@ export default function DoctorReviewPage() {
 </button>
             {isApproved&&!isEditMode&&<button onClick={()=>setIsEditMode(true)} className="px-3 py-2 text-xs font-medium rounded-lg border border-amber-400 text-amber-600 hover:bg-amber-50 flex items-center gap-1.5"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Edit RX</button>}
             {isEditMode&&<button onClick={()=>setIsEditMode(false)} className="px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-50">Cancel</button>}
-            {isEditMode&&<button onClick={unlockForEdit} disabled={unlocking} className="px-3 py-2 text-xs font-medium rounded-lg border border-red-300 text-red-500 hover:bg-red-50 disabled:opacity-40">{unlocking?'Unlocking…':'🔓 Remove Approval'}</button>}
+            {isEditMode&&<button onClick={unlockForEdit} disabled={unlocking} className="px-3 py-2 text-xs font-medium rounded-lg border border-red-300 text-red-500 hover:bg-red-50 disabled:opacity-40 inline-flex items-center gap-1">{unlocking?'Unlocking…':<><Unlock size={12} /> Remove Approval</>}</button>}
             {isEditable&&<button onClick={saveDraft} disabled={saving} className="px-4 py-2 text-xs font-medium rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40">{saving?'Saving…':'Save Draft'}</button>}
             {!isApproved
-              ?<button onClick={approveRx} disabled={approving} className="btn-primary-mrx px-5 py-2 text-xs font-semibold rounded-lg bg-[#538A22] text-white hover:bg-[#3D6B16] disabled:opacity-50">{approving?'Approving…':'✓ Approve RX'}</button>
+              ?<button onClick={approveRx} disabled={approving} className="btn-primary-mrx px-5 py-2 text-xs font-semibold rounded-lg bg-[#538A22] text-white hover:bg-[#3D6B16] disabled:opacity-50 inline-flex items-center gap-1">{approving?'Approving…':<><CheckCircle2 size={13} /> Approve RX</>}</button>
               :isEditMode
-                ?<button onClick={approveRx} disabled={approving} className="px-5 py-2 text-xs font-semibold rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50">{approving?'Saving…':'✓ Re-approve RX'}</button>
-                :<span className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#E2F3D0] text-[#3D6B16] border border-[#C8E9A8]">✓ Approved</span>
+                ?<button onClick={approveRx} disabled={approving} className="px-5 py-2 text-xs font-semibold rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 inline-flex items-center gap-1">{approving?'Saving…':<><CheckCircle2 size={13} /> Re-approve RX</>}</button>
+                :<span className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#E2F3D0] text-[#3D6B16] border border-[#C8E9A8] inline-flex items-center gap-1"><CheckCircle2 size={13} /> Approved</span>
             }
           </div>
         </div>

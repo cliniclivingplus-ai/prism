@@ -141,7 +141,7 @@ function SupplementReview({ report, patientId, onUpdated }: { report: Report; pa
                     </tr>
                     {s.notes && (
                       <tr>
-                        <td colSpan={4} style={{ padding: '0 0 7px 0', color: C.amber, fontSize: 11.5 }}>⚠ {s.notes}</td>
+                        <td colSpan={4} style={{ padding: '0 0 7px 0', color: C.amber, fontSize: 11.5, display: 'flex', alignItems: 'center', gap: 4 }}><AlertCircle size={12} /> {s.notes}</td>
                       </tr>
                     )}
                   </Fragment>

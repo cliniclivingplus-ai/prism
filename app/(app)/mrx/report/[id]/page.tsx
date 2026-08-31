@@ -7,6 +7,7 @@ import { supabase } from '@/lib/mrx/supabase'
 import RecommendationsPanel from '@/components/mrx/RecommendationsPanel'
 import ReportPdfActions from '@/components/mrx/ReportPdfActions'
 import { getUser } from '@/lib/mrx/auth'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 
 type Report = {
   id: string
@@ -285,16 +286,16 @@ export default function ReportPage() {
           </div>
 
           {!rd && (
-            <div className="rounded-2xl p-6 mb-8"
+            <div className="rounded-2xl p-6 mb-8 flex items-center gap-2"
               style={{ background: '#FEF3C7', border: '1px solid #FCD34D' }}>
-              ⚠️ No detailed report data found. Please re-upload the PDF for full analysis.
+              <AlertTriangle size={16} /> No detailed report data found. Please re-upload the PDF for full analysis.
             </div>
           )}
 
           {hubNameMismatch && (
-            <div className="rounded-2xl p-4 mb-8 text-sm"
+            <div className="rounded-2xl p-4 mb-8 text-sm flex items-start gap-2"
               style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#78350F' }}>
-              ⚠ This report is linked to the patient account &quot;{hubNameMismatch}&quot;, but this report&apos;s own patient name is &quot;{report.patient_name}&quot; — double-check this is the right report before relying on it.
+              <AlertTriangle size={14} style={{flexShrink:0, marginTop:2}} /> <span>This report is linked to the patient account &quot;{hubNameMismatch}&quot;, but this report&apos;s own patient name is &quot;{report.patient_name}&quot; — double-check this is the right report before relying on it.</span>
             </div>
           )}
 
@@ -333,8 +334,8 @@ export default function ReportPage() {
               }
             >
               <div>
-                <div className="text-sm font-semibold" style={{ color: '#1A3207' }}>
-                  {prescription.approved_at ? '✓ Approved prescription' : 'Prescription draft saved'}
+                <div className="text-sm font-semibold flex items-center gap-1.5" style={{ color: '#1A3207' }}>
+                  {prescription.approved_at ? <><CheckCircle2 size={14} /> Approved prescription</> : 'Prescription draft saved'}
                 </div>
                 <div className="text-xs mt-0.5" style={{ color: '#538A22' }}>
                   {prescription.approved_at

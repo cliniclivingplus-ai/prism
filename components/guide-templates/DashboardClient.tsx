@@ -26,7 +26,7 @@ const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
 // result — see the grocery useEffect below.
 const FULL_PLAN_GROCERY_CACHE_KEY = -1
 import { Rnd } from 'react-rnd'
-import { Copy, Wand2, Send } from 'lucide-react'
+import { Copy, Wand2, Send, AlertTriangle } from 'lucide-react'
 import { BlockCard, BlockBody, computeCanvasHeight, CANVAS_WIDTH, toBlockTheme, type RecipeLookup, type ImageLookup } from '@/lib/blocks/BlockRenderer'
 import type { ChecklistPageBlock, BlockType, BlockLayout } from '@/lib/blocks/types'
 import { BlockInspector } from '@/components/checklist-editor/BlockInspector'
@@ -1820,7 +1820,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     </button>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Week {w.week_number} shopping list</div>
                     {aiGroceryLoadingWeek === w.week_number && !aiGroceryCache[w.week_number] && (
-                      <div style={{ fontSize: 11.5, color: C.accent, marginBottom: 8 }}>✨ Tidying up this list…</div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: C.accent, marginBottom: 8 }}><Sparkles size={12} /> Tidying up this list…</div>
                     )}
                     {(() => {
                       const weekRecipes = getSlotRecipes(w.week_number).flatMap((s) => s.matches).map((m) => m.recipe)
@@ -2784,7 +2784,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                         </tr>
                         {s.notes && (
                           <tr>
-                            <td colSpan={4} style={{ padding: '0 0 9px 0', color: C.accent, fontSize: 11.5 }}>⚠ {s.notes}</td>
+                            <td colSpan={4} style={{ padding: '0 0 9px 0', color: C.accent, fontSize: 11.5 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</td>
                           </tr>
                         )}
                       </Fragment>

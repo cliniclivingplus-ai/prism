@@ -3,6 +3,7 @@
 
 'use client'
 import { useState } from 'react'
+import { Dna, X, CheckCircle2 } from 'lucide-react'
 
 export interface FilterResult {
   name: string
@@ -160,10 +161,10 @@ Rules:
       {/* Header */}
       <div style={{ padding: '14px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F2F9EC' }}>
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#1A3207', margin: 0 }}>🧬 AI Supplement Filter</p>
+          <p style={{ fontSize: 13, fontWeight: 600, color: '#1A3207', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}><Dna size={14} /> AI Supplement Filter</p>
           <p style={{ fontSize: 11, color: '#538A22', margin: 0 }}>{supplements.length} supplements · answer questions to prioritise</p>
         </div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#6B7280', lineHeight: 1 }}>✕</button>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', lineHeight: 1, display: 'flex' }}><X size={18} /></button>
       </div>
 
       {/* Progress bar */}
@@ -208,7 +209,7 @@ Rules:
                 <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', background: '#F2F9EC', border: '1px solid #C8E9A8', borderRadius: 20, fontSize: 12, color: '#3D6B16' }}>
                   {n}
                   <button onClick={() => setNotes(p => p.filter((_, j) => j !== i))}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#9CA3AF', fontSize: 13, lineHeight: 1 }}>✕</button>
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#9CA3AF', lineHeight: 1, display: 'flex' }}><X size={13} /></button>
                 </span>
               ))}
             </div>
@@ -312,15 +313,15 @@ Rules:
           <>
             <button onClick={() => setStep(s => s - 1)} style={{ flex: 0, padding: '8px 12px', border: '1px solid #E2E8F0', borderRadius: 8, background: '#fff', cursor: 'pointer', fontSize: 13 }}>← Back</button>
             <button onClick={() => { setStep(s => s + 1); runFilter() }}
-              style={{ flex: 1, padding: '8px 0', background: '#538A22', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              🧬 Generate filter
+              style={{ flex: 1, padding: '8px 0', background: '#538A22', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <Dna size={14} /> Generate filter
             </button>
           </>
         )}
         {!loading && step > total && (
           <button onClick={() => onApply(results)}
-            style={{ flex: 1, padding: '10px 0', background: '#538A22', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            ✓ Apply to prescription
+            style={{ flex: 1, padding: '10px 0', background: '#538A22', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <CheckCircle2 size={14} /> Apply to prescription
           </button>
         )}
       </div>

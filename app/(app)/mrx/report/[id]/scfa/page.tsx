@@ -6,6 +6,7 @@ import { SectionHeader } from '@/components/mrx/SectionHeader'
 import SectionAiPanel from '@/components/mrx/SectionAiPanel'
 import SectionPageShell, { SectionLoading } from '@/components/mrx/SectionPageShell'
 import { buildAiContextFields, useSectionAnalysis, useSectionReport } from '@/lib/mrx/sectionPage'
+import { AlertTriangle, CheckCircle2, Flag } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -244,8 +245,8 @@ export default function SCFAPage() {
       </div>
 
       {!hasData && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 mb-6">
-          ⚠️ No SCFA data found for this report. Re-upload the PDF to extract scores.
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 mb-6 flex items-center gap-1.5">
+          <AlertTriangle size={14} /> No SCFA data found for this report. Re-upload the PDF to extract scores.
         </div>
       )}
 
@@ -265,12 +266,12 @@ export default function SCFAPage() {
             const bin = getBin(butyrate.score, butyrate.low_ref, butyrate.high_ref)
             return bin === 'optimal' ? (
               <div className="bg-[#F2F9EC] border border-[#A8D878] rounded-xl px-4 py-3 text-sm text-[#3D6B16] mb-6 flex items-start gap-2">
-                <span>✓</span>
+                <span><CheckCircle2 size={14} /></span>
                 <span><strong>Butyrate is in the optimal range ({butyrate.score})</strong> - primary colonocyte fuel is well supported.</span>
               </div>
             ) : (
               <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-800 mb-6 flex items-start gap-2">
-                <span>⚠️</span>
+                <span><AlertTriangle size={14} /></span>
                 <span><strong>Butyrate is {bin} ({butyrate.score})</strong> - clinically significant. Butyrate is the primary fuel for colonocytes and a key anti-inflammatory signal. Prioritise in supplementation and dietary advice.</span>
               </div>
             )
@@ -282,7 +283,7 @@ export default function SCFAPage() {
             if (!formate || getBin(formate.score, formate.low_ref, formate.high_ref) !== 'high') return null
             return (
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 mb-6 flex items-start gap-2">
-                <span>⚑</span>
+                <span><Flag size={14} /></span>
                 <span><strong>Elevated Formate ({formate.score})</strong> may reflect high Prevotella copri activity - consistent with Prevotella dominance in this patient's foundation microbiota.</span>
               </div>
             )

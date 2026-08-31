@@ -15,6 +15,7 @@ import {
   useSectionAnalysis,
   useSectionReport,
 } from '@/lib/mrx/sectionPage'
+import { AlertTriangle } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -226,8 +227,8 @@ export default function PathogensPage() {
           {/* ── Above range alert ─────────────────────────────────────── */}
           {highCount > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
-              <p className="text-xs font-mono text-amber-800 uppercase tracking-wide font-medium mb-3">
-                ⚠ {highCount} pathogen{highCount > 1 ? 's' : ''} above reference range - correlate clinically
+              <p className="text-xs font-mono text-amber-800 uppercase tracking-wide font-medium mb-3 flex items-center gap-1">
+                <AlertTriangle size={12} /> {highCount} pathogen{highCount > 1 ? 's' : ''} above reference range - correlate clinically
               </p>
               <div className="flex flex-wrap gap-2">
                 {enriched.filter(p => p.status === 'high').map((p, idx) => (

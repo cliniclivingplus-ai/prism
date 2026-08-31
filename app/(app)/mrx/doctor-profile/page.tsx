@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
+import { CheckCircle2, PenLine, Lightbulb } from 'lucide-react'
 
 interface DoctorProfile {
   name: string
@@ -148,7 +149,7 @@ export default function DoctorProfilePage() {
           </div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          {status === 'saved' && <span style={{ color:'#A8D878', fontSize:12 }}>✓ Profile saved</span>}
+          {status === 'saved' && <span style={{ color:'#A8D878', fontSize:12, display:'inline-flex', alignItems:'center', gap:4 }}><CheckCircle2 size={12} /> Profile saved</span>}
           {status === 'error' && <span style={{ color:'#FCA5A5', fontSize:12 }}>Save failed — try again</span>}
           <button
             onClick={save}
@@ -304,7 +305,7 @@ export default function DoctorProfilePage() {
                 onMouseOver={e => (e.currentTarget.style.background = '#F2F9EC')}
                 onMouseOut={e => (e.currentTarget.style.background = '#FAFFF7')}
               >
-                <div style={{ fontSize:40, marginBottom:12 }}>✍</div>
+                <div style={{ marginBottom:12, display:'flex', justifyContent:'center' }}><PenLine size={40} color="#538A22" /></div>
                 <p style={{ fontWeight:'bold', color:'#538A22', fontSize:14, margin:'0 0 4px' }}>
                   Click to upload signature image
                 </p>
@@ -326,7 +327,7 @@ export default function DoctorProfilePage() {
 
         {/* Tips */}
         <div style={{ background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:12, padding:'14px 20px' }}>
-          <p style={{ fontWeight:'bold', color:'#92400E', fontSize:12, margin:'0 0 6px' }}>💡 Tips for a good signature image</p>
+          <p style={{ fontWeight:'bold', color:'#92400E', fontSize:12, margin:'0 0 6px', display:'flex', alignItems:'center', gap:6 }}><Lightbulb size={13} /> Tips for a good signature image</p>
           <ul style={{ color:'#92400E', fontSize:11, margin:0, paddingLeft:16, lineHeight:1.8 }}>
             <li>Sign on white paper, photograph or scan it</li>
             <li>Use an app like Adobe Scan or CamScanner to remove the background</li>

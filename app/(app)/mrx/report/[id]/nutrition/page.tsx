@@ -10,6 +10,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/mrx/supabase'
+import {
+  Salad, Apple, Sprout, Wheat, Droplet, Leaf, Egg, Pill, Nut, Coffee, Milk,
+  UtensilsCrossed, type LucideIcon,
+} from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,18 +22,18 @@ type NutritionData = Record<string, Record<string, [FreqCode, FreqCode, FreqCode
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  'Greens & Vegetables':      '🥦',
-  'Fruits':                   '🍎',
-  'Pulses & Legumes':         '🫘',
-  'Cereals':                  '🌾',
-  'Fats & Oils':              '🫙',
-  'Herbs & Condiments':       '🌿',
-  'Egg & Meat':               '🥚',
-  'Dietary Supplements':      '💊',
-  'Nuts & Seed Oils':         '🥜',
-  'Drinks & Beverages':       '🍵',
-  'Milk & Fermented Products':'🥛',
+const CATEGORY_EMOJI: Record<string, LucideIcon> = {
+  'Greens & Vegetables':      Salad,
+  'Fruits':                   Apple,
+  'Pulses & Legumes':         Sprout,
+  'Cereals':                  Wheat,
+  'Fats & Oils':              Droplet,
+  'Herbs & Condiments':       Leaf,
+  'Egg & Meat':               Egg,
+  'Dietary Supplements':      Pill,
+  'Nuts & Seed Oils':         Nut,
+  'Drinks & Beverages':       Coffee,
+  'Milk & Fermented Products':Milk,
 }
 
 const FREQ_CONFIG: Record<FreqCode, { label: string; color: string; bg: string; dot: string }> = {
@@ -162,7 +166,7 @@ export default function NutritionPage() {
   if (error) return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--pista-50)]">
       <div className="text-center max-w-sm space-y-4 p-8 bg-white rounded-2xl shadow-sm border border-[var(--pista-100)]">
-        <div className="text-4xl">🥗</div>
+        <div className="flex justify-center text-gray-400"><Salad size={40} /></div>
         <h2 className="font-semibold text-gray-800">No Nutrition Data</h2>
         <p className="text-sm text-gray-500">{error}</p>
         <button
@@ -231,8 +235,8 @@ export default function NutritionPage() {
                     : 'border-transparent hover:bg-gray-50'
                 }`}
               >
-                <span className="text-lg leading-none mt-0.5">
-                  {CATEGORY_EMOJI[cat] ?? '🍽️'}
+                <span className="leading-none mt-0.5">
+                  {(() => { const Icon = CATEGORY_EMOJI[cat] ?? UtensilsCrossed; return <Icon size={18} /> })()}
                 </span>
                 <div className="min-w-0">
                   <p className={`text-xs font-semibold leading-tight ${isActive ? 'text-[var(--pista-700)]' : 'text-gray-700'}`}>
@@ -258,7 +262,7 @@ export default function NutritionPage() {
               <div className="bg-white border-b border-[var(--pista-100)] px-6 py-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <span className="text-3xl">{CATEGORY_EMOJI[activeCategory] ?? '🍽️'}</span>
+                    <span className="text-3xl">{(() => { const Icon = CATEGORY_EMOJI[activeCategory] ?? UtensilsCrossed; return <Icon size={30} /> })()}</span>
                     <div>
                       <h2 className="text-lg font-bold text-gray-900">{activeCategory}</h2>
                       <p className="text-xs text-gray-400">

@@ -6,6 +6,7 @@ import { supabase } from '@/lib/mrx/supabase'
 import ClinicalAssistant from '@/components/mrx/ClinicalAssistant'
 import UploadModal from '@/components/mrx/UploadModal'
 import Link from 'next/link'
+import { Microscope } from 'lucide-react'
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -170,7 +171,7 @@ function DashboardContent({
         {/* Left - brand */}
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-[#538A22] flex items-center
-            justify-center text-base leading-none">🦠</div>
+            justify-center text-base leading-none"><Microscope size={16} color="#fff" /></div>
           <span className="text-[20px] font-semibold text-[#538A22] tracking-wide uppercase">
             MicrobiomeRx
           </span>

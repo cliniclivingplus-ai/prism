@@ -11,6 +11,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { FileText } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -132,7 +133,7 @@ export default function ImportFromDrive({ onImport, onError }: ImportFromDrivePr
         cursor: loading ? 'default' : 'pointer',
       }}
     >
-      {loading ? 'Importing…' : '📄 Import from Drive'}
+      {loading ? 'Importing…' : <><FileText size={14} /> Import from Drive</>}
     </button>
   );
 }

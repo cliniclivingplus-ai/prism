@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
+import { Phone, Mail, MapPin, Globe, AlertTriangle, CheckCircle2, Pencil, X, NotebookPen } from 'lucide-react'
 
 interface Section {
   key: string; label: string; aicProduct?: string
@@ -119,12 +120,12 @@ function FtrRow() {
   return (
     <div style={{display:'flex',justifyContent:'space-between',width:'100%',fontSize:'9.5px',color:'#555'}}>
       <div style={{display:'flex',flexDirection:'column',gap:2}}>
-        <span style={fi}><span style={{color:'#C2185B'}}>📞</span> +91 7293111120</span>
-        <span style={fi}><span style={{color:'#538A22'}}>✉</span> ClinicLivingPlus@gmail.com</span>
+        <span style={fi}><Phone size={11} color="#C2185B" /> +91 7293111120</span>
+        <span style={fi}><Mail size={11} color="#538A22" /> ClinicLivingPlus@gmail.com</span>
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:2,textAlign:'right'}}>
-        <span style={{...fi,justifyContent:'flex-end'}}><span style={{color:'#C2185B'}}>📍</span> 27th Main, HSR Layout, Bangalore</span>
-        <span style={{...fi,justifyContent:'flex-end'}}><span style={{color:'#1565C0'}}>🌐</span> www.cliniclivingplus.com</span>
+        <span style={{...fi,justifyContent:'flex-end'}}><MapPin size={11} color="#C2185B" /> 27th Main, HSR Layout, Bangalore</span>
+        <span style={{...fi,justifyContent:'flex-end'}}><Globe size={11} color="#1565C0" /> www.cliniclivingplus.com</span>
       </div>
     </div>
   )
@@ -438,14 +439,14 @@ export default function PrescriptionPrintPage() {
         <p>Prescription — {patientName}</p>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           {!doc.signature_data_url&&(
-            <div className="wn">⚠ No signature —
+            <div className="wn" style={{display:'flex',alignItems:'center',gap:5}}><AlertTriangle size={12} /> No signature —
               <a href="/mrx/doctor-profile" target="_blank" style={{color:'#FCD34D',textDecoration:'underline'}}>set up profile</a>
             </div>
           )}
-          <button className="eb" onClick={()=>setEditMode(e=>!e)}>
-            {editMode ? '✓ Done Editing' : '✏ Edit'}
+          <button className="eb" onClick={()=>setEditMode(e=>!e)} style={{display:'inline-flex',alignItems:'center',gap:5}}>
+            {editMode ? <><CheckCircle2 size={12} /> Done Editing</> : <><Pencil size={12} /> Edit</>}
           </button>
-          <button className="pb" onClick={()=>window.print()}>⬇ Download / Print PDF</button>
+          <button className="pb" onClick={()=>window.print()} style={{display:'inline-flex',alignItems:'center',gap:5}}>Download / Print PDF</button>
         </div>
       </div>
 
@@ -505,7 +506,7 @@ export default function PrescriptionPrintPage() {
                       <div key={i} style={{display:'flex',alignItems:'center',gap:4}}>
                         <input className="ei" value={c}
                           onChange={e=>{const u=[...conditions];u[i]=e.target.value;setConditions(u)}}/>
-                        <button className="edit-del" onClick={()=>setConditions(conditions.filter((_,j)=>j!==i))}>✕</button>
+                        <button className="edit-del" onClick={()=>setConditions(conditions.filter((_,j)=>j!==i))}><X size={11} /></button>
                       </div>
                     ))}
                     <button className="no-print" onClick={()=>setConditions([...conditions,''])}
@@ -587,8 +588,8 @@ export default function PrescriptionPrintPage() {
                               {item.displaySub&&<div className="ms">{item.displaySub}</div>}
                             </>
                           )}
-                          {item.doctorNote&&<div className="mno">📝 {item.doctorNote}</div>}
-                          {item.contraindications&&<div className="mco">⚠ {item.contraindications}</div>}
+                          {item.doctorNote&&<div className="mno" style={{display:'flex',alignItems:'center',gap:4}}><NotebookPen size={11} /> {item.doctorNote}</div>}
+                          {item.contraindications&&<div className="mco" style={{display:'flex',alignItems:'center',gap:4}}><AlertTriangle size={11} /> {item.contraindications}</div>}
                         </div>
                         <div className="rxfr">
                           {editMode
@@ -603,7 +604,7 @@ export default function PrescriptionPrintPage() {
                               <input className="ei" value={item.duration}
                                 onChange={e=>updateRxItem(item.key,'duration',e.target.value)}
                                 style={{fontSize:12,color:'#333',width:80}}/>
-                              <button className="edit-del no-print" onClick={()=>removeRxItem(item.key)}>✕</button>
+                              <button className="edit-del no-print" onClick={()=>removeRxItem(item.key)}><X size={11} /></button>
                             </>
                           ) : item.duration}
                         </div>
@@ -647,8 +648,8 @@ export default function PrescriptionPrintPage() {
                               <div className="mn">{item.label}</div>
                               {item.detail && <div className="ms">{item.detail}</div>}
                               {item.rationale && <div className="ms" style={{marginTop:4,color:'#555'}}>{item.rationale}</div>}
-                              {item.doctorNote && <div className="mno">📝 {item.doctorNote}</div>}
-                              {item.contraindications && <div className="mco">⚠ {item.contraindications}</div>}
+                              {item.doctorNote && <div className="mno" style={{display:'flex',alignItems:'center',gap:4}}><NotebookPen size={11} /> {item.doctorNote}</div>}
+                              {item.contraindications && <div className="mco" style={{display:'flex',alignItems:'center',gap:4}}><AlertTriangle size={11} /> {item.contraindications}</div>}
                             </div>
                           </div>
                         </div>
@@ -664,7 +665,7 @@ export default function PrescriptionPrintPage() {
               <div className="sb">
                 {data.approved_at&&(
                   <div className="sta" style={{marginBottom:10}}>
-                    <div className="stt">✓ Approved</div>
+                    <div className="stt" style={{display:'flex',alignItems:'center',gap:4}}><CheckCircle2 size={12} /> Approved</div>
                     <div className="std">{fmtDate(data.approved_at)}</div>
                   </div>
                 )}

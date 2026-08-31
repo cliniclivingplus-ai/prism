@@ -10,6 +10,7 @@ import SectionAiPanel from '@/components/mrx/SectionAiPanel'
 import SectionPageShell, { SectionLoading } from '@/components/mrx/SectionPageShell'
 import { buildAiContextFields, useSectionAnalysis, useSectionReport } from '@/lib/mrx/sectionPage'
 import type { FoundationSpecies } from '@/lib/mrx/ExtractFoundationmicrobiota'
+import { AlertTriangle } from 'lucide-react'
 
 // ─── Range bar ────────────────────────────────────────────────────────────────
 
@@ -148,8 +149,8 @@ export default function FoundationMicrobiotaPage() {
           {/* ── Below range alert ──────────────────────────────────────── */}
           {lowCount > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-5 mb-6">
-              <p className="text-xs font-mono text-red-700 uppercase tracking-wide font-medium mb-3">
-                ⚠ Below-range species ({lowCount})
+              <p className="text-xs font-mono text-red-700 uppercase tracking-wide font-medium mb-3 flex items-center gap-1">
+                <AlertTriangle size={12} /> Below-range species ({lowCount})
               </p>
               <div className="flex flex-wrap gap-2">
                 {species.filter(s => s.status === 'low').map(s => (

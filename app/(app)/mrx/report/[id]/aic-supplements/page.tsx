@@ -7,6 +7,7 @@ import { supabase } from '@/lib/mrx/supabase'
 import type { AICRulesOutput, AICRecommendation } from '@/lib/mrx/aicSupplementRules'
 import SectionPageShell, { SectionLoading } from '@/components/mrx/SectionPageShell'
 import { useSectionReport } from '@/lib/mrx/sectionPage'
+import { AlertTriangle } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,7 +145,7 @@ function RecommendationCard({ rec }: { rec: AICRecommendation }) {
       {/* Note */}
       {rec.product.note && (
         <div className="mx-5 mb-4 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
-          <span className="flex-shrink-0">⚠️</span>
+          <span className="flex-shrink-0"><AlertTriangle size={13} /></span>
           <span>{rec.product.note}</span>
         </div>
       )}

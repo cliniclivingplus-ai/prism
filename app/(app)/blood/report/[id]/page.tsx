@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
+import { AlertTriangle } from 'lucide-react'
 import type { ExtractedMarker, MarkerRecommendation } from '@/lib/blood/types'
 import { computeRangeViz } from '@/lib/blood/rangeViz'
 
@@ -123,8 +124,9 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         </p>
 
         {hubNameMismatch && (
-          <div className="rounded-2xl p-4 mb-8 text-sm" style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#78350F' }}>
-            ⚠ This report is linked to the patient account &quot;{hubNameMismatch}&quot;, but this report&apos;s own patient is &quot;{patient?.name}&quot; — double-check this is the right report before relying on it.
+          <div className="rounded-2xl p-4 mb-8 text-sm flex items-start gap-2" style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#78350F' }}>
+            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>This report is linked to the patient account &quot;{hubNameMismatch}&quot;, but this report&apos;s own patient is &quot;{patient?.name}&quot; — double-check this is the right report before relying on it.</span>
           </div>
         )}
 

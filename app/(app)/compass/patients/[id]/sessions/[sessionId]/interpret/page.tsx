@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { Wand2, Loader2, ArrowLeft } from 'lucide-react'
+import { Wand2, Loader2, ArrowLeft, ArrowRight, PartyPopper, RefreshCw, Search, Brain, PenLine, Lightbulb } from 'lucide-react'
 import Link from 'next/link'
 import DashboardClient from '@/components/guide-templates/DashboardClient'
 import type { GuideData } from '@/lib/pdf/ClientGuideDocument'
@@ -223,10 +223,10 @@ export default function InterpretPage() {
             missed, and changes with whether a roadmap exists yet. */}
         <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 12.5, color: '#4B5563', lineHeight: 1.6 }}>
           {!roadmap ? (
-            <>👋 <strong>First time building this session's dashboard:</strong> pick a duration below, then click <strong>Generate Dashboard</strong>. An editable preview appears underneath — exactly what the patient will see.</>
+            <><PartyPopper size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 4 }} /><strong>First time building this session's dashboard:</strong> pick a duration below, then click <strong>Generate Dashboard</strong>. An editable preview appears underneath — exactly what the patient will see.</>
           ) : (
             <>
-              🔄 <strong>Updating after a later session:</strong> pick the duration you want (same length is fine), then use{' '}
+              <RefreshCw size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 4 }} /><strong>Updating after a later session:</strong> pick the duration you want (same length is fine), then use{' '}
               <strong>Refresh plan</strong> to update this exact dashboard in place — same link the patient already has, and the content it replaces is automatically saved to History first.{' '}
               Only use <strong>Regenerate</strong> if the plan's length itself needs to change (e.g. 3 months → 12 months) and you want a brand new, separate link — it never touches this current roadmap.
             </>
@@ -274,7 +274,7 @@ export default function InterpretPage() {
         )}
 
         {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>{error}</div>}
-        {loading && <div style={{ background: '#F2F9EC', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#538A22', marginBottom: 16 }}>🔍 Searching KB → 🧠 Interpreting → ✍️ Writing plan (~30s)...</div>}
+        {loading && <div style={{ background: '#F2F9EC', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#538A22', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}><Search size={14} /> Searching KB <ArrowRight size={12} /> <Brain size={14} /> Interpreting <ArrowRight size={12} /> <PenLine size={14} /> Writing plan (~30s)...</div>}
 
         {!roadmap && !loading && (
           <div style={{ background: '#fff', borderRadius: 12, padding: '48px 24px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#9ca3af' }}>
@@ -299,7 +299,7 @@ export default function InterpretPage() {
         <div style={{ marginTop: 4 }}>
           <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 0 12px' }}>
             <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, fontSize: 13, color: '#92400e' }}>
-              💡 This is exactly what your patient will see. Edit anything below, click <strong>Save changes</strong>, then use <strong>Preview as patient</strong> to copy the dashboard link and send it over.
+              <Lightbulb size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 4 }} /> This is exactly what your patient will see. Edit anything below, click <strong>Save changes</strong>, then use <strong>Preview as patient</strong> to copy the dashboard link and send it over.
             </div>
           </div>
           <DashboardClient roadmapId={roadmap.id} shareToken={roadmap.share_revoked_at ? undefined : (roadmap.share_token ?? undefined)} patientId={patientId} data={guideData} initialCheckins={[]} editable duration={duration} />

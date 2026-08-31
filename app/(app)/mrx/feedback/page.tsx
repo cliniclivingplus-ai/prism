@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/mrx/supabase'
 import { getUser }  from '@/lib/mrx/auth'
+import { Lightbulb, Bug, Sparkles, MessageCircle, ClipboardList, type LucideIcon } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -22,11 +23,11 @@ interface FeedbackRow {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const CATEGORY_CONFIG: Record<Category, { label: string; icon: string; badge: string }> = {
-  suggestion: { label: 'Suggestion',     icon: '💡', badge: 'bg-blue-50 border-blue-200 text-blue-700'     },
-  bug:        { label: 'Bug / Issue',    icon: '🐛', badge: 'bg-red-50 border-red-200 text-red-700'        },
-  feature:    { label: 'Feature request',icon: '✨', badge: 'bg-purple-50 border-purple-200 text-purple-700'},
-  other:      { label: 'Other',          icon: '💬', badge: 'bg-gray-100 border-gray-200 text-gray-600'    },
+const CATEGORY_CONFIG: Record<Category, { label: string; icon: LucideIcon; badge: string }> = {
+  suggestion: { label: 'Suggestion',     icon: Lightbulb,      badge: 'bg-blue-50 border-blue-200 text-blue-700'     },
+  bug:        { label: 'Bug / Issue',    icon: Bug,            badge: 'bg-red-50 border-red-200 text-red-700'        },
+  feature:    { label: 'Feature request',icon: Sparkles,       badge: 'bg-purple-50 border-purple-200 text-purple-700'},
+  other:      { label: 'Other',          icon: MessageCircle,  badge: 'bg-gray-100 border-gray-200 text-gray-600'    },
 }
 
 const ALL_CATEGORIES: (Category | 'all')[] = ['all', 'suggestion', 'feature', 'bug', 'other']
@@ -126,7 +127,7 @@ export default function FeedbackPage() {
                     ? 'bg-[#1A3207] border-[#1A3207] text-white'
                     : 'bg-white border-gray-200 text-gray-600 hover:border-[#C8E9A8] hover:bg-[#F2F9EC]'}`}
               >
-                {cfg ? <span>{cfg.icon}</span> : <span>📋</span>}
+                {cfg ? <cfg.icon size={13} /> : <ClipboardList size={13} />}
                 {cat === 'all' ? 'All' : cfg!.label}
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                   active ? 'bg-white/20' : 'bg-gray-100'
@@ -160,8 +161,8 @@ export default function FeedbackPage() {
                 >
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${cfg.badge}`}>
-                        {cfg.icon} {cfg.label}
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded border inline-flex items-center gap-1 ${cfg.badge}`}>
+                        <cfg.icon size={11} /> {cfg.label}
                       </span>
                       {isOwn && (
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded border
@@ -274,7 +275,7 @@ function FeedbackModal({ myId, onClose }: { myId: string | null; onClose: () => 
                           ? 'bg-[#538A22] border-[#538A22] text-white'
                           : 'bg-white border-gray-200 text-gray-600 hover:border-[#C8E9A8]'}`}
                     >
-                      <span>{cfg.icon}</span>{cfg.label}
+                      <cfg.icon size={13} />{cfg.label}
                     </button>
                   )
                 })}

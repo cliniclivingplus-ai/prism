@@ -14,6 +14,7 @@ import {
   useSectionAnalysis,
   useSectionReport,
 } from '@/lib/mrx/sectionPage'
+import { CheckCircle2, AlertTriangle, X, ArrowUp } from 'lucide-react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -148,17 +149,17 @@ function RecoveryBar({ score }: { score: number }) {
           status === 'low'     ? 'bg-amber-50 border-amber-200 text-amber-800'    :
                                  'bg-red-50 border-red-200 text-red-700'}`}>
         {status === 'optimal' && <>
-          ✓ <strong>Good recovery potential.</strong> Score is within the healthy reference range ({RECOVERY_REF_LOW}–{RECOVERY_REF_HIGH}).
+          <CheckCircle2 size={13} style={{display:'inline', verticalAlign:-2}} /> <strong>Good recovery potential.</strong> Score is within the healthy reference range ({RECOVERY_REF_LOW}–{RECOVERY_REF_HIGH}).
           The microbiome has sufficient resilience to recover post-antibiotic treatment.
           Probiotic supplementation during the course is still recommended.
         </>}
         {status === 'low' && <>
-          ⚠ <strong>Below reference range.</strong> Score ({score.toFixed(3)}) is below the healthy range ({RECOVERY_REF_LOW}–{RECOVERY_REF_HIGH}).
+          <AlertTriangle size={13} style={{display:'inline', verticalAlign:-2}} /> <strong>Below reference range.</strong> Score ({score.toFixed(3)}) is below the healthy range ({RECOVERY_REF_LOW}–{RECOVERY_REF_HIGH}).
           The microbiome may struggle to recover after antibiotics.
           Strong probiotic and prebiotic support during and after the course is recommended.
         </>}
         {status === 'high' && <>
-          ↑ <strong>Above reference range.</strong> Score ({score.toFixed(3)}) is above the upper limit ({RECOVERY_REF_HIGH}).
+          <ArrowUp size={13} style={{display:'inline', verticalAlign:-2}} /> <strong>Above reference range.</strong> Score ({score.toFixed(3)}) is above the upper limit ({RECOVERY_REF_HIGH}).
           Clinical correlation recommended.
         </>}
       </div>
@@ -243,7 +244,7 @@ export default function AntibioticsPage() {
 
         {/* ── Disclaimer ───────────────────────────────────────────────── */}
         <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-800 leading-relaxed">
-          ⚠️ Identifies <strong>acquired resistance genes</strong> from metagenomic sequencing -
+          <AlertTriangle size={13} style={{display:'inline', verticalAlign:-2}} /> Identifies <strong>acquired resistance genes</strong> from metagenomic sequencing -
           not equivalent to standard AST/MIC testing. Results should be interpreted alongside
           clinical presentation and validated microbiology data before treatment decisions.
         </div>
@@ -289,7 +290,7 @@ export default function AntibioticsPage() {
             {resistantEntries.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
                 <p className="text-xs font-mono text-amber-800 uppercase tracking-wide font-medium mb-3">
-                  ⚠ {resistantEntries.length} resistance gene{resistantEntries.length > 1 ? 's' : ''} detected - clinical review recommended
+                  <AlertTriangle size={12} style={{display:'inline', verticalAlign:-2}} /> {resistantEntries.length} resistance gene{resistantEntries.length > 1 ? 's' : ''} detected - clinical review recommended
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {resistantEntries.map(e => (
@@ -305,7 +306,7 @@ export default function AntibioticsPage() {
 
             {resistantEntries.length === 0 && allEntries.length > 0 && (
               <div className="bg-[#F2F9EC] border border-[#C8E9A8] rounded-xl p-5 flex items-center gap-3">
-                <span className="text-2xl">✓</span>
+                <span className="text-2xl"><CheckCircle2 size={22} /></span>
                 <div>
                   <p className="text-sm font-semibold text-[#1A3207]">No antibiotic resistance genes detected</p>
                   <p className="text-xs text-[#538A22] mt-0.5">All {allEntries.length} tracked antibiotics show Sensitive status</p>
@@ -359,14 +360,14 @@ export default function AntibioticsPage() {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="bg-white rounded-2xl border border-amber-200 overflow-hidden">
                       <div className="px-4 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-amber-800">⚠ Resistant</span>
+                        <span className="text-sm font-semibold text-amber-800 inline-flex items-center gap-1"><AlertTriangle size={13} /> Resistant</span>
                         <span className="text-xs font-mono text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
                           {filteredResistant.length}
                         </span>
                       </div>
                       <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
                         {filteredResistant.length === 0
-                          ? <p className="px-4 py-6 text-xs text-gray-400 italic text-center">None detected ✓</p>
+                          ? <p className="px-4 py-6 text-xs text-gray-400 italic text-center inline-flex items-center gap-1 justify-center w-full">None detected <CheckCircle2 size={12} /></p>
                           : filteredResistant.map(e => (
                             <div key={e.name} className="px-4 py-2.5 flex items-center justify-between gap-3 bg-amber-50">
                               <div>
@@ -383,7 +384,7 @@ export default function AntibioticsPage() {
 
                     <div className="bg-white rounded-2xl border border-[#C8E9A8] overflow-hidden">
                       <div className="px-4 py-3 bg-[#F2F9EC] border-b border-[#E2F3D0] flex items-center justify-between">
-                        <span className="text-sm font-semibold text-[#3D6B16]">✓ Sensitive</span>
+                        <span className="text-sm font-semibold text-[#3D6B16] inline-flex items-center gap-1"><CheckCircle2 size={13} /> Sensitive</span>
                         <span className="text-xs font-mono text-[#538A22] bg-[#E2F3D0] px-2 py-0.5 rounded-full border border-[#A8D878]">
                           {filteredSensitive.length}
                         </span>

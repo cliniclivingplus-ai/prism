@@ -16,7 +16,7 @@ import {
   HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
   Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon, Flame, Award,
-  type LucideIcon,
+  type LucideIcon, AlertTriangle,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
@@ -1130,7 +1130,7 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                         <div key={i}>
                           <div style={{ fontSize: 13, fontWeight: 700 }}>{s.name}</div>
                           <div style={{ fontSize: 11.5, color: V.muted, marginTop: 1 }}>{[s.dose, s.timing, s.duration].filter(Boolean).join(' · ')}</div>
-                          {s.notes && <div style={{ fontSize: 11, color: V.warn, marginTop: 2 }}>⚠ {s.notes}</div>}
+                          {s.notes && <div style={{ fontSize: 11, color: V.warn, marginTop: 2 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</div>}
                         </div>
                       ))}
                     </div>

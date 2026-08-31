@@ -10,17 +10,18 @@ import SectionAiPanel from '@/components/mrx/SectionAiPanel'
 import SectionPageShell, { SectionLoading } from '@/components/mrx/SectionPageShell'
 import { buildAiContextFields, useSectionAnalysis, useSectionReport } from '@/lib/mrx/sectionPage'
 import type { AbundantSpecies, Kingdom } from '@/lib/mrx/extractAbundantSpecies'
+import { Bug, FlaskConical, Sprout, CircleDot, Dna, type LucideIcon } from 'lucide-react'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const KINGDOM_ORDER: Kingdom[] = ['Bacteria', 'Archaea', 'Fungi', 'Eukaryota', 'Viruses']
 
-const KINGDOM_ICON: Record<Kingdom, string> = {
-  Bacteria:  '🦠',
-  Archaea:   '🧫',
-  Fungi:     '🍄',
-  Eukaryota: '🔬',
-  Viruses:   '🧬',
+const KINGDOM_ICON: Record<Kingdom, LucideIcon> = {
+  Bacteria:  Bug,
+  Archaea:   FlaskConical,
+  Fungi:     Sprout,
+  Eukaryota: CircleDot,
+  Viruses:   Dna,
 }
 
 const BIN_LABEL: Record<1 | 2 | 3, string> = {
@@ -338,7 +339,7 @@ export default function AbundantSpeciesPage() {
                     ? 'bg-[#1A3207] text-white border-[#1A3207]'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
               >
-                {KINGDOM_ICON[k]} {k} ({byKingdom.get(k)?.length})
+                {(() => { const Icon = KINGDOM_ICON[k]; return <span className="inline-flex items-center gap-1"><Icon size={12} /> {k} ({byKingdom.get(k)?.length})</span> })()}
               </button>
             ))}
 
@@ -368,10 +369,11 @@ export default function AbundantSpeciesPage() {
                   s => binFilter === 'all' || s.bin === binFilter,
                 )
                 if (list.length === 0) return null
+                const KIcon = KINGDOM_ICON[k]
                 return (
                   <div key={k} className="mb-7">
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-base">{KINGDOM_ICON[k]}</span>
+                      <KIcon size={16} />
                       <p className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">
                         {k}
                       </p>

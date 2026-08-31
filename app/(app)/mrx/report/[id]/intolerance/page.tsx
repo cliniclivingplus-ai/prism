@@ -6,6 +6,7 @@ import { SectionHeader } from '@/components/mrx/SectionHeader'
 import SectionAiPanel from '@/components/mrx/SectionAiPanel'
 import SectionPageShell, { SectionLoading } from '@/components/mrx/SectionPageShell'
 import { buildAiContextFields, useSectionAnalysis, useSectionReport } from '@/lib/mrx/sectionPage'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 
 interface IntoleranceMetric {
   label: string
@@ -134,7 +135,7 @@ export default function IntolerancePage() {
         <div className="space-y-4">
           {atRisk.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-3">
-              <span className="text-amber-500 text-xl mt-0.5">⚠️</span>
+              <span className="text-amber-500 mt-0.5"><AlertTriangle size={20} /></span>
               <div>
                 <p className="text-sm font-semibold text-amber-800">
                   {atRisk.length} intolerance{atRisk.length > 1 ? 's' : ''} flagged at risk
@@ -173,8 +174,8 @@ export default function IntolerancePage() {
                         <div className="flex items-end justify-between mb-3">
                           <span className="text-3xl font-bold text-[#2A4D0D]">{m.score.toFixed(3)}</span>
                           <div className="flex flex-col items-end gap-1">
-                            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${status === 'managed' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`}>
-                              {status === 'managed' ? '✓ Managed' : '⚠ At Risk'}
+                            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1 ${status === 'managed' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`}>
+                              {status === 'managed' ? <><CheckCircle2 size={11} /> Managed</> : <><AlertTriangle size={11} /> At Risk</>}
                             </span>
                             {gap != null && (
                               <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${gap >= 0 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
@@ -203,7 +204,7 @@ export default function IntolerancePage() {
                     onClick={() => setExpandedKey(isOpen ? null : m.key)}
                     className={`w-full px-5 py-2.5 text-left text-xs font-medium flex items-center justify-between transition-colors ${status === 'risk' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
                   >
-                    <span>{status === 'risk' ? '⚠ Foods to limit' : '✓ Generally tolerated foods'} ({m.foods.length})</span>
+                    <span className="inline-flex items-center gap-1">{status === 'risk' ? <><AlertTriangle size={12} /> Foods to limit</> : <><CheckCircle2 size={12} /> Generally tolerated foods</>} ({m.foods.length})</span>
                     <span>{isOpen ? '▲' : '▼'}</span>
                   </button>
                   {isOpen && (

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Moon, Brain, Activity, Leaf, AlertTriangle, type LucideIcon } from 'lucide-react'
 
 type Props = {
   reportId: string
@@ -61,15 +62,15 @@ const TIER_LABEL: Record<string, string> = {
 const LIFESTYLE_SECTIONS: {
   key: keyof Recs['lifestyle_recommendations']
   label: string
-  icon: string
+  icon: LucideIcon
   bg: string
   border: string
   text: string
 }[] = [
-  { key: 'sleep',    label: 'Sleep',           icon: '🌙', bg: 'bg-indigo-50',  border: 'border-indigo-200', text: 'text-indigo-800' },
-  { key: 'stress',   label: 'Stress & Mind',   icon: '🧠', bg: 'bg-purple-50',  border: 'border-purple-200', text: 'text-purple-800' },
-  { key: 'movement', label: 'Movement',         icon: '🏃', bg: 'bg-amber-50',   border: 'border-amber-200',  text: 'text-amber-800'  },
-  { key: 'habits',   label: 'Daily Habits',     icon: '🌿', bg: 'bg-[#F2F9EC]', border: 'border-[#C8E9A8]',  text: 'text-[#1A3207]'  },
+  { key: 'sleep',    label: 'Sleep',           icon: Moon,     bg: 'bg-indigo-50',  border: 'border-indigo-200', text: 'text-indigo-800' },
+  { key: 'stress',   label: 'Stress & Mind',   icon: Brain,    bg: 'bg-purple-50',  border: 'border-purple-200', text: 'text-purple-800' },
+  { key: 'movement', label: 'Movement',         icon: Activity, bg: 'bg-amber-50',   border: 'border-amber-200',  text: 'text-amber-800'  },
+  { key: 'habits',   label: 'Daily Habits',     icon: Leaf,     bg: 'bg-[#F2F9EC]', border: 'border-[#C8E9A8]',  text: 'text-[#1A3207]'  },
 ]
 
 function WhyButton({ finding, value, low, high, pmids, confidenceSource }: {
@@ -216,7 +217,7 @@ export default function RecommendationsPanel({ reportId, reportData, patient, ex
         {/* Red flags */}
         {recs.red_flags?.length > 0 && (
           <div className="mt-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-            <div className="text-xs font-mono text-red-700 uppercase tracking-wide mb-2 font-medium">⚠ Requires urgent review</div>
+            <div className="text-xs font-mono text-red-700 uppercase tracking-wide mb-2 font-medium flex items-center gap-1"><AlertTriangle size={12} /> Requires urgent review</div>
             {recs.red_flags.map((f: string, i: number) => <p key={i} className="text-sm text-red-700">{f}</p>)}
           </div>
         )}
@@ -278,7 +279,7 @@ export default function RecommendationsPanel({ reportId, reportData, patient, ex
               <div key={i} className="border border-[#E2F3D0] rounded-xl p-5 bg-white">
                 {s.contraindicated_with?.length > 0 && (
                   <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
-                    <div className="text-xs font-mono text-red-700 font-medium mb-1">⚠ Contraindication check</div>
+                    <div className="text-xs font-mono text-red-700 font-medium mb-1 flex items-center gap-1"><AlertTriangle size={11} /> Contraindication check</div>
                     {s.contraindicated_with.map((c: string, j: number) => (
                       <p key={j} className="text-xs text-red-600">{c}</p>
                     ))}
@@ -325,7 +326,7 @@ export default function RecommendationsPanel({ reportId, reportData, patient, ex
                 <div key={section.key}>
                   {/* Section heading */}
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-base">{section.icon}</span>
+                    <section.icon size={16} />
                     <span className="text-xs font-mono uppercase tracking-widest text-gray-500">{section.label}</span>
                     <span className="text-xs font-mono text-gray-400 ml-auto">{items.length} suggestions</span>
                   </div>
