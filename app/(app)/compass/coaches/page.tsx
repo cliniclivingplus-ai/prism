@@ -102,6 +102,7 @@ function CoachRow({ coach, onUpdated, onDeleted }: {
       {/* Collapsed row */}
       <div
         onClick={() => setExpanded((v) => !v)}
+        className="roster-row"
         style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', cursor: 'pointer' }}
       >
         <Avatar photoUrl={coach.photo_url} size={40} />
@@ -173,6 +174,7 @@ function CoachRow({ coach, onUpdated, onDeleted }: {
               )}
               {error && <span style={{ fontSize: 12, color: C.danger }}>{error}</span>}
               <button onClick={save} disabled={saving}
+                className="btn-primary"
                 style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: saved ? C.greenDeep : C.green, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
                 {saving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : saved ? <Check size={13} /> : <Save size={13} />}
                 {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
@@ -247,6 +249,7 @@ export default function CoachesPage() {
             onKeyDown={(e) => { if (e.key === 'Enter') addCoach(); if (e.key === 'Escape') { setShowAddForm(false); setNewName(''); setAddError('') } }}
             placeholder="New coach's name" style={{ ...inputStyle, maxWidth: 280 }} autoFocus />
           <button onClick={addCoach} disabled={adding || !newName.trim()}
+            className="btn-primary"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, border: 'none', background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             {adding ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={14} />} Add coach
           </button>

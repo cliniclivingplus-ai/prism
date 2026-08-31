@@ -132,7 +132,7 @@ export default function DietaryRxPage() {
 
         <button
           onClick={handleGenerate}
-          className="w-full py-3 bg-green-700 hover:bg-green-800 text-white
+          className="btn-primary-mrx w-full py-3 bg-green-700 hover:bg-green-800 text-white
             font-medium rounded-xl text-sm transition-all"
         >
           Generate dietary prescription →

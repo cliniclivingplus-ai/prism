@@ -65,6 +65,7 @@ export default function RoadmapHistoryPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {versions.map((v, i) => (
             <Link key={v.id} href={`/compass/patients/${patientId}/roadmap-history/${roadmapId}/${v.id}`}
+              className="roster-row"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px', textDecoration: 'none', boxShadow: '0 1px 2px rgba(26,36,23,0.03)' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

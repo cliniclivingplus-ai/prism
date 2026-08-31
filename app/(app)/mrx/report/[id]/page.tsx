@@ -325,7 +325,7 @@ export default function ReportPage() {
                   : `/mrx/report/${id}/review`
               }
               target={prescription.approved_at ? '_blank' : undefined}
-              className="mt-6 flex items-center justify-between rounded-2xl p-5 transition-all"
+              className="tool-card mt-6 flex items-center justify-between rounded-2xl p-5 transition-all"
               style={
                 prescription.approved_at
                   ? { background: '#F2F9EC', border: '1px solid #C8E9A8' }

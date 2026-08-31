@@ -207,7 +207,7 @@ function DashboardContent({ reports, loading }: { reports: Report[]; loading: bo
         </div>
         <Link
           href="/mrx/upload"
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#538A22] text-white
+          className="btn-primary-mrx flex items-center gap-2 px-5 py-2.5 bg-[#538A22] text-white
             text-[13px] font-medium rounded-xl hover:bg-[#3D6B16] transition-colors
             shadow-sm"
         >
@@ -327,7 +327,7 @@ function DashboardContent({ reports, loading }: { reports: Report[]; loading: bo
                   </p>
                   {!search && filter === 'all' && (
                     <Link href="/mrx/upload"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#538A22]
+                      className="btn-primary-mrx inline-flex items-center gap-2 px-4 py-2 bg-[#538A22]
                         text-white text-[12px] font-medium rounded-lg
                         hover:bg-[#3D6B16] transition-colors">
                       Upload first report →
@@ -344,7 +344,7 @@ function DashboardContent({ reports, loading }: { reports: Report[]; loading: bo
 
               return (
                 <tr key={report.id}
-                  className="border-b border-[#F2F9EC] last:border-0
+                  className="roster-row border-b border-[#F2F9EC] last:border-0
                     hover:bg-[#F8FAF6] transition-colors group cursor-pointer"
                   onClick={() => window.location.href = `/mrx/report/${report.id}`}
                 >

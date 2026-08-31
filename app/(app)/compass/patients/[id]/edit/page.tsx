@@ -101,7 +101,7 @@ export default function EditPatientPage() {
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" onClick={() => router.back()} style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', fontSize: 14, cursor: 'pointer' }}>Cancel</button>
-          <button type="submit" disabled={loading} style={{ padding: '10px 24px', borderRadius: 8, background: '#538A22', color: '#fff', border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
+          <button type="submit" disabled={loading} className="btn-primary" style={{ padding: '10px 24px', borderRadius: 8, background: '#538A22', color: '#fff', border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
             {loading ? 'Saving...' : 'Save Changes'}
           </button>
         </div>

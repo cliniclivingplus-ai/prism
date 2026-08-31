@@ -33,7 +33,7 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
           </p>
         </div>
         {hasContent && (
-          <Link href={`/compass/patients/${id}/sessions/${sessionId}/interpret`} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#538A22', color: '#fff', padding: '10px 18px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
+          <Link href={`/compass/patients/${id}/sessions/${sessionId}/interpret`} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#538A22', color: '#fff', padding: '10px 18px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
             <Wand2 size={15} /> Generate Dashboard
           </Link>
         )}

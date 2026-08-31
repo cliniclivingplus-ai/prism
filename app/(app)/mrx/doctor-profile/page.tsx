@@ -153,6 +153,7 @@ export default function DoctorProfilePage() {
           <button
             onClick={save}
             disabled={saving}
+            className="btn-primary-mrx"
             style={{
               background:'#538A22', color:'white', border:'none',
               padding:'8px 20px', borderRadius:8, fontSize:13,

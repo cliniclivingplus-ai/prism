@@ -224,6 +224,22 @@ button { font-family: inherit; }
 .btn-primary:hover { box-shadow: 0 8px 20px -10px rgba(14,59,54,.45); }
 .btn-primary:active { transform: translateY(1px) scale(.98); box-shadow: 0 2px 8px -4px rgba(14,59,54,.4); }
 
+/* MRX primary-action buttons use the pista accent, not shared teal — same
+   press/lift mechanics as .btn-primary, tinted to pista-600 instead. */
+.btn-primary-mrx {
+  transition: transform .12s cubic-bezier(.16,1,.3,1), box-shadow .12s cubic-bezier(.16,1,.3,1), background .12s ease;
+}
+.btn-primary-mrx:hover { box-shadow: 0 8px 20px -10px rgba(83,138,34,.4); }
+.btn-primary-mrx:active { transform: translateY(1px) scale(.98); box-shadow: 0 2px 8px -4px rgba(83,138,34,.4); }
+
+/* Blood Panel primary-action buttons use the rust accent, not shared teal —
+   same press/lift mechanics as .btn-primary, tinted to rust-600 instead. */
+.btn-primary-blood {
+  transition: transform .12s cubic-bezier(.16,1,.3,1), box-shadow .12s cubic-bezier(.16,1,.3,1), background .12s ease;
+}
+.btn-primary-blood:hover { box-shadow: 0 8px 20px -10px rgba(154,69,47,.4); }
+.btn-primary-blood:active { transform: translateY(1px) scale(.98); box-shadow: 0 2px 8px -4px rgba(154,69,47,.4); }
+
 /* Skeleton shimmer for loading.tsx route-level placeholders — sized to
    match the real layout it stands in for, not a generic centered spinner. */
 @keyframes clp-shimmer {

@@ -438,7 +438,7 @@ export default function AICSupplementsPage() {
             </p>
             <button
               onClick={() => generate(false)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[#538A22] hover:bg-[#3D6B16] transition"
+              className="btn-primary-mrx inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[#538A22] hover:bg-[#3D6B16] transition"
             >
               Generate Plan
             </button>

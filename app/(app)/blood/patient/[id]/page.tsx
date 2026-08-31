@@ -190,7 +190,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="px-5 py-2.5 bg-primary hover:bg-primary-hover disabled:bg-gray-200 disabled:text-gray-400 text-white font-medium rounded-lg text-sm transition-all"
+              className="btn-primary-blood px-5 py-2.5 bg-primary hover:bg-primary-hover disabled:bg-gray-200 disabled:text-gray-400 text-white font-medium rounded-lg text-sm transition-all"
             >
               {uploading ? 'Analyzing…' : 'Choose reports'}
             </button>
@@ -294,7 +294,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
               const abnormalCount = (r.markers ?? []).filter((m) => m.abnormal).length
               return (
                 <Link key={r.id} href={`/blood/report/${r.id}`}
-                  className="bg-card border border-border rounded-xl px-5 py-4 flex items-center justify-between hover:border-primary transition">
+                  className="roster-row bg-card border border-border rounded-xl px-5 py-4 flex items-center justify-between hover:border-primary transition">
                   <div>
                     <div className="text-sm font-medium">{r.pdf_filename}</div>
                     <div className="text-xs text-foreground-muted mt-0.5">{fmtDate(r.created_at)}</div>

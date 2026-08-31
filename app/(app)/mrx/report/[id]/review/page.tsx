@@ -297,6 +297,7 @@ function FilterPanel({ supplements, onApply, onClose,
           </div>
         ) : (
           <button onClick={() => onApply(results.filter(r => r.tier === 'remove' || applyTiers.has(r.tier)))}
+            className="btn-primary-mrx"
             style={{ width:'100%', padding:'11px 0', background:'#538A22', color:'#fff', border:'none', borderRadius:10, fontSize:13, fontWeight:600, cursor:'pointer' }}>
             ✓ Apply filter to prescription
           </button>
@@ -960,7 +961,7 @@ export default function DoctorReviewPage() {
             {isEditMode&&<button onClick={unlockForEdit} disabled={unlocking} className="px-3 py-2 text-xs font-medium rounded-lg border border-red-300 text-red-500 hover:bg-red-50 disabled:opacity-40">{unlocking?'Unlocking…':'🔓 Remove Approval'}</button>}
             {isEditable&&<button onClick={saveDraft} disabled={saving} className="px-4 py-2 text-xs font-medium rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40">{saving?'Saving…':'Save Draft'}</button>}
             {!isApproved
-              ?<button onClick={approveRx} disabled={approving} className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#538A22] text-white hover:bg-[#3D6B16] disabled:opacity-50">{approving?'Approving…':'✓ Approve RX'}</button>
+              ?<button onClick={approveRx} disabled={approving} className="btn-primary-mrx px-5 py-2 text-xs font-semibold rounded-lg bg-[#538A22] text-white hover:bg-[#3D6B16] disabled:opacity-50">{approving?'Approving…':'✓ Approve RX'}</button>
               :isEditMode
                 ?<button onClick={approveRx} disabled={approving} className="px-5 py-2 text-xs font-semibold rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50">{approving?'Saving…':'✓ Re-approve RX'}</button>
                 :<span className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#E2F3D0] text-[#3D6B16] border border-[#C8E9A8]">✓ Approved</span>

@@ -311,7 +311,7 @@ export default function UploadPage() {
         {done && (
           <button
             onClick={handleSave} disabled={saving}
-            className="w-full py-3 text-white font-medium rounded-xl text-sm transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary-mrx w-full py-3 text-white font-medium rounded-xl text-sm transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: '#538A22' }}
             onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3D6B16' }}
             onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#538A22' }}

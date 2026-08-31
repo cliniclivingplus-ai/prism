@@ -208,6 +208,7 @@ export default function InterpretPage() {
               </>
             ) : (
               <button onClick={generateRoadmap} disabled={loading}
+                className="btn-primary"
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 20px', background: '#538A22', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.8 : 1 }}>
                 {loading ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Wand2 size={15} />}
                 {loading ? 'Generating...' : 'Generate Dashboard'}

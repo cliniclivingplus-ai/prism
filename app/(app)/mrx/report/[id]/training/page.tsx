@@ -103,7 +103,7 @@ Be specific and practical for an Indian patient.`,
           <button
             onClick={generate}
             disabled={loading}
-            className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl text-sm font-medium disabled:opacity-50 transition"
+            className="btn-primary-mrx bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl text-sm font-medium disabled:opacity-50 transition"
           >
             {loading ? 'Generating...' : 'Generate Training Plan →'}
           </button>

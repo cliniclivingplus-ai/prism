@@ -246,7 +246,7 @@ function DashboardContent({
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#538A22] text-white
+              className="btn-primary-mrx flex items-center gap-2 px-5 py-2.5 bg-[#538A22] text-white
                 text-[13px] font-medium rounded-xl hover:bg-[#3D6B16] transition-colors
                 shadow-sm"
             >
@@ -374,7 +374,7 @@ function DashboardContent({
                       {!search && filter === 'all' && (
                         <button
                           onClick={() => fileInputRef.current?.click()}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-[#538A22]
+                          className="btn-primary-mrx inline-flex items-center gap-2 px-4 py-2 bg-[#538A22]
                             text-white text-[12px] font-medium rounded-lg
                             hover:bg-[#3D6B16] transition-colors"
                         >
@@ -392,7 +392,7 @@ function DashboardContent({
                   return (
                     <tr
                       key={report.id}
-                      className="border-b border-[#F2F9EC] last:border-0
+                      className="roster-row border-b border-[#F2F9EC] last:border-0
                         hover:bg-[#F8FAF6] transition-colors cursor-pointer"
                       onClick={() => router.push(`/mrx/report/${report.id}`)}
                     >

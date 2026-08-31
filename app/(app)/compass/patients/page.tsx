@@ -29,7 +29,7 @@ export default function PatientsPage() {
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827' }}>Patients</h1>
           <p style={{ color: '#6b7280', fontSize: 13, marginTop: 3 }}>{patients.length} registered</p>
         </div>
-        <Link href="/compass/patients/new" style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#538A22', color: '#fff', padding: '10px 20px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
+        <Link href="/compass/patients/new" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#538A22', color: '#fff', padding: '10px 20px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
           <Plus size={16} /> New Patient
         </Link>
       </div>
@@ -50,7 +50,7 @@ export default function PatientsPage() {
           <User size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
           <p style={{ fontSize: 15, fontWeight: 500, color: '#374151' }}>No patients yet</p>
           <p style={{ fontSize: 13, marginTop: 4 }}>Add your first patient to get started</p>
-          <Link href="/compass/patients/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 16, background: '#538A22', color: '#fff', padding: '9px 20px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 13 }}>
+          <Link href="/compass/patients/new" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 16, background: '#538A22', color: '#fff', padding: '9px 20px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 13 }}>
             <Plus size={14} /> Add Patient
           </Link>
         </div>
@@ -59,7 +59,7 @@ export default function PatientsPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map((p) => (
-            <Link key={p.id} href={`/compass/patients/${p.id}`} style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', border: '1px solid #e5e7eb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <Link key={p.id} href={`/compass/patients/${p.id}`} className="roster-row" style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', border: '1px solid #e5e7eb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#F2F9EC', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <User size={18} color="#538A22" />
               </div>

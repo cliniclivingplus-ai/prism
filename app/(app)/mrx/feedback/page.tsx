@@ -100,7 +100,7 @@ export default function FeedbackPage() {
 
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#538A22] hover:bg-[#3D6B16]
+          className="btn-primary-mrx flex items-center gap-2 px-4 py-2 bg-[#538A22] hover:bg-[#3D6B16]
             text-white text-xs font-mono font-semibold rounded-xl transition"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -252,7 +252,7 @@ function FeedbackModal({ myId, onClose }: { myId: string | null; onClose: () => 
             <p className="text-xs text-gray-400 font-mono">Your feedback is now visible to everyone.</p>
             <button
               onClick={onClose}
-              className="mt-6 px-5 py-2 bg-[#538A22] text-white text-xs font-mono rounded-lg hover:bg-[#3D6B16] transition"
+              className="btn-primary-mrx mt-6 px-5 py-2 bg-[#538A22] text-white text-xs font-mono rounded-lg hover:bg-[#3D6B16] transition"
             >
               Close
             </button>
@@ -311,7 +311,7 @@ function FeedbackModal({ myId, onClose }: { myId: string | null; onClose: () => 
               <button
                 onClick={handleSubmit}
                 disabled={!message.trim() || loading}
-                className="flex-1 py-2.5 bg-[#538A22] hover:bg-[#3D6B16] disabled:bg-gray-200
+                className="btn-primary-mrx flex-1 py-2.5 bg-[#538A22] hover:bg-[#3D6B16] disabled:bg-gray-200
                   disabled:text-gray-400 text-white text-xs font-mono rounded-xl transition font-semibold"
               >
                 {loading ? 'Posting…' : 'Post feedback →'}

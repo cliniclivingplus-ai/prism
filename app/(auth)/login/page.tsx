@@ -177,7 +177,11 @@ function LoginForm() {
           )}
 
           {error && (
-            <p role="alert" className="text-sm text-[var(--danger)]">
+            <p
+              role="alert"
+              className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm font-medium text-[var(--danger)]"
+              style={{ background: 'rgba(154,69,47,.08)', borderColor: 'rgba(154,69,47,.3)' }}
+            >
               {error}
             </p>
           )}
@@ -185,7 +189,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-[var(--radius-sm)] bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--primary-hover)] disabled:opacity-60"
+            className="btn-primary w-full rounded-[var(--radius-sm)] bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--primary-hover)] disabled:opacity-60"
           >
             {pending ? (mode === 'signin' ? 'Signing in…' : 'Creating account…') : (mode === 'signin' ? 'Sign in' : 'Create account')}
           </button>

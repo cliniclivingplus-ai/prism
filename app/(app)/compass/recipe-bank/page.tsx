@@ -334,6 +334,7 @@ export default function RecipeBankPage() {
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button onClick={save} disabled={saving || !canSave}
+            className="btn-primary"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, border: 'none', background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: canSave ? 1 : 0.6 }}>
             {saving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={14} />} Add recipe
           </button>
@@ -441,6 +442,7 @@ export default function RecipeBankPage() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <button onClick={() => saveEdit(r.id)} disabled={editSaving}
+                            className="btn-primary"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', background: C.green, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
                             {editSaving ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={12} />} Save
                           </button>
@@ -454,7 +456,7 @@ export default function RecipeBankPage() {
                     )
                   }
                   return (
-                    <div key={r.id} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 12 }}>
+                    <div key={r.id} className="tool-card" style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 12 }}>
                       {r.image_url && <img src={r.image_url} alt="" style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />}
                       <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>

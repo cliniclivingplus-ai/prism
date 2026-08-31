@@ -105,6 +105,7 @@ export default function NewPatientPage() {
           {error && <div style={{ background: '#fef2f2', borderRadius: 8, padding: '10px 14px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>{error}</div>}
 
           <button type="submit" disabled={loading || !name.trim()}
+            className="btn-primary"
             style={{ width: '100%', padding: '12px', background: name.trim() ? '#538A22' : '#e5e7eb', color: name.trim() ? '#fff' : '#9ca3af', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: name.trim() ? 'pointer' : 'not-allowed', transition: 'all 0.15s' }}>
             {loading ? 'Creating...' : 'Continue → Paste Meeting Doc'}
           </button>

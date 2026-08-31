@@ -169,7 +169,7 @@ export default function KnowledgeBaseClient({ initialDocuments }: { initialDocum
                 const cfg = sourceTypeConfig[doc.source_type] ?? sourceTypeConfig.article
                 const Icon = cfg.icon
                 return (
-                  <div key={doc.id} style={{ background: '#fff', borderRadius: 10, padding: '14px 18px', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div key={doc.id} className="tool-card" style={{ background: '#fff', borderRadius: 10, padding: '14px 18px', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 14 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 8, background: cfg.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Icon size={16} color={cfg.color} />
                     </div>
@@ -268,7 +268,7 @@ export default function KnowledgeBaseClient({ initialDocuments }: { initialDocum
               </div>
             )}
 
-            <button onClick={handleUpload} disabled={uploading} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 24px', background: '#538A22', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.7 : 1 }}>
+            <button onClick={handleUpload} disabled={uploading} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 24px', background: '#538A22', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.7 : 1 }}>
               {uploading ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Processing...</> : <><Upload size={16} /> Ingest Document</>}
             </button>
           </div>
@@ -283,7 +283,7 @@ export default function KnowledgeBaseClient({ initialDocuments }: { initialDocum
             <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>Search the KB the same way the interpretation engine will — by meaning, not exact keywords.</p>
             <div style={{ display: 'flex', gap: 10 }}>
               <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="e.g. thyroid healing foods, gut inflammation diet" style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14 }} />
-              <button onClick={handleSearch} disabled={searching} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: '#538A22', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: searching ? 'not-allowed' : 'pointer', opacity: searching ? 0.7 : 1 }}>
+              <button onClick={handleSearch} disabled={searching} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: '#538A22', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: searching ? 'not-allowed' : 'pointer', opacity: searching ? 0.7 : 1 }}>
                 {searching ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Search size={16} />}
                 Search
               </button>

@@ -417,7 +417,7 @@ export default async function PatientWorkspacePage({
                         href={`/share/roadmap/${compass.shareToken}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-[7px] rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white"
+                        className="btn-primary flex items-center gap-[7px] rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white"
                         style={{ background: 'var(--teal-700)' }}
                       >
                         Open roadmap dashboard <IconArrowOut />
@@ -431,7 +431,7 @@ export default async function PatientWorkspacePage({
                         actually opens. */}
                     <Link
                       href={`/compass/patients/${patient.id}`}
-                      className="flex items-center gap-[7px] rounded-lg px-4 py-2.5 text-[13px] font-semibold"
+                      className="btn-primary flex items-center gap-[7px] rounded-lg px-4 py-2.5 text-[13px] font-semibold"
                       style={
                         compass.shareToken
                           ? { border: '1px solid var(--line)', color: 'var(--ink-soft)' }

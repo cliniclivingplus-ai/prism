@@ -220,6 +220,7 @@ export default function NewSessionPage() {
         )}
 
         <button type="submit" disabled={loading}
+          className="btn-primary"
           style={{ width: '100%', padding: 13, background: loading ? '#7BA84F' : C.green, color: '#fff', border: 'none', borderRadius: 11, fontSize: 14.5, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 2px 8px rgba(83,138,34,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           {loading ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Saving…</> : hasTranscript ? 'Save & extract from transcript' : 'Save session'}
         </button>

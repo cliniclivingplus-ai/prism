@@ -112,7 +112,7 @@ export default function DashboardPage() {
                 ) : (
                   searchResults.map((p) => (
                     <Link key={p.id} href={`/blood/patient/${p.id}`}
-                      className="flex items-center justify-between px-3 py-2 rounded-lg border border-border-light hover:border-primary transition">
+                      className="roster-row flex items-center justify-between px-3 py-2 rounded-lg border border-border-light hover:border-primary transition">
                       <span className="text-sm font-medium">{p.name}</span>
                       <span className="text-xs text-foreground-muted">{p.clinic_id}</span>
                     </Link>
@@ -141,7 +141,7 @@ export default function DashboardPage() {
               />
               {createError && <p className="text-xs text-danger">{createError}</p>}
               <button type="submit" disabled={creating}
-                className="px-5 py-2.5 bg-primary hover:bg-primary-hover disabled:bg-gray-200 disabled:text-gray-400 text-white font-medium rounded-lg text-sm transition-all">
+                className="btn-primary-blood px-5 py-2.5 bg-primary hover:bg-primary-hover disabled:bg-gray-200 disabled:text-gray-400 text-white font-medium rounded-lg text-sm transition-all">
                 {creating ? 'Creating…' : 'Create patient account'}
               </button>
             </form>
@@ -159,7 +159,7 @@ export default function DashboardPage() {
                 <div
                   key={r.id}
                   onClick={() => router.push(`/blood/report/${r.id}`)}
-                  className="bg-card border border-border rounded-xl px-5 py-4 flex items-center justify-between hover:border-primary transition cursor-pointer"
+                  className="roster-row bg-card border border-border rounded-xl px-5 py-4 flex items-center justify-between hover:border-primary transition cursor-pointer"
                 >
                   <div>
                     {r.patient_id ? (

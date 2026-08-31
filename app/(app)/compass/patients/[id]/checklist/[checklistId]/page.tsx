@@ -419,6 +419,7 @@ export default function ChecklistEditorPage() {
                 )}
               </div>
               <button onClick={handleLeave}
+                className="btn-primary"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: 'none', background: C.green, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
                 <Check size={13} /> Done
               </button>

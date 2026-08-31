@@ -192,6 +192,7 @@ export default function PatientPage() {
             </button>
             <Link
               href={`/compass/patients/${patientId}/sessions/new`}
+              className="btn-primary"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 9, border: 'none', background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none', boxShadow: '0 2px 6px rgba(83,138,34,0.25)' }}
             >
               <Plus size={14} /> New session
@@ -370,7 +371,7 @@ function SessionsTab({ sessions, roadmaps, patientId, router }: { sessions: Sess
         title="No sessions yet"
         body="Import a Meet transcript from Drive or paste the meeting doc to start this patient's first session."
         cta={
-          <Link href={`/compass/patients/${patientId}/sessions/new`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 9, background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+          <Link href={`/compass/patients/${patientId}/sessions/new`} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 9, background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
             <Plus size={14} /> Start first session
           </Link>
         }
@@ -389,6 +390,7 @@ function SessionsTab({ sessions, roadmaps, patientId, router }: { sessions: Sess
           <button
             key={s.id}
             onClick={() => router.push(`/compass/patients/${patientId}/sessions/${s.id}`)}
+            className="roster-row"
             style={{ textAlign: 'left', background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 1px 2px rgba(26,36,23,0.03)' }}
           >
             <div style={{ width: 40, height: 40, borderRadius: 11, background: i === 0 ? C.greenSoft : '#F6F5F0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -476,7 +478,7 @@ function DashboardTab({ roadmaps, patientId }: { roadmaps: Roadmap[]; patientId:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {ordered.map((r, i) => (
-        <div key={r.id} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 2px rgba(26,36,23,0.03)' }}>
+        <div key={r.id} className="tool-card" style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 2px rgba(26,36,23,0.03)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>
@@ -517,6 +519,7 @@ function DashboardTab({ roadmaps, patientId }: { roadmaps: Roadmap[]; patientId:
               {r.share_token && !r.share_revoked_at ? (
                 <Link href={`/share/roadmap/${r.share_token}`} target="_blank" rel="noopener noreferrer"
                   title="Opens exactly what the patient sees"
+                  className="btn-primary"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: C.green, color: '#fff', fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>
                   <LayoutDashboard size={13} /> Open dashboard
                 </Link>

@@ -250,7 +250,7 @@ export default function AddPatientPage() {
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-[7px] rounded-[9px] px-[17px] py-2.5 text-[13px] font-semibold text-white"
+              className="btn-primary flex items-center gap-[7px] rounded-[9px] px-[17px] py-2.5 text-[13px] font-semibold text-white"
               style={{ background: 'var(--teal-700)', opacity: saving ? 0.6 : 1 }}
             >
               <IconPlus /> {saving ? 'Creating…' : 'Create patient'}

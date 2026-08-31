@@ -297,7 +297,7 @@ export default function RychIndexPage() {
 
             {/* Disease Risk */}
             <Link href={`/mrx/report/${id}/disease-risk`}
-              className="group bg-white border border-gray-100 rounded-2xl p-6
+              className="tool-card group bg-white border border-gray-100 rounded-2xl p-6
                 shadow-[0_1px_8px_rgba(0,0,0,0.04)]
                 hover:shadow-[0_4px_24px_rgba(0,0,0,0.08)] hover:border-red-100 transition-all">
               <div className="flex items-center justify-between mb-4">
@@ -319,7 +319,7 @@ export default function RychIndexPage() {
 
             {/* Health Indicators */}
             <Link href={`/mrx/report/${id}/health-indicators`}
-              className="group bg-white border border-gray-100 rounded-2xl p-6
+              className="tool-card group bg-white border border-gray-100 rounded-2xl p-6
                 shadow-[0_1px_8px_rgba(0,0,0,0.04)]
                 hover:shadow-[0_4px_24px_rgba(0,0,0,0.08)] hover:border-[#D1EAC0] transition-all">
               <div className="flex items-center justify-between mb-4">

@@ -168,6 +168,7 @@ export default function GuideImagesPage() {
             ))}
             <div>
               <button onClick={uploadAll} disabled={uploadingAll || readyCount === 0}
+                className="btn-primary"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, border: 'none', background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: readyCount === 0 ? 0.6 : 1 }}>
                 {uploadingAll ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={14} />}
                 {uploadingAll ? 'Uploading…' : `Upload ${readyCount || ''} picture${readyCount === 1 ? '' : 's'}`.trim()}
@@ -190,7 +191,7 @@ export default function GuideImagesPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
           {images.map((img) => (
-            <div key={img.id} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, overflow: 'hidden' }}>
+            <div key={img.id} className="tool-card" style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ width: '100%', height: 110, background: `url(${img.image_url}) center/cover` }} />
               <div style={{ padding: '10px 12px' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 4 }}>{img.label}</div>
