@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
-import { BookOpen, Podcast, FileText, Sparkles, Upload, Search, X, CheckCircle, Loader2, ChevronDown } from 'lucide-react'
+import { BookOpen, Podcast, FileText, Sparkles, Upload, Search, X, CheckCircle, Loader2, ChevronDown, Globe, Video } from 'lucide-react'
 
 type KbDoc = {
   id: string
@@ -19,16 +19,41 @@ type SearchResult = {
   source_type: string
 }
 
+// Was missing 'website' and 'youtube' entirely, even though those are two
+// of the library's real, populous categories (867 and 911 documents in
+// the data that surfaced this) — every one of them fell back to the
+// "Article" badge in the list, but wasn't counted as an Article in the
+// stat tile either (that tile does an exact source_type match with no
+// fallback), so the count silently read 0 for real, existing documents.
 const sourceTypeConfig: Record<string, { icon: typeof BookOpen; color: string; label: string }> = {
   book:          { icon: BookOpen,  color: '#3b82f6', label: 'Book' },
   podcast:       { icon: Podcast,   color: '#8b5cf6', label: 'Podcast' },
   guideline:     { icon: FileText,  color: '#538A22', label: 'Guideline' },
   article:       { icon: FileText,  color: '#f59e0b', label: 'Article' },
+  website:       { icon: Globe,     color: '#0891b2', label: 'Website' },
+  youtube:       { icon: Video,     color: '#dc2626', label: 'YouTube' },
   'gemini-note': { icon: Sparkles,  color: '#ec4899', label: 'Gemini Note' },
 }
+const FALLBACK_CFG = { icon: FileText, color: '#6b7280', label: 'Other' }
 
-export default function KnowledgeBaseClient({ initialDocuments }: { initialDocuments: KbDoc[] }) {
+export default function KnowledgeBaseClient({ initialDocuments, initialTotal, initialTypeCounts, pageSize }: {
+  initialDocuments: KbDoc[]
+  // True counts across the WHOLE library, computed server-side — not
+  // derived from `documents`, which only ever holds the pages loaded so
+  // far. The old version computed these by filtering the (accidentally
+  // 1000-row-capped) `documents` array itself, so a category that wasn't
+  // among the most recent 1000 inserts read as 0 even with thousands of
+  // real documents in the database.
+  initialTotal: number
+  initialTypeCounts: Record<string, number>
+  pageSize: number
+}) {
   const [documents, setDocuments] = useState<KbDoc[]>(initialDocuments)
+  const [total] = useState(initialTotal)
+  const [typeCounts] = useState(initialTypeCounts)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState('')
+  const hasMore = documents.length < total
   const [activeTab, setActiveTab] = useState<'library' | 'upload' | 'search'>('library')
 
   // Upload state
@@ -50,10 +75,20 @@ export default function KnowledgeBaseClient({ initialDocuments }: { initialDocum
   const [searchError, setSearchError] = useState('')
   const [expandedResult, setExpandedResult] = useState<string | null>(null)
 
-  const sourceCounts = Object.keys(sourceTypeConfig).reduce((acc, type) => {
-    acc[type] = documents.filter(d => d.source_type === type).length
-    return acc
-  }, {} as Record<string, number>)
+  async function loadMore() {
+    setLoadingMore(true)
+    setLoadMoreError('')
+    try {
+      const res = await fetch(`/api/compass/kb?offset=${documents.length}`)
+      const json = await res.json()
+      if (!res.ok) { setLoadMoreError(json.error || 'Could not load more documents'); return }
+      setDocuments(prev => [...prev, ...(json.documents ?? [])])
+    } catch {
+      setLoadMoreError('Network error — try again')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   async function handleUpload() {
     if (!title.trim()) { setUploadError('Title is required'); return }
@@ -125,7 +160,7 @@ export default function KnowledgeBaseClient({ initialDocuments }: { initialDocum
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111827' }}>Knowledge Base</h1>
-          <p style={{ color: '#6b7280', marginTop: 4, fontSize: 14 }}>{documents.length} documents · powers the interpretation engine</p>
+          <p style={{ color: '#6b7280', marginTop: 4, fontSize: 14 }}>{total.toLocaleString()} documents · {documents.length.toLocaleString()} loaded · powers the interpretation engine</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {(['library', 'upload', 'search'] as const).map(tab => (
@@ -136,19 +171,32 @@ export default function KnowledgeBaseClient({ initialDocuments }: { initialDocum
         </div>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 28 }}>
+      {/* Stats — counts come from the server (whole-table count queries),
+          not from `documents`, which only ever holds what's been paged
+          in so far. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 28 }}>
         {Object.entries(sourceTypeConfig).map(([type, { icon: Icon, color, label }]) => (
           <div key={type} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Icon size={16} color={color} />
             </div>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>{sourceCounts[type] ?? 0}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>{(typeCounts[type] ?? 0).toLocaleString()}</div>
               <div style={{ fontSize: 11, color: '#9ca3af' }}>{label}s</div>
             </div>
           </div>
         ))}
+        {typeCounts.other > 0 && (
+          <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: FALLBACK_CFG.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <FALLBACK_CFG.icon size={16} color={FALLBACK_CFG.color} />
+            </div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>{typeCounts.other.toLocaleString()}</div>
+              <div style={{ fontSize: 11, color: '#9ca3af' }}>Other</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* LIBRARY TAB */}
@@ -166,7 +214,7 @@ export default function KnowledgeBaseClient({ initialDocuments }: { initialDocum
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {documents.map(doc => {
-                const cfg = sourceTypeConfig[doc.source_type] ?? sourceTypeConfig.article
+                const cfg = sourceTypeConfig[doc.source_type] ?? FALLBACK_CFG
                 const Icon = cfg.icon
                 return (
                   <div key={doc.id} className="tool-card" style={{ background: '#fff', borderRadius: 10, padding: '14px 18px', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -184,6 +232,15 @@ export default function KnowledgeBaseClient({ initialDocuments }: { initialDocum
                   </div>
                 )
               })}
+              {hasMore && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                  {loadMoreError && <div style={{ fontSize: 13, color: '#dc2626' }}>{loadMoreError}</div>}
+                  <button onClick={loadMore} disabled={loadingMore} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', background: '#fff', color: '#538A22', border: '1px solid #538A22', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: loadingMore ? 'not-allowed' : 'pointer', opacity: loadingMore ? 0.7 : 1 }}>
+                    {loadingMore ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                    {loadingMore ? 'Loading…' : `Load ${Math.min(pageSize, total - documents.length).toLocaleString()} more (${(total - documents.length).toLocaleString()} remaining)`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -208,6 +265,8 @@ export default function KnowledgeBaseClient({ initialDocuments }: { initialDocum
                   <option value="podcast">Podcast</option>
                   <option value="guideline">Guideline</option>
                   <option value="article">Article</option>
+                  <option value="website">Website</option>
+                  <option value="youtube">YouTube</option>
                   <option value="gemini-note">Gemini Note</option>
                 </select>
               </div>
