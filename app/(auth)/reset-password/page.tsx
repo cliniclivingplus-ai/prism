@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBrowserClient } from '@/lib/supabase/client'
+import PasswordInput from '@/components/ui/PasswordInput'
 
 // Where a "forgot password" email link lands. Supabase's browser client
 // exchanges the URL's recovery token into a real (temporary) session
@@ -106,30 +107,14 @@ export default function ResetPasswordPage() {
                 <label htmlFor="password" className="block text-sm text-[var(--foreground-secondary)]">
                   New password
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-                />
+                <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="new-password" />
               </div>
 
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm text-[var(--foreground-secondary)]">
                   Confirm new password
                 </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-                />
+                <PasswordInput id="confirmPassword" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" />
               </div>
 
               {error && (

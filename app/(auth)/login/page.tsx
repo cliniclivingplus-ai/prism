@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getBrowserClient } from '@/lib/supabase/client'
+import PasswordInput from '@/components/ui/PasswordInput'
 
 const ALLOWED_DOMAIN = 'cliniclivingplus.com'
 
@@ -186,14 +187,11 @@ function LoginForm() {
                   </button>
                 )}
               </div>
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
-                required
-                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+                onChange={setPassword}
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
               />
             </div>
           )}
@@ -203,14 +201,11 @@ function LoginForm() {
               <label htmlFor="confirmPassword" className="block text-sm text-[var(--foreground-secondary)]">
                 Confirm password
               </label>
-              <input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
-                required
-                autoComplete="new-password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+                onChange={setConfirmPassword}
+                autoComplete="new-password"
               />
             </div>
           )}
