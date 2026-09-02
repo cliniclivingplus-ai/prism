@@ -16,7 +16,7 @@ const ALLOWED_DOMAIN = 'cliniclivingplus.com'
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -105,7 +105,37 @@ function LoginForm() {
     }
   }
 
-  function switchMode(next: 'signin' | 'signup') {
+  async function onForgotPassword(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setNotice(null)
+
+    const trimmedEmail = email.trim().toLowerCase()
+    if (!trimmedEmail) { setError('Enter your email first.'); return }
+
+    setPending(true)
+    try {
+      const supabase = getBrowserClient()
+      // Supabase always responds success here regardless of whether the
+      // address has an account — that's deliberate on their end (an error
+      // would let anyone probe which emails are registered), so the same
+      // neutral message covers both cases.
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) {
+        setError(error.message)
+        return
+      }
+      setNotice(`If an account exists for ${trimmedEmail}, a password reset link is on its way.`)
+    } catch {
+      setError('Network error — try again.')
+    } finally {
+      setPending(false)
+    }
+  }
+
+  function switchMode(next: 'signin' | 'signup' | 'forgot') {
     setMode(next)
     setError(null)
     setNotice(null)
@@ -121,14 +151,14 @@ function LoginForm() {
       >
         <h1 className="text-xl font-semibold text-[var(--foreground)]">LP Workspace</h1>
         <p className="mt-1 text-sm text-[var(--foreground-secondary)]">
-          {mode === 'signin' ? 'Sign in to continue.' : `Create an account with your @${ALLOWED_DOMAIN} email.`}
+          {mode === 'signin' ? 'Sign in to continue.' : mode === 'signup' ? `Create an account with your @${ALLOWED_DOMAIN} email.` : 'Enter your email and we’ll send you a reset link.'}
         </p>
 
         {notice && (
           <p className="mt-4 text-sm text-[var(--foreground-secondary)]">{notice}</p>
         )}
 
-        <form onSubmit={mode === 'signin' ? onSignIn : onSignUp} className="mt-6 space-y-4">
+        <form onSubmit={mode === 'signin' ? onSignIn : mode === 'signup' ? onSignUp : onForgotPassword} className="mt-6 space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm text-[var(--foreground-secondary)]">
               Email
@@ -144,20 +174,29 @@ function LoginForm() {
             />
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm text-[var(--foreground-secondary)]">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-            />
-          </div>
+          {mode !== 'forgot' && (
+            <div>
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="block text-sm text-[var(--foreground-secondary)]">
+                  Password
+                </label>
+                {mode === 'signin' && (
+                  <button type="button" onClick={() => switchMode('forgot')} className="text-xs font-medium text-[var(--primary)] hover:underline">
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <input
+                id="password"
+                type="password"
+                required
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+              />
+            </div>
+          )}
 
           {mode === 'signup' && (
             <div>
@@ -191,7 +230,9 @@ function LoginForm() {
             disabled={pending}
             className="btn-primary w-full rounded-[var(--radius-sm)] bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--primary-hover)] disabled:opacity-60"
           >
-            {pending ? (mode === 'signin' ? 'Signing in…' : 'Creating account…') : (mode === 'signin' ? 'Sign in' : 'Create account')}
+            {pending
+              ? (mode === 'signin' ? 'Signing in…' : mode === 'signup' ? 'Creating account…' : 'Sending link…')
+              : (mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link')}
           </button>
         </form>
 
@@ -203,6 +244,10 @@ function LoginForm() {
                 Create an account
               </button>
             </>
+          ) : mode === 'forgot' ? (
+            <button type="button" onClick={() => switchMode('signin')} className="font-medium text-[var(--primary)] hover:underline">
+              Back to sign in
+            </button>
           ) : (
             <>
               Already have an account?{' '}

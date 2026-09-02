@@ -5,6 +5,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 // these — the inverse of the source repos, where /api/* was exempt wholesale.
 //
 //   /login           the only unauthenticated page
+//   /reset-password  where a "forgot password" email link lands — the
+//                     visitor doesn't have a normal session yet, only the
+//                     one-time recovery token Supabase's client exchanges
+//                     client-side, so this can't sit behind the same gate
+//                     as everything else either
 //   /api/auth/signup the one deliberate re-opening of signup — domain-
 //                     restricted to @cliniclivingplus.com, enforced
 //                     server-side in the route itself (see its own comment)
@@ -14,6 +19,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Anything added outside this list is authenticated automatically.
 const PUBLIC_PATHS: RegExp[] = [
   /^\/login(?:\/|$)/,
+  /^\/reset-password(?:\/|$)/,
   /^\/api\/auth\/signup$/,
   /^\/share(?:\/|$)/,
   /^\/api\/share(?:\/|$)/,
