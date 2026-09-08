@@ -21,6 +21,28 @@ function splitOnLinks(text: string): { plain: string[]; links: string[] } {
   return { plain: text.split(LINK_SPAN), links: text.match(LINK_SPAN) ?? [] }
 }
 
+const isWordChar = (c: string | undefined) => !!c && /[a-z0-9]/i.test(c)
+
+// Plain indexOf() lets a short keyword match *inside* an unrelated word —
+// "alt" inside "salty", "tea" inside "steady". Finds the first occurrence
+// that isn't glued to a letter/digit on either side, skipping any that
+// are (rather than rejecting the whole keyword the moment the first
+// occurrence happens to be a bad one).
+function findWordBoundaryMatch(haystack: string, needle: string): number {
+  const hLower = haystack.toLowerCase()
+  const nLower = needle.toLowerCase()
+  let from = 0
+  while (from <= hLower.length) {
+    const idx = hLower.indexOf(nLower, from)
+    if (idx === -1) return -1
+    const before = idx > 0 ? haystack[idx - 1] : undefined
+    const after = idx + needle.length < haystack.length ? haystack[idx + needle.length] : undefined
+    if (!isWordChar(before) && !isWordChar(after)) return idx
+    from = idx + 1
+  }
+  return -1
+}
+
 export function autoLinkText(text: string, bank: KeywordLinkEntry[]): { next: string; linkedPhrases: string[] } {
   if (!text || bank.length === 0) return { next: text, linkedPhrases: [] }
 
@@ -47,7 +69,7 @@ export function autoLinkText(text: string, bank: KeywordLinkEntry[]): { next: st
       let matched = false
       chunks = chunks.flatMap((chunk): Chunk[] => {
         if (chunk.kind === 'link' || matched) return [chunk]
-        const idx = chunk.value.toLowerCase().indexOf(entry.keyword.toLowerCase())
+        const idx = findWordBoundaryMatch(chunk.value, entry.keyword)
         if (idx === -1) return [chunk]
         matched = true
         const before = chunk.value.slice(0, idx)
