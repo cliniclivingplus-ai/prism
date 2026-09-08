@@ -895,6 +895,23 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
       setTimeout(() => setLinkToast((cur) => (cur === linkedPhrases ? null : cur)), 3500)
     }
   }
+  // A picture landing as a raw ![alt](url) line inside the same box a
+  // coach types real bullets into was confusing and looked broken — a
+  // plain <textarea> has no way to style just that one line differently,
+  // so the fix is to never let it show there at all. The stored value
+  // (what's saved, what every read view parses) still has the image line
+  // in it — only the textarea's own displayed value and its onChange are
+  // filtered/merged, via these two, so ImageInsertButton/ImagePreviewStrip
+  // (which read and write the real, unfiltered value) don't need to change.
+  function textOnlyValue(fullValue: string): string {
+    return splitTextAndImages(parseBullets(fullValue)).textItems.join('\n')
+  }
+  function mergeImagesBack(newText: string, previousFullValue: string): string {
+    const { images } = splitTextAndImages(parseBullets(previousFullValue))
+    if (images.length === 0) return newText
+    const imageLines = images.map((img) => `![${img.alt}](${img.url})`).join('\n')
+    return newText.trim() ? `${newText}\n${imageLines}` : imageLines
+  }
   const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule)
   // "Regenerate roadmap" — see regenerate-roadmap/route.ts. Explicit,
   // confirmed coach action only (never auto-triggered): resets this
@@ -2451,19 +2468,19 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ ...editLabelStyle, fontSize: 10.5 }}>{period}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <LinkInsertButton getTextarea={() => lifestyleTextareaRefs.current[period]} value={lifestyleByPeriod[period]}
-                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} onLinked={addKeywordLink} />
-                        <ProtocolPickerButton value={lifestyleByPeriod[period]}
-                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
+                        <LinkInsertButton getTextarea={() => lifestyleTextareaRefs.current[period]} value={textOnlyValue(lifestyleByPeriod[period])}
+                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} onLinked={addKeywordLink} />
+                        <ProtocolPickerButton value={textOnlyValue(lifestyleByPeriod[period])}
+                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} />
                         <ImageInsertButton value={lifestyleByPeriod[period]}
                           onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
-                        <AiEditButton roadmapId={rid} kind="text" value={lifestyleByPeriod[period]} context={`${aiContext} Only the ${period.toLowerCase()} routine — a short bullet list, one item per line, no "${period}:" prefix needed.`}
-                          onApply={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
+                        <AiEditButton roadmapId={rid} kind="text" value={textOnlyValue(lifestyleByPeriod[period])} context={`${aiContext} Only the ${period.toLowerCase()} routine — a short bullet list, one item per line, no "${period}:" prefix needed.`}
+                          onApply={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} />
                       </div>
                     </div>
                     <textarea ref={(el) => { lifestyleTextareaRefs.current[period] = el }} style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.55, fontSize: 12.5 }} rows={4}
-                      value={lifestyleByPeriod[period]} onChange={(e) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: e.target.value }))}
-                      onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: next })))}
+                      value={textOnlyValue(lifestyleByPeriod[period])} onChange={(e) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(e.target.value, prev[period]) }))}
+                      onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(next, prev[period]) })))}
                       placeholder={`One item per line, e.g.\n${period === 'Morning' ? '12-hour overnight fast' : period === 'Afternoon' ? '15 minute walk after lunch' : 'Dinner finished by 8:30pm'}`} />
                     <ImagePreviewStrip value={lifestyleByPeriod[period]}
                       onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
@@ -2478,19 +2495,19 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ ...editLabelStyle, fontSize: 10.5 }}>{period}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <LinkInsertButton getTextarea={() => mealsTextareaRefs.current[period]} value={mealsByPeriod[period]}
-                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} onLinked={addKeywordLink} />
-                        <ProtocolPickerButton value={mealsByPeriod[period]}
-                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
+                        <LinkInsertButton getTextarea={() => mealsTextareaRefs.current[period]} value={textOnlyValue(mealsByPeriod[period])}
+                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} onLinked={addKeywordLink} />
+                        <ProtocolPickerButton value={textOnlyValue(mealsByPeriod[period])}
+                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} />
                         <ImageInsertButton value={mealsByPeriod[period]}
                           onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
-                        <AiEditButton roadmapId={rid} kind="text" value={mealsByPeriod[period]} context={`${aiContext} Only ${period.toLowerCase()} — a short bullet list, one item per line, no "${period}:" prefix needed.`}
-                          onApply={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
+                        <AiEditButton roadmapId={rid} kind="text" value={textOnlyValue(mealsByPeriod[period])} context={`${aiContext} Only ${period.toLowerCase()} — a short bullet list, one item per line, no "${period}:" prefix needed.`}
+                          onApply={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} />
                       </div>
                     </div>
                     <textarea ref={(el) => { mealsTextareaRefs.current[period] = el }} style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.55, fontSize: 12.5 }} rows={4}
-                      value={mealsByPeriod[period]} onChange={(e) => setMealsByPeriod((prev) => ({ ...prev, [period]: e.target.value }))}
-                      onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => setMealsByPeriod((prev) => ({ ...prev, [period]: next })))}
+                      value={textOnlyValue(mealsByPeriod[period])} onChange={(e) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(e.target.value, prev[period]) }))}
+                      onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(next, prev[period]) })))}
                       placeholder={`One item per line, e.g.\n${period === 'Breakfast' ? 'A bowl of fruit + a handful of berries' : period === 'Lunch' ? '50% vegetables, 25% lentils, 25% grains' : 'Same plate ratio, finished by 8:30pm'}`} />
                     <ImagePreviewStrip value={mealsByPeriod[period]}
                       onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
@@ -2502,11 +2519,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 <div style={editLabelStyle}>Daily schedule</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <ImageInsertButton value={dailyScheduleText} onChange={setDailyScheduleText} />
-                  <AiEditButton roadmapId={rid} kind="text" value={dailyScheduleText} context={aiContext} onApply={setDailyScheduleText} />
+                  <AiEditButton roadmapId={rid} kind="text" value={textOnlyValue(dailyScheduleText)} context={aiContext}
+                    onApply={(v) => setDailyScheduleText((prev) => mergeImagesBack(v, prev))} />
                 </div>
               </div>
               <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6 }} rows={5}
-                value={dailyScheduleText} onChange={(e) => setDailyScheduleText(e.target.value)}
+                value={textOnlyValue(dailyScheduleText)} onChange={(e) => setDailyScheduleText((prev) => mergeImagesBack(e.target.value, prev))}
                 placeholder={'One time-block per line, e.g.\n7:30 AM — Wake up, hydrate\n9:30 AM — Breakfast\n8:30 PM — Dinner finished'} />
               <ImagePreviewStrip value={dailyScheduleText} onChange={setDailyScheduleText} />
             </div>
@@ -2711,8 +2729,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                         <ImageInsertButton value={(w.actions || []).join('\n')} onChange={(v) => updateWeek(w.week_number, { actions: v.split('\n') })} />
                       </div>
                       <textarea style={{ ...editInputStyle, resize: 'vertical' as const }} rows={3}
-                        value={(w.actions || []).join('\n')} onChange={(e) => updateWeek(w.week_number, { actions: e.target.value.split('\n') })}
-                        onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => updateWeek(w.week_number, { actions: next.split('\n') }))} />
+                        value={textOnlyValue((w.actions || []).join('\n'))}
+                        onChange={(e) => updateWeek(w.week_number, { actions: mergeImagesBack(e.target.value, (w.actions || []).join('\n')).split('\n') })}
+                        onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => updateWeek(w.week_number, { actions: mergeImagesBack(next, (w.actions || []).join('\n')).split('\n') }))} />
                       <ImagePreviewStrip value={(w.actions || []).join('\n')}
                         onChange={(v) => updateWeek(w.week_number, { actions: v.split('\n') })} />
                     </div>
