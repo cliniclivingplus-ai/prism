@@ -32,16 +32,25 @@ const STANDARD_DAILY_SCHEDULE = [
   '10:00 PM — Lights out.',
 ].join('\n')
 
-// "Your why" is meant to read as the patient's own reflection — a personal,
-// present-tense reason for doing this, not a restatement of their clinical
-// picture. Before this fix the default was literally the first paragraph of
-// roadmap.overview (the case-summary text), so a patient who never edited
-// this box saw their own diagnosis handed back to them as their "why."
-// This default is deliberately affirmation-toned ("I'm choosing," not "the
-// patient presents with") — a placeholder a coach or patient can keep,
+// goalLabel isn't reliably a noun phrase — real values are often already
+// imperative sentences ("Feel steady, pain-free, and energized every
+// day."), so splicing it mid-clause (e.g. "you'll feel ${goalLabel}")
+// risks a double verb ("you'll feel feel steady..."). Presenting it as its
+// own standalone sentence sidesteps that regardless of how it's phrased.
+function asSentence(s: string): string {
+  const t = s.trim()
+  return /[.!?]$/.test(t) ? t : `${t}.`
+}
+
+// "Your why" reads in the coach's voice, motivating the patient directly —
+// "stick with this, here's what you're working toward" — not a
+// restatement of their clinical picture. Before this fix the default was
+// literally the first paragraph of roadmap.overview (the case-summary
+// text), so a patient who never edited this box saw their own diagnosis
+// handed back to them as their "why." A placeholder a coach can keep,
 // edit, or fully replace, same override pattern as founderNote below.
 function defaultWhyReflection(goalLabel: string): string {
-  return `I'm doing this for myself. I'm ready to feel ${asPhrase(goalLabel.toLowerCase())} — not someday, starting now.`
+  return `This plan works if you work it — small, steady changes, not perfection. Stick with it, and here's what you're working toward: ${asSentence(goalLabel)}`
 }
 
 // The founder's note personalizes itself with the patient's name and goal
