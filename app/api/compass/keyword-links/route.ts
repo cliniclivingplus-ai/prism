@@ -14,37 +14,45 @@ import { supabaseAdmin } from '@/lib/supabase'
 // session for local matching — see lib/hooks/useKeywordLinkBank.ts).
 // GET ?q= does a server-side search for the "Pick a link" popover so that
 // popover doesn't need the whole bank in memory.
+const PAGE_SIZE = 1000 // PostgREST's own row cap — .limit() alone can't exceed it, only .range() paging can (see the Knowledge Base fix for the same bug)
+
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim()
 
-  let query = supabaseAdmin
-    .from('keyword_links')
-    .select('keyword, keyword_norm, url, source, created_at')
-    .order('created_at', { ascending: false })
-
   if (q) {
-    query = query.ilike('keyword_norm', `%${q.toLowerCase()}%`).limit(20)
-  } else {
-    // The full-bank fetch is for client-side auto-link matching, not
-    // display — collapsing to the newest URL per phrase keeps the payload
-    // to one entry per keyword instead of every historical duplicate.
-    query = query.limit(5000)
+    const { data, error } = await supabaseAdmin
+      .from('keyword_links')
+      .select('keyword, keyword_norm, url, source, created_at')
+      .ilike('keyword_norm', `%${q.toLowerCase()}%`)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(data)
   }
 
-  const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  if (!q) {
-    const seen = new Set<string>()
-    const deduped = data.filter((row) => {
-      if (seen.has(row.keyword_norm)) return false
-      seen.add(row.keyword_norm)
-      return true
-    })
-    return NextResponse.json(deduped)
+  // The full-bank fetch is for client-side auto-link matching, not
+  // display, so it pages past the 1000-row cap to get everything, then
+  // collapses to the newest URL per phrase (one entry per keyword instead
+  // of every historical duplicate).
+  const all: { keyword: string; keyword_norm: string; url: string; source: string | null; created_at: string }[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('keyword_links')
+      .select('keyword, keyword_norm, url, source, created_at')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    all.push(...data)
+    if (data.length < PAGE_SIZE) break
   }
 
-  return NextResponse.json(data)
+  const seen = new Set<string>()
+  const deduped = all.filter((row) => {
+    if (seen.has(row.keyword_norm)) return false
+    seen.add(row.keyword_norm)
+    return true
+  })
+  return NextResponse.json(deduped)
 }
 
 export async function POST(req: NextRequest) {
