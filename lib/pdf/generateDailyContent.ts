@@ -69,7 +69,7 @@ Return only 6 lines, 2 per meal, in the order Breakfast, Breakfast, Lunch, Lunch
     model: 'openai/gpt-oss-20b',
     reasoning_effort: 'low',
     messages: [
-      { role: 'system', content: 'Clinical nutritionist writing a patient\'s full daily schedule, start of day to sleep, using ONLY the facts given. Never name a supplement, dose, or product that is not explicitly listed in the patient facts below. Output one line per time block, no other text. Never use an em dash (—) inside an activity description; use a comma or "and" instead — the em dash character is reserved as the separator between the time and the activity.' },
+      { role: 'system', content: 'Clinical nutritionist writing a patient\'s full daily schedule, start of day to sleep, using ONLY the facts given. This is a visual timeline the patient scans in seconds, not a paragraph — every activity is a short label, never a run-on sentence. Never name a supplement, dose, or product that is not explicitly listed in the patient facts below. Output one line per time block, no other text. Never use an em dash (—) inside an activity description; use a comma instead — the em dash character is reserved as the separator between the time and the activity.' },
       { role: 'user', content: `PATIENT FACTS (use ONLY these — do not add any supplement, dose, or product not named here):
 ${patientFacts}
 
@@ -77,10 +77,12 @@ KB:
 ${kbContext || 'Use expertise.'}
 
 Write this patient's full daily schedule, from wake-up to sleep, personalized to their actual condition, program, and constraints from the facts above (their real work hours, meal timing, symptoms, habits).
-Each line must be exactly: "<time> — <activity>", e.g. "7:30 AM — Wake up." or "2:00 PM — Lunch, followed by a 15 minute walk."
+Each line must be exactly: "<time> — <activity>", e.g. "7:30 AM — Wake up, drink water." or "2:00 PM — Lunch, then a 15-minute walk."
 Rules:
 - EXACTLY 12 time blocks, no more, no fewer, covering the whole day in chronological order, real clock times (e.g. "7:30 AM", "2:00 PM"), never a range
-- Each activity is specific and actionable, not generic ("Sunlight exposure and a glass of water" not "Get some sunlight")
+- Under 8 words per activity — ONE primary action per line, at most one short add-on ("Lunch, then a walk," not "Lunch: 2 parts protein, 2 parts vegetables... incorporating a small serving of brown rice")
+- Specific over generic within that word limit ("Sunlight, 10 minutes" not "Get some sunlight"), but specific never means longer — cut detail before cutting the word limit
+- Never chain three or more things with commas/"and" into one activity — if a time block needs more than one action, that's a sign to split it into its own line instead (you have 12 lines; use them)
 - Ground every activity in the patient's real facts: their actual symptoms, condition, work hours, and eating patterns
 - FORBIDDEN: naming any supplement, medication, or dose (e.g. "magnesium 400mg", "vitamin D") unless that exact supplement is already named in PATIENT FACTS above — if no supplement is mentioned in the facts, write none into the schedule at all
 - If a fact describes a habit tied to a symptom or negative consequence (e.g. "consciously contracting muscles to fall asleep, contributing to morning stiffness"), the schedule must prescribe the CORRECTIVE opposite of that habit, never a rephrased version of the harmful habit itself — do not tell the patient to keep doing the thing identified as causing their problem
@@ -90,7 +92,7 @@ Rules:
 Return only the 12 time-block lines, one per line, nothing else.` }
     ],
     temperature: 0.3,
-    max_tokens: 900,
+    max_tokens: 500,
   })
   const daily_schedule = scheduleRes.choices[0]?.message?.content?.trim() ?? ''
 
