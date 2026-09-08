@@ -23,7 +23,7 @@ import InlineEditableText from '@/components/InlineEditableText'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
 import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
-import { renderMarkdownBold } from '@/lib/renderMarkdownBold'
+import { renderMarkdownBold, splitTextAndImages } from '@/lib/renderMarkdownBold'
 import { splitRecipeLines } from '@/lib/recipeText'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
@@ -1155,11 +1155,25 @@ function clpToggleGroceryCat(head){
                 {LIFESTYLE_PERIODS.map((label) => {
                   const items = parseBullets(lifestyleByPeriod[label] || '')
                   if (items.length === 0) return null
+                  // In edit mode every line (image lines included) stays a
+                  // plain editable text row — there's no Picture button here
+                  // yet, so hiding an image line from the list would leave
+                  // no way to edit or remove it. Only the read (patient)
+                  // view pulls picture-only lines out to their own block.
+                  const { images, textItems } = editable ? { images: [], textItems: items } : splitTextAndImages(items)
                   return (
                     <div key={label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
                       <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{label}</span>
+                      {images.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+                          {images.map((img, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                          ))}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-                        {items.map((item, i) => (
+                        {textItems.map((item, i) => (
                           <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                             <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
                             {editable ? (
@@ -1198,11 +1212,20 @@ function clpToggleGroceryCat(head){
                 {MEAL_PERIODS.map((label) => {
                   const items = parseBullets(mealsByPeriod[label] || '')
                   if (items.length === 0) return null
+                  const { images, textItems } = editable ? { images: [], textItems: items } : splitTextAndImages(items)
                   return (
                     <div key={label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
                       <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{label}</span>
+                      {images.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+                          {images.map((img, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                          ))}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-                        {items.map((item, i) => (
+                        {textItems.map((item, i) => (
                           <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                             <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
                             {editable ? (

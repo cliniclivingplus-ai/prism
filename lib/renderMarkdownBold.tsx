@@ -41,6 +41,26 @@ export function extractImages(text: string): { alt: string; url: string }[] {
   return [...text.matchAll(IMAGE_TOKEN_GLOBAL)].map((m) => ({ alt: m[1], url: m[2] }))
 }
 
+// A picture inserted via ImageInsertButton lands as its own bullet line —
+// ![alt](url) and nothing else — which read as just another list item with
+// its own bullet marker, wedged between real to-dos. Pulls any bullet
+// that's purely a picture out of the list entirely, so the caller can
+// render pictures as their own block (no marker) above the real text
+// bullets instead of down inside them. A bullet that MIXES text and an
+// image inline stays in textItems untouched — only a picture with nothing
+// else on its line counts as "this bullet IS the picture."
+export function splitTextAndImages(items: string[]): { images: { alt: string; url: string }[]; textItems: string[] } {
+  const images: { alt: string; url: string }[] = []
+  const textItems: string[] = []
+  for (const item of items) {
+    const found = extractImages(item)
+    const isImageOnly = found.length === 1 && item.trim() === `![${found[0].alt}](${found[0].url})`
+    if (isImageOnly) images.push(found[0])
+    else textItems.push(item)
+  }
+  return { images, textItems }
+}
+
 export function renderMarkdownBold(text: string): React.ReactNode {
   if (!text || (!text.includes('**') && !text.includes('![') && !text.includes(']('))) return text
   const parts = text.split(MARKDOWN_TOKEN)

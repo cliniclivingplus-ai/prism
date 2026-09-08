@@ -12,7 +12,7 @@ import { selectRecipesForPatient, type RecipeMatch } from '@/lib/pdf/matchRecipe
 import { curatedSlotIds as sharedCuratedSlotIds, getSlotRecipes as sharedGetSlotRecipes } from '@/lib/pdf/weekRecipes'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { splitRecipeLines } from '@/lib/recipeText'
-import { renderMarkdownBold } from '@/lib/renderMarkdownBold'
+import { renderMarkdownBold, splitTextAndImages } from '@/lib/renderMarkdownBold'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from '@/lib/periodBullets'
@@ -2524,11 +2524,20 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 {LIFESTYLE_PERIODS.map((label) => {
                   const items = parseBullets(lifestyleByPeriod[label] || '')
                   if (items.length === 0) return null
+                  const { images, textItems } = splitTextAndImages(items)
                   return (
                     <div key={label} style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 12, padding: '15px 17px' }}>
                       <span style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent, fontWeight: 700 }}>{label}</span>
+                      {images.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                          {images.map((img, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                          ))}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                        {items.map((item, i) => (
+                        {textItems.map((item, i) => (
                           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                             {isTrackableBullet(item)
                               ? <Circle size={11} color={C.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
@@ -2551,11 +2560,20 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 {MEAL_PERIODS.map((label) => {
                   const items = parseBullets(mealsByPeriod[label] || '')
                   if (items.length === 0) return null
+                  const { images, textItems } = splitTextAndImages(items)
                   return (
                     <div key={label} style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 12, padding: '15px 17px' }}>
                       <span style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent, fontWeight: 700 }}>{label}</span>
+                      {images.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                          {images.map((img, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                          ))}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                        {items.map((item, i) => (
+                        {textItems.map((item, i) => (
                           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                             {isTrackableBullet(item)
                               ? <Circle size={11} color={C.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
