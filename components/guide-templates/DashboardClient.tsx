@@ -18,6 +18,7 @@ import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from '@/lib/periodBullets'
 import AiEditButton from '@/components/AiEditButton'
 import LinkInsertButton from '@/components/LinkInsertButton'
+import ProtocolPickerButton from '@/components/ProtocolPickerButton'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -2387,6 +2388,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <LinkInsertButton getTextarea={() => lifestyleTextareaRefs.current[period]} value={lifestyleByPeriod[period]}
                           onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
+                        <ProtocolPickerButton value={lifestyleByPeriod[period]}
+                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
                         <AiEditButton roadmapId={rid} kind="text" value={lifestyleByPeriod[period]} context={`${aiContext} Only the ${period.toLowerCase()} routine — a short bullet list, one item per line, no "${period}:" prefix needed.`}
                           onApply={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
                       </div>
@@ -2406,6 +2409,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div style={{ ...editLabelStyle, fontSize: 10.5 }}>{period}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <LinkInsertButton getTextarea={() => mealsTextareaRefs.current[period]} value={mealsByPeriod[period]}
+                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
+                        <ProtocolPickerButton value={mealsByPeriod[period]}
                           onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
                         <AiEditButton roadmapId={rid} kind="text" value={mealsByPeriod[period]} context={`${aiContext} Only ${period.toLowerCase()} — a short bullet list, one item per line, no "${period}:" prefix needed.`}
                           onApply={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
