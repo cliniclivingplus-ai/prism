@@ -32,6 +32,18 @@ const STANDARD_DAILY_SCHEDULE = [
   '10:00 PM — Lights out.',
 ].join('\n')
 
+// "Your why" is meant to read as the patient's own reflection — a personal,
+// present-tense reason for doing this, not a restatement of their clinical
+// picture. Before this fix the default was literally the first paragraph of
+// roadmap.overview (the case-summary text), so a patient who never edited
+// this box saw their own diagnosis handed back to them as their "why."
+// This default is deliberately affirmation-toned ("I'm choosing," not "the
+// patient presents with") — a placeholder a coach or patient can keep,
+// edit, or fully replace, same override pattern as founderNote below.
+function defaultWhyReflection(goalLabel: string): string {
+  return `I'm doing this for myself. I'm ready to feel ${asPhrase(goalLabel.toLowerCase())} — not someday, starting now.`
+}
+
 // The founder's note personalizes itself with the patient's name and goal
 // until a coach actually edits it — once edited, it's the coach's own text
 // verbatim (same "override wins, else compute a real default" pattern as
@@ -95,7 +107,7 @@ export function buildGuideData(
       duration_months: roadmap.duration_months,
     },
     goalLabel,
-    whyReflection: overrides.why_reflection || (roadmap.overview ?? '').split('\n\n')[0] || goalLabel,
+    whyReflection: overrides.why_reflection || defaultWhyReflection(goalLabel),
     coachQuote: overrides.coach_quote || roadmap.sessions?.case_summary?.coach_quote || '',
     founderNote: overrides.founder_note || defaultFounderNote(firstName, goalLabel),
     imageBank,
