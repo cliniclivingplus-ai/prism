@@ -1264,6 +1264,32 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // regenerate is the one exception, since it fetches fresh AI content that
   // should land immediately either way.
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(data.dailyChecklistItems || [])
+  // Lets the read-only Daily Lifestyle Guidelines / Breakfast-Lunch-Dinner
+  // cards mark which of their bullets are actually trackable in the Daily
+  // Health Check-in below — those two lists are independently generated
+  // (the checklist is an AI-selected, sometimes lightly reworded subset of
+  // lifestyle/meal content, see lib/dailyChecklist.ts), so a bullet here
+  // isn't guaranteed to have a checklist item, and matching can't assume
+  // byte-identical text.
+  function plainTextOf(s: string): string {
+    return s
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .trim()
+  }
+  function normalizeForMatch(s: string): string {
+    return plainTextOf(s).toLowerCase().replace(/[.!?]+$/, '').replace(/\s+/g, ' ').trim()
+  }
+  const checklistNormTexts = useMemo(
+    () => checklistItems.map((it) => normalizeForMatch(it.text)).filter(Boolean),
+    [checklistItems]
+  )
+  function isTrackableBullet(text: string): boolean {
+    const n = normalizeForMatch(text)
+    if (!n) return false
+    return checklistNormTexts.some((c) => c === n || n.includes(c) || c.includes(n))
+  }
   const [regenerating, setRegenerating] = useState(false)
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   function saveChecklistItemText(id: string, next: string) {
@@ -2491,7 +2517,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
                         {items.map((item, i) => (
                           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                            <Circle size={11} color={C.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
+                            {isTrackableBullet(item)
+                              ? <Circle size={11} color={C.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
+                              : <Check size={11} color={C.muted} style={{ flexShrink: 0, marginTop: 4, opacity: 0.7 }} />}
                             <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
                           </div>
                         ))}
@@ -2516,7 +2544,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
                         {items.map((item, i) => (
                           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                            <Circle size={11} color={C.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
+                            {isTrackableBullet(item)
+                              ? <Circle size={11} color={C.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
+                              : <Check size={11} color={C.muted} style={{ flexShrink: 0, marginTop: 4, opacity: 0.7 }} />}
                             <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
                           </div>
                         ))}
