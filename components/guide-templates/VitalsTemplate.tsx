@@ -24,6 +24,8 @@ import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
 import { reshapeRoadmapIntoMonths, type WeeklyPlan } from '@/lib/pdf/reshapeRoadmap'
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
 import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkdownBold'
+import ImageInsertButton from '@/components/ImageInsertButton'
+import ImagePreviewStrip from '@/components/ImagePreviewStrip'
 import { splitRecipeLines } from '@/lib/recipeText'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
@@ -389,6 +391,20 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
       const items = parseBullets(prev[label] || '')
       items[itemIndex] = next
       const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      return updated
+    })
+  }
+  function saveLifestylePeriodText(label: string, nextText: string) {
+    setLifestyleByPeriod((prev) => {
+      const updated = { ...prev, [label]: nextText }
+      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      return updated
+    })
+  }
+  function saveMealPeriodText(label: string, nextText: string) {
+    setMealsByPeriod((prev) => {
+      const updated = { ...prev, [label]: nextText }
       patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
       return updated
     })
@@ -853,8 +869,15 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                 const { images, textItems } = splitTextAndImagesIndexed(items)
                 return (
                   <div key={label} style={{ background: V.bg, border: `1px solid ${V.line}`, borderRadius: 12, padding: '15px 17px' }}>
-                    <span style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: V.accent, fontWeight: 700 }}>{label}</span>
-                    {images.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: V.accent, fontWeight: 700 }}>{label}</span>
+                      {editable && (
+                        <ImageInsertButton value={lifestyleByPeriod[label] || ''} onChange={(next) => saveLifestylePeriodText(label, next)} />
+                      )}
+                    </div>
+                    {editable ? (
+                      <ImagePreviewStrip value={lifestyleByPeriod[label] || ''} onChange={(next) => saveLifestylePeriodText(label, next)} />
+                    ) : images.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                         {images.map((img, i) => (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -892,8 +915,15 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                 const { images, textItems } = splitTextAndImagesIndexed(items)
                 return (
                   <div key={label} style={{ background: V.bg, border: `1px solid ${V.line}`, borderRadius: 12, padding: '15px 17px' }}>
-                    <span style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: V.accent, fontWeight: 700 }}>{label}</span>
-                    {images.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: V.accent, fontWeight: 700 }}>{label}</span>
+                      {editable && (
+                        <ImageInsertButton value={mealsByPeriod[label] || ''} onChange={(next) => saveMealPeriodText(label, next)} />
+                      )}
+                    </div>
+                    {editable ? (
+                      <ImagePreviewStrip value={mealsByPeriod[label] || ''} onChange={(next) => saveMealPeriodText(label, next)} />
+                    ) : images.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                         {images.map((img, i) => (
                           // eslint-disable-next-line @next/next/no-img-element

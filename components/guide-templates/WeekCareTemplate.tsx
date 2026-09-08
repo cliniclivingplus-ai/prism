@@ -24,7 +24,9 @@ import type { ChecklistItem } from '@/lib/dailyChecklist'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
 import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
-import { renderMarkdownBold, splitTextAndImages } from '@/lib/renderMarkdownBold'
+import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkdownBold'
+import ImageInsertButton from '@/components/ImageInsertButton'
+import ImagePreviewStrip from '@/components/ImagePreviewStrip'
 import { splitRecipeLines } from '@/lib/recipeText'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
@@ -328,6 +330,20 @@ export default function WeekCareTemplate({ shareToken, data, initialCheckins, ed
       const items = parseBullets(prev[label] || '')
       items[itemIndex] = next
       const updated = { ...prev, [label]: items.join('\n') }
+      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      return updated
+    })
+  }
+  function saveLifestylePeriodText(label: string, nextText: string) {
+    setLifestyleByPeriod((prev) => {
+      const updated = { ...prev, [label]: nextText }
+      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      return updated
+    })
+  }
+  function saveMealPeriodText(label: string, nextText: string) {
+    setMealsByPeriod((prev) => {
+      const updated = { ...prev, [label]: nextText }
       patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
       return updated
     })
@@ -1117,33 +1133,43 @@ function clpToggleGroceryCat(head){
             <SecTitle icon={<Sun size={26} />} sectionId="lifestyle" open={isSectionOpen('lifestyle')} onToggle={() => toggleSection('lifestyle')}>Daily Lifestyle Guidelines</SecTitle>
             <div data-section-body="lifestyle" style={{ display: isSectionOpen('lifestyle') ? 'block' : 'none' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}>
-                {LIFESTYLE_PERIODS.map((label) => ({ label, items: parseBullets(lifestyleByPeriod[label] || '') })).filter((g) => g.items.length > 0).map((g) => (
-                  <div key={g.label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
-                    <span style={{ fontFamily: "'Inter', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{g.label}</span>
-                    {!editable && splitTextAndImages(g.items).images.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                        {splitTextAndImages(g.items).images.map((img, i) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
-                        ))}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-                      {(editable ? g.items : splitTextAndImages(g.items).textItems).map((item, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
-                          {editable ? (
-                            <InlineEditableText editable value={item}
-                              onSave={(next) => (LIFESTYLE_PERIODS.includes(g.label) ? saveLifestyleItem(g.label, i, next) : saveMealItem(g.label, i, next))}
-                              style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
-                          ) : (
-                            <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                {LIFESTYLE_PERIODS.map((label) => ({ label, items: parseBullets(lifestyleByPeriod[label] || '') })).filter((g) => g.items.length > 0).map((g) => {
+const { images, textItems } = splitTextAndImagesIndexed(g.items)
+return (
+<div key={g.label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
+<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+<span style={{ fontFamily: "'Inter', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{g.label}</span>
+{editable && (
+<ImageInsertButton value={lifestyleByPeriod[g.label] || ''} onChange={(next) => saveLifestylePeriodText(g.label, next)} />
+)}
+</div>
+{editable ? (
+<ImagePreviewStrip value={lifestyleByPeriod[g.label] || ''} onChange={(next) => saveLifestylePeriodText(g.label, next)} />
+) : images.length > 0 && (
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+{images.map((img, i) => (
+// eslint-disable-next-line @next/next/no-img-element
+<img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+))}
+</div>
+)}
+<div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+{textItems.map(({ text, index }) => (
+<div key={index} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+<Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
+{editable ? (
+<InlineEditableText editable value={text}
+onSave={(next) => (LIFESTYLE_PERIODS.includes(g.label) ? saveLifestyleItem(g.label, index, next) : saveMealItem(g.label, index, next))}
+style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
+) : (
+<span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(text)}</span>
+)}
+</div>
+))}
+</div>
+</div>
+)
+})}
               </div>
             </div>
           </div>
@@ -1165,33 +1191,43 @@ function clpToggleGroceryCat(head){
             </div>
             <div data-section-body="meals" style={{ display: isSectionOpen('meals') ? 'block' : 'none' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}>
-                {MEAL_PERIODS.map((label) => ({ label, items: parseBullets(mealsByPeriod[label] || '') })).filter((g) => g.items.length > 0).map((g) => (
-                  <div key={g.label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
-                    <span style={{ fontFamily: "'Inter', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{g.label}</span>
-                    {!editable && splitTextAndImages(g.items).images.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                        {splitTextAndImages(g.items).images.map((img, i) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
-                        ))}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-                      {(editable ? g.items : splitTextAndImages(g.items).textItems).map((item, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
-                          {editable ? (
-                            <InlineEditableText editable value={item}
-                              onSave={(next) => (LIFESTYLE_PERIODS.includes(g.label) ? saveLifestyleItem(g.label, i, next) : saveMealItem(g.label, i, next))}
-                              style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
-                          ) : (
-                            <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                {MEAL_PERIODS.map((label) => ({ label, items: parseBullets(mealsByPeriod[label] || '') })).filter((g) => g.items.length > 0).map((g) => {
+const { images, textItems } = splitTextAndImagesIndexed(g.items)
+return (
+<div key={g.label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
+<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+<span style={{ fontFamily: "'Inter', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{g.label}</span>
+{editable && (
+<ImageInsertButton value={mealsByPeriod[g.label] || ''} onChange={(next) => saveMealPeriodText(g.label, next)} />
+)}
+</div>
+{editable ? (
+<ImagePreviewStrip value={mealsByPeriod[g.label] || ''} onChange={(next) => saveMealPeriodText(g.label, next)} />
+) : images.length > 0 && (
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+{images.map((img, i) => (
+// eslint-disable-next-line @next/next/no-img-element
+<img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+))}
+</div>
+)}
+<div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+{textItems.map(({ text, index }) => (
+<div key={index} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+<Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
+{editable ? (
+<InlineEditableText editable value={text}
+onSave={(next) => (LIFESTYLE_PERIODS.includes(g.label) ? saveLifestyleItem(g.label, index, next) : saveMealItem(g.label, index, next))}
+style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
+) : (
+<span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(text)}</span>
+)}
+</div>
+))}
+</div>
+</div>
+)
+})}
               </div>
             </div>
           </div>
