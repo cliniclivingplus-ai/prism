@@ -2620,7 +2620,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     <div style={{ marginBottom: 7 }}>
                       <div style={editLabelStyle}>Micro goals (one per line)</div>
                       <textarea style={{ ...editInputStyle, resize: 'vertical' as const }} rows={3}
-                        value={(w.actions || []).join('\n')} onChange={(e) => updateWeek(w.week_number, { actions: e.target.value.split('\n') })} />
+                        value={(w.actions || []).join('\n')} onChange={(e) => updateWeek(w.week_number, { actions: e.target.value.split('\n') })}
+                        onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => updateWeek(w.week_number, { actions: next.split('\n') }))} />
                     </div>
                     <div>
                       <div style={editLabelStyle}>Success looks like</div>
@@ -2655,6 +2656,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                                   <textarea
                                     value={w.days?.[dayIndex]?.[actionIndex] ?? ''}
                                     onChange={(e) => updateDayAction(w.week_number, dayIndex, actionIndex, e.target.value)}
+                                    onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => updateDayAction(w.week_number, dayIndex, actionIndex, next))}
                                     rows={2}
                                     style={{ width: '100%', fontSize: 12.5, padding: '7px 9px', border: `1px solid ${C.rule}`, borderRadius: 7, fontFamily: 'inherit', resize: 'vertical' as const }}
                                   />
