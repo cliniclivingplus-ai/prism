@@ -23,7 +23,7 @@ import InlineEditableText from '@/components/InlineEditableText'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
 import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
-import { renderMarkdownBold, splitTextAndImages } from '@/lib/renderMarkdownBold'
+import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkdownBold'
 import { splitRecipeLines } from '@/lib/recipeText'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
@@ -1155,12 +1155,7 @@ function clpToggleGroceryCat(head){
                 {LIFESTYLE_PERIODS.map((label) => {
                   const items = parseBullets(lifestyleByPeriod[label] || '')
                   if (items.length === 0) return null
-                  // In edit mode every line (image lines included) stays a
-                  // plain editable text row — there's no Picture button here
-                  // yet, so hiding an image line from the list would leave
-                  // no way to edit or remove it. Only the read (patient)
-                  // view pulls picture-only lines out to their own block.
-                  const { images, textItems } = editable ? { images: [], textItems: items } : splitTextAndImages(items)
+                  const { images, textItems } = splitTextAndImagesIndexed(items)
                   return (
                     <div key={label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
                       <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{label}</span>
@@ -1173,14 +1168,14 @@ function clpToggleGroceryCat(head){
                         </div>
                       )}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-                        {textItems.map((item, i) => (
-                          <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        {textItems.map(({ text, index }) => (
+                          <div key={index} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                             <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
                             {editable ? (
-                              <InlineEditableText editable value={item} onSave={(next) => saveLifestyleItem(label, i, next)}
+                              <InlineEditableText editable value={text} onSave={(next) => saveLifestyleItem(label, index, next)}
                                 style={{ fontSize: '0.88rem', lineHeight: 1.5 }} />
                             ) : (
-                              <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                              <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(text)}</span>
                             )}
                           </div>
                         ))}
@@ -1212,7 +1207,7 @@ function clpToggleGroceryCat(head){
                 {MEAL_PERIODS.map((label) => {
                   const items = parseBullets(mealsByPeriod[label] || '')
                   if (items.length === 0) return null
-                  const { images, textItems } = editable ? { images: [], textItems: items } : splitTextAndImages(items)
+                  const { images, textItems } = splitTextAndImagesIndexed(items)
                   return (
                     <div key={label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
                       <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{label}</span>
@@ -1225,14 +1220,14 @@ function clpToggleGroceryCat(head){
                         </div>
                       )}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-                        {textItems.map((item, i) => (
-                          <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        {textItems.map(({ text, index }) => (
+                          <div key={index} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                             <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
                             {editable ? (
-                              <InlineEditableText editable value={item} onSave={(next) => saveMealItem(label, i, next)}
+                              <InlineEditableText editable value={text} onSave={(next) => saveMealItem(label, index, next)}
                                 style={{ fontSize: '0.88rem', lineHeight: 1.5 }} />
                             ) : (
-                              <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                              <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(text)}</span>
                             )}
                           </div>
                         ))}

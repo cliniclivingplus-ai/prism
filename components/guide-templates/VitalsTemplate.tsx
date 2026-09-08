@@ -23,7 +23,7 @@ import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelin
 import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
 import { reshapeRoadmapIntoMonths, type WeeklyPlan } from '@/lib/pdf/reshapeRoadmap'
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
-import { renderMarkdownBold, splitTextAndImages } from '@/lib/renderMarkdownBold'
+import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkdownBold'
 import { splitRecipeLines } from '@/lib/recipeText'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
@@ -850,7 +850,7 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
               {LIFESTYLE_PERIODS.map((label) => {
                 const items = parseBullets(lifestyleByPeriod[label] || '')
                 if (items.length === 0) return null
-                const { images, textItems } = editable ? { images: [], textItems: items } : splitTextAndImages(items)
+                const { images, textItems } = splitTextAndImagesIndexed(items)
                 return (
                   <div key={label} style={{ background: V.bg, border: `1px solid ${V.line}`, borderRadius: 12, padding: '15px 17px' }}>
                     <span style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: V.accent, fontWeight: 700 }}>{label}</span>
@@ -863,14 +863,14 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                       </div>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                      {textItems.map((item, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      {textItems.map(({ text, index }) => (
+                        <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                           <Circle size={11} color={V.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
                           {editable ? (
-                            <InlineEditableText editable value={item} onSave={(next) => saveLifestyleItem(label, i, next)}
+                            <InlineEditableText editable value={text} onSave={(next) => saveLifestyleItem(label, index, next)}
                               style={{ fontSize: 13, lineHeight: 1.5 }} />
                           ) : (
-                            <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                            <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(text)}</span>
                           )}
                         </div>
                       ))}
@@ -889,7 +889,7 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
               {MEAL_PERIODS.map((label) => {
                 const items = parseBullets(mealsByPeriod[label] || '')
                 if (items.length === 0) return null
-                const { images, textItems } = editable ? { images: [], textItems: items } : splitTextAndImages(items)
+                const { images, textItems } = splitTextAndImagesIndexed(items)
                 return (
                   <div key={label} style={{ background: V.bg, border: `1px solid ${V.line}`, borderRadius: 12, padding: '15px 17px' }}>
                     <span style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: V.accent, fontWeight: 700 }}>{label}</span>
@@ -902,14 +902,14 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                       </div>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                      {textItems.map((item, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      {textItems.map(({ text, index }) => (
+                        <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                           <Circle size={11} color={V.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
                           {editable ? (
-                            <InlineEditableText editable value={item} onSave={(next) => saveMealItem(label, i, next)}
+                            <InlineEditableText editable value={text} onSave={(next) => saveMealItem(label, index, next)}
                               style={{ fontSize: 13, lineHeight: 1.5 }} />
                           ) : (
-                            <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
+                            <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(text)}</span>
                           )}
                         </div>
                       ))}

@@ -61,6 +61,24 @@ export function splitTextAndImages(items: string[]): { images: { alt: string; ur
   return { images, textItems }
 }
 
+// Same split as splitTextAndImages, but for callers whose per-item save
+// function (e.g. OnyxTemplate's saveLifestyleItem) indexes into the
+// original, unfiltered items array — plain textItems would renumber once
+// an image-only line is pulled out, so an edit to the Nth visible text row
+// would overwrite the wrong original row. Each text item keeps its index
+// into the array that was passed in.
+export function splitTextAndImagesIndexed(items: string[]): { images: { alt: string; url: string }[]; textItems: { text: string; index: number }[] } {
+  const images: { alt: string; url: string }[] = []
+  const textItems: { text: string; index: number }[] = []
+  items.forEach((item, index) => {
+    const found = extractImages(item)
+    const isImageOnly = found.length === 1 && item.trim() === `![${found[0].alt}](${found[0].url})`
+    if (isImageOnly) images.push(found[0])
+    else textItems.push({ text: item, index })
+  })
+  return { images, textItems }
+}
+
 export function renderMarkdownBold(text: string): React.ReactNode {
   if (!text || (!text.includes('**') && !text.includes('![') && !text.includes(']('))) return text
   const parts = text.split(MARKDOWN_TOKEN)
