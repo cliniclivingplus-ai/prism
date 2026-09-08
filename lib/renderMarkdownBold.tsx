@@ -50,8 +50,15 @@ export function renderMarkdownBold(text: string): React.ReactNode {
     }
     const image = part.match(IMAGE_TOKEN)
     if (image) {
+      // No height cap here let a wide-container image (Founder's note, Your
+      // why — paragraphs that can run 500-700px wide) scale up to its full
+      // native size just from maxWidth: 100%, since width and height scale
+      // together — a landscape photo dropped into one of those ballooned to
+      // several hundred px tall. objectFit: cover on a fixed max-height
+      // keeps every inserted picture the same reasonable size regardless of
+      // which section (narrow bullet card or wide paragraph) it sits in.
       // eslint-disable-next-line @next/next/no-img-element -- coach-uploaded, arbitrary external URL; next/image's domain allowlist doesn't fit a per-upload host
-      return <img key={i} src={image[2]} alt={image[1]} style={{ maxWidth: '100%', display: 'block', borderRadius: 10, margin: '10px 0' }} />
+      return <img key={i} src={image[2]} alt={image[1]} style={{ maxWidth: '100%', maxHeight: 220, width: 'auto', height: 'auto', objectFit: 'cover', display: 'block', borderRadius: 10, margin: '10px 0' }} />
     }
     const link = part.match(LINK_TOKEN)
     if (link) {
