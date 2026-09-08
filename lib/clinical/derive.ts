@@ -116,3 +116,81 @@ export function computeAdherence(
         : null,
   }
 }
+
+// ── Daily Health Check-in heatmap ──────────────────────────────────────
+// Same roadmap_checkins table as adherence above, but the Daily Health
+// Check-in items use the sentinel week_number 0 with a stable item_id
+// (see lib/dailyChecklist.ts and the checkins route) instead of
+// action_index — a patient ticking off some subset of that day's items,
+// which is exactly the "3 of 6 today, 5 of 6 tomorrow" pattern a coach
+// wants to see at a glance, not just a single adherence percentage.
+
+export type ChecklistItemLite = { id: string; text: string }
+export type ChecklistCheckin = { item_id: string | null; week_number: number; checkin_date: string }
+
+export type ChecklistHeatmapDay = {
+  date: string // YYYY-MM-DD
+  checked: Set<string> // item ids checked this day
+  pct: number // checked.size / items.length, 0 when items.length is 0
+}
+
+export type ChecklistHeatmap = {
+  items: ChecklistItemLite[]
+  days: ChecklistHeatmapDay[]
+}
+
+// Capped rather than showing the whole plan history — a coach scanning
+// for a recent pattern doesn't need six months of squares, and an
+// unbounded width breaks the layout on a long-running plan.
+const HEATMAP_MAX_DAYS = 28
+
+// checkin_date is written elsewhere (todayISO() in every guide template,
+// the checkins routes) as new Date().toISOString().slice(0, 10) — pure
+// UTC. Building "today" or "N days ago" via local-time Date methods
+// (setHours(0,0,0,0), getDate()/setDate()) and only converting to UTC at
+// the last step silently drifts by a day whenever the server's local
+// timezone isn't UTC (exactly the bug DashboardClient.tsx's todayISO()
+// comment already warns about) — so every date computed here stays a UTC
+// day-string end to end, never a local-time Date object.
+function utcDateFromISODate(dateOnly: string): Date {
+  return new Date(`${dateOnly}T00:00:00Z`)
+}
+function addUTCDays(dateOnly: string, delta: number): string {
+  const d = utcDateFromISODate(dateOnly)
+  d.setUTCDate(d.getUTCDate() + delta)
+  return d.toISOString().slice(0, 10)
+}
+
+export function computeChecklistHeatmap(
+  items: ChecklistItemLite[],
+  checkins: ChecklistCheckin[],
+  roadmapCreatedAt: string | null
+): ChecklistHeatmap {
+  if (items.length === 0) return { items, days: [] }
+
+  const today = new Date().toISOString().slice(0, 10)
+  const created = roadmapCreatedAt ? roadmapCreatedAt.slice(0, 10) : null
+
+  // Don't show days before the checklist could have existed — a blank
+  // square there would misread as "skipped" rather than "not yet a thing."
+  const daysSinceCreated = created
+    ? Math.floor((utcDateFromISODate(today).getTime() - utcDateFromISODate(created).getTime()) / 86_400_000) + 1
+    : HEATMAP_MAX_DAYS
+  const span = Math.max(1, Math.min(HEATMAP_MAX_DAYS, daysSinceCreated))
+
+  const checkedByDate = new Map<string, Set<string>>()
+  for (const c of checkins) {
+    if (c.week_number !== 0 || !c.item_id) continue
+    if (!checkedByDate.has(c.checkin_date)) checkedByDate.set(c.checkin_date, new Set())
+    checkedByDate.get(c.checkin_date)!.add(c.item_id)
+  }
+
+  const days: ChecklistHeatmapDay[] = []
+  for (let i = span - 1; i >= 0; i--) {
+    const date = addUTCDays(today, -i)
+    const checked = checkedByDate.get(date) ?? new Set<string>()
+    days.push({ date, checked, pct: Math.round((checked.size / items.length) * 100) })
+  }
+
+  return { items, days }
+}

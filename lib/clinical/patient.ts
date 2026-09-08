@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { computeAdherence, formatDate, toolState, type Adherence, type ToolState, type Checkin } from './derive'
+import {
+  computeAdherence, formatDate, toolState, type Adherence, type ToolState, type Checkin,
+  computeChecklistHeatmap, type ChecklistHeatmap, type ChecklistItemLite, type ChecklistCheckin,
+} from './derive'
 
 export type PatientRecord = {
   id: string
@@ -18,6 +21,7 @@ export type PatientRecord = {
 export type CompassSnapshot = {
   hasData: boolean
   adherence: Adherence | null
+  checklistHeatmap: ChecklistHeatmap
   roadmapId: string | null
   roadmapStatus: string | null
   /** Live share token for the patient-facing roadmap, null if revoked/absent. */
@@ -152,7 +156,7 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
       : Promise.resolve({ data: null }),
     supabase
       .from('roadmaps')
-      .select('id, created_at, status, weekly_schedule, duration_months, share_token, share_revoked_at')
+      .select('id, created_at, status, weekly_schedule, duration_months, share_token, share_revoked_at, daily_checklist_items, guide_overrides')
       .eq('patient_id', id)
       .order('created_at', { ascending: false })
       .limit(1),
@@ -170,17 +174,41 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
   const latestSession = sessions[0] ?? null
 
   let adherence: Adherence | null = null
+  let checklistHeatmap: ChecklistHeatmap = { items: [], days: [] }
   if (roadmap) {
-    const { data: checkins } = await supabase
+    // roadmap_checkins has RLS enabled with no policies (it's also read
+    // anonymously from the public share pages, which is likely why —
+    // Supabase's security advisor flags a service-role-only table exposed
+    // to anon as a public table with no RLS), so the regular cookie client
+    // silently reads zero rows here. Every other reader of this table
+    // already goes through supabaseAdmin/createAdminClient for that exact
+    // reason (see app/api/compass/roadmaps/[roadmapId]/checkins/route.ts) —
+    // this was the one place still using the per-request client, which
+    // made the adherence panel below (and now the checklist heatmap) read
+    // as permanently empty regardless of real check-in data.
+    const checkinsDb = createAdminClient('compass')
+    const { data: checkins } = await checkinsDb
       .from('roadmap_checkins')
-      .select('week_number, action_index, checkin_date')
+      .select('week_number, action_index, checkin_date, item_id')
       .eq('roadmap_id', roadmap.id)
     adherence = computeAdherence(roadmap.weekly_schedule, (checkins ?? []) as Checkin[], roadmap.created_at)
+
+    // Coach's edited checklist wins over the AI-generated one — same
+    // override pattern every other roadmap field uses (see
+    // lib/dailyChecklist.ts and buildGuideData.ts).
+    const overrides = roadmap.guide_overrides as { daily_checklist_items?: ChecklistItemLite[] } | null
+    const checklistItems = (overrides?.daily_checklist_items ?? roadmap.daily_checklist_items ?? []) as ChecklistItemLite[]
+    checklistHeatmap = computeChecklistHeatmap(
+      checklistItems.map((it) => ({ id: it.id, text: it.text })),
+      (checkins ?? []) as ChecklistCheckin[],
+      roadmap.created_at
+    )
   }
 
   const compass: CompassSnapshot = {
     hasData: Boolean(roadmap || sessions.length),
     adherence,
+    checklistHeatmap,
     roadmapId: roadmap?.id ?? null,
     roadmapStatus: roadmap?.status ?? null,
     // A revoked link must not be offered to the coach as "view as patient".

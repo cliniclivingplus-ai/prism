@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/lib/auth/guard'
 import PatientSidebar from '@/components/ui/PatientSidebar'
+import ChecklistHeatmap from '@/components/ui/ChecklistHeatmap'
 import { Ring, WeeklyBars, Donut, RangeBar, BarTrack } from '@/components/ui/charts'
 import {
   IconCompass, IconMrx, IconBlood, IconArrowOut, IconUpload, IconLock,
@@ -519,6 +520,14 @@ export default async function PatientWorkspacePage({
                   </p>
                 </Panel>
               )}
+
+              <Panel>
+                <PanelTitle>Daily Health Check-in consistency</PanelTitle>
+                <div className="mb-3.5 text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
+                  How much of each day&apos;s check-in the patient actually completes, and which items they tend to skip — not just whether they logged in.
+                </div>
+                <ChecklistHeatmap data={compass.checklistHeatmap} />
+              </Panel>
 
               <Panel>
                 <PanelTitle>Latest session note</PanelTitle>
