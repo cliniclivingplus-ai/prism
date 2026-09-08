@@ -3,6 +3,15 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validateBlock } from '@/lib/blocks/types'
+import { logGenerationEdit, type GenerationKind } from '@/lib/pdf/generationExamples'
+
+// AI column name -> guide_overrides key, for the three fields whose edits
+// get logged for later human review (see migration_v41's comment).
+const TRACKED_FIELDS: { kind: GenerationKind; aiColumn: 'daily_schedule' | 'lifestyle_guidelines' | 'meal_guidelines'; overrideKey: string }[] = [
+  { kind: 'daily_schedule', aiColumn: 'daily_schedule', overrideKey: 'daily_schedule' },
+  { kind: 'lifestyle_guidelines', aiColumn: 'lifestyle_guidelines', overrideKey: 'daily_lifestyle_guidelines' },
+  { kind: 'meal_guidelines', aiColumn: 'meal_guidelines', overrideKey: 'meal_guidelines' },
+]
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ roadmapId: string }> }) {
   const { roadmapId } = await params
@@ -45,8 +54,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ro
         .map((b: unknown) => validateBlock(b, allowedRecipeIds, allowedImageIds))
         .filter((b: unknown) => b !== null)
     }
-    const { data: existing } = await supabaseAdmin.from('roadmaps').select('guide_overrides').eq('id', roadmapId).single()
+    const { data: existing } = await supabaseAdmin
+      .from('roadmaps')
+      .select('guide_overrides, daily_schedule, lifestyle_guidelines, meal_guidelines')
+      .eq('id', roadmapId)
+      .single()
     update.guide_overrides = { ...(existing?.guide_overrides ?? {}), ...incoming }
+
+    // A coach's save always writes every field (see DashboardClient's
+    // save()), so we can't tell "edited" from "just saved" by presence
+    // alone — only a real change from BOTH the AI's original AND whatever
+    // was saved last time counts as a genuine edit worth logging (see
+    // migration_v41's comment on why these aren't auto-applied to the
+    // prompt).
+    await Promise.all(TRACKED_FIELDS.map(async ({ kind, aiColumn, overrideKey }) => {
+      if (!(overrideKey in incoming)) return
+      const next = String(incoming[overrideKey] ?? '').trim()
+      const prev = String(existing?.guide_overrides?.[overrideKey] ?? '').trim()
+      const original = String(existing?.[aiColumn] ?? '').trim()
+      if (!next || !original || next === prev || next === original) return
+      await logGenerationEdit(roadmapId, kind, original, next)
+    }))
   }
 
   const { data, error } = await supabaseAdmin.from('roadmaps').update(update).eq('id', roadmapId).select().single()

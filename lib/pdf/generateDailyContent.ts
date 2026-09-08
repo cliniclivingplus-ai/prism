@@ -1,4 +1,16 @@
 import { groqChatCompletion } from '@/lib/groq'
+import { getGoodExample } from './generationExamples'
+
+// A real, coach-approved example gets shown to the model as a style
+// reference, never as content to copy — appended to the prompt only when
+// one exists (a brand-new clinic has none yet, and that's fine, the
+// prompt's own rules are the floor either way). See generationExamples.ts
+// for what "approved" means here (a coach saved this exact text unedited).
+function exampleBlock(example: string | null): string {
+  return example
+    ? `\n\nEXAMPLE OF THE RIGHT LENGTH AND STYLE (a coach kept this as written for a different patient — match its brevity and tone, do not reuse its content):\n${example}`
+    : ''
+}
 
 // Shared by roadmap generation (interpret/route.ts Steps 3/3B/3C) and the
 // coach-triggered "Regenerate" action on an existing roadmap's Daily
@@ -8,6 +20,12 @@ import { groqChatCompletion } from '@/lib/groq'
 // the exact same way a freshly generated one does, regardless of which
 // template (Week-family or Classic/Almanac/Pulse/Onyx/Vitals) it uses.
 export async function generateDailyContent(patientFacts: string, kbContext: string) {
+  const [lifestyleExample, mealExample, scheduleExample] = await Promise.all([
+    getGoodExample('lifestyle_guidelines'),
+    getGoodExample('meal_guidelines'),
+    getGoodExample('daily_schedule'),
+  ])
+
   const lifestyleRes = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     reasoning_effort: 'low',
@@ -28,7 +46,7 @@ Each must:
 - No explanation, no reasoning, no "because"
 - Under 8 words after the label
 
-Return only 6 lines, 2 per period, in the order Morning, Morning, Afternoon, Afternoon, Evening, Evening. No intro, no outro, no bullet characters.` }
+Return only 6 lines, 2 per period, in the order Morning, Morning, Afternoon, Afternoon, Evening, Evening. No intro, no outro, no bullet characters.${exampleBlock(lifestyleExample)}` }
     ],
     temperature: 0.3,
     max_tokens: 500,
@@ -58,7 +76,7 @@ Each bullet must also:
 - No explanation, no reasoning, no "because"
 - Under 8 words after the label
 
-Return only 6 lines, 2 per meal, in the order Breakfast, Breakfast, Lunch, Lunch, Dinner, Dinner. No intro, no outro, no bullet characters.` }
+Return only 6 lines, 2 per meal, in the order Breakfast, Breakfast, Lunch, Lunch, Dinner, Dinner. No intro, no outro, no bullet characters.${exampleBlock(mealExample)}` }
     ],
     temperature: 0.3,
     max_tokens: 500,
@@ -89,7 +107,7 @@ Rules:
 - Include real anchors every day needs: wake time, meals (breakfast/lunch/dinner), hydration, movement, and a wind-down/sleep routine — personalized to this patient's condition, not a generic list
 - No explanation, no headers, no numbering, no bullet characters
 
-Return only the 12 time-block lines, one per line, nothing else.` }
+Return only the 12 time-block lines, one per line, nothing else.${exampleBlock(scheduleExample)}` }
     ],
     temperature: 0.3,
     max_tokens: 500,
