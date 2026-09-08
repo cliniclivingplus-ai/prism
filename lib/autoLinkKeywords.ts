@@ -21,14 +21,14 @@ function splitOnLinks(text: string): { plain: string[]; links: string[] } {
   return { plain: text.split(LINK_SPAN), links: text.match(LINK_SPAN) ?? [] }
 }
 
-export function autoLinkText(text: string, bank: KeywordLinkEntry[]): { next: string; linkedCount: number } {
-  if (!text || bank.length === 0) return { next: text, linkedCount: 0 }
+export function autoLinkText(text: string, bank: KeywordLinkEntry[]): { next: string; linkedPhrases: string[] } {
+  if (!text || bank.length === 0) return { next: text, linkedPhrases: [] }
 
   // Longest phrase first, so "1 tsp psyllium husk" wins over the shorter
   // "psyllium husk" when both are known and both would match.
   const sorted = [...bank].sort((a, b) => b.keyword.length - a.keyword.length)
 
-  let linkedCount = 0
+  const linkedPhrases: string[] = [] // the exact matched text, for a "Linked: ..." confirmation toast
   const linkedNorms = new Set<string>() // one auto-link per keyword per box, avoid over-linking repeats
 
   // Each plain-text run is a list of {text} chunks that are still fair
@@ -53,13 +53,14 @@ export function autoLinkText(text: string, bank: KeywordLinkEntry[]): { next: st
         const before = chunk.value.slice(0, idx)
         const phrase = chunk.value.slice(idx, idx + entry.keyword.length)
         const after = chunk.value.slice(idx + entry.keyword.length)
+        linkedPhrases.push(phrase)
         const out: Chunk[] = []
         if (before) out.push({ kind: 'text', value: before })
         out.push({ kind: 'link', value: `[${phrase}](${entry.url})` })
         if (after) out.push({ kind: 'text', value: after })
         return out
       })
-      if (matched) { linkedNorms.add(entry.keyword_norm); linkedCount++ }
+      if (matched) linkedNorms.add(entry.keyword_norm)
     }
     return chunks
   }
@@ -72,5 +73,5 @@ export function autoLinkText(text: string, bank: KeywordLinkEntry[]): { next: st
     next += links[i] + linkedRuns[i + 1]
   }
 
-  return { next, linkedCount }
+  return { next, linkedPhrases }
 }

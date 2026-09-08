@@ -881,9 +881,17 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // link (onLinked below), and re-scanned against each period box on blur
   // so a coach who types a known phrase gets it linked without asking.
   const { bank: keywordLinkBank, addToBank: addKeywordLink } = useKeywordLinkBank()
+  // The only visible confirmation that auto-linking did something — without
+  // this, the only sign is brackets appearing in the textarea's raw text,
+  // easy to miss. Shown for a few seconds, then clears itself.
+  const [linkToast, setLinkToast] = useState<string[] | null>(null)
   function autoLinkOnBlur(current: string, apply: (next: string) => void) {
-    const { next, linkedCount } = autoLinkText(current, keywordLinkBank)
-    if (linkedCount > 0) apply(next)
+    const { next, linkedPhrases } = autoLinkText(current, keywordLinkBank)
+    if (linkedPhrases.length > 0) {
+      apply(next)
+      setLinkToast(linkedPhrases)
+      setTimeout(() => setLinkToast((cur) => (cur === linkedPhrases ? null : cur)), 3500)
+    }
   }
   const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule)
   // "Regenerate roadmap" — see regenerate-roadmap/route.ts. Explicit,
@@ -3153,6 +3161,17 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
 
         <div style={{ textAlign: 'center', fontSize: 11, color: C.muted, marginTop: 24 }}>Living Plus Pvt Ltd™ · +91 72931 11120</div>
       </div>
+
+      {linkToast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 100, display: 'flex', alignItems: 'center', gap: 8, background: '#1C2B29', color: '#fff', padding: '10px 16px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', fontSize: 12.5, maxWidth: 420 }}>
+          <LinkIcon size={14} style={{ flexShrink: 0, color: '#7DD3A8' }} />
+          <span>
+            {linkToast.length === 1
+              ? <>Linked <strong>&quot;{linkToast[0]}&quot;</strong></>
+              : <>Linked {linkToast.length} phrases: <strong>{linkToast.join(', ')}</strong></>}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
