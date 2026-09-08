@@ -29,6 +29,17 @@ import { Fragment } from 'react'
 export const MARKDOWN_TOKEN = /(\*\*[^*]+\*\*|!\[[^\]]*\]\(https?:\/\/[^\s)]+\)|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g
 export const LINK_TOKEN = /^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/
 export const IMAGE_TOKEN = /^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/
+const IMAGE_TOKEN_GLOBAL = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g
+
+// The coach-editor side of an image insert has no rendered view at all —
+// the textarea just shows the raw ![alt](url) text — so a coach who picks
+// or uploads a picture has no visible confirmation it actually landed,
+// short of trusting the text. Used to drive a small thumbnail preview
+// strip under each editable box (see DashboardClient's imagePreviewsFor).
+export function extractImages(text: string): { alt: string; url: string }[] {
+  if (!text || !text.includes('![')) return []
+  return [...text.matchAll(IMAGE_TOKEN_GLOBAL)].map((m) => ({ alt: m[1], url: m[2] }))
+}
 
 export function renderMarkdownBold(text: string): React.ReactNode {
   if (!text || (!text.includes('**') && !text.includes('![') && !text.includes(']('))) return text
