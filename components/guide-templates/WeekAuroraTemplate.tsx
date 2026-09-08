@@ -26,7 +26,7 @@ import type { ChecklistItem } from '@/lib/dailyChecklist'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
 import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
-import { renderMarkdownBold } from '@/lib/renderMarkdownBold'
+import { renderMarkdownBold, splitTextAndImages } from '@/lib/renderMarkdownBold'
 import { splitRecipeLines } from '@/lib/recipeText'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
@@ -1122,8 +1122,16 @@ function clpToggleGroceryCat(head){
                 {LIFESTYLE_PERIODS.map((label) => ({ label, items: parseBullets(lifestyleByPeriod[label] || '') })).filter((g) => g.items.length > 0).map((g) => (
                   <div key={g.label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{g.label}</span>
+                    {!editable && splitTextAndImages(g.items).images.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                        {splitTextAndImages(g.items).images.map((img, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                        ))}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-                      {g.items.map((item, i) => (
+                      {(editable ? g.items : splitTextAndImages(g.items).textItems).map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                           <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
                           {editable ? (
@@ -1162,8 +1170,16 @@ function clpToggleGroceryCat(head){
                 {MEAL_PERIODS.map((label) => ({ label, items: parseBullets(mealsByPeriod[label] || '') })).filter((g) => g.items.length > 0).map((g) => (
                   <div key={g.label} style={{ background: 'rgba(255,255,255,0.4)', border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: '18px 20px' }}>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, fontWeight: 700 }}>{g.label}</span>
+                    {!editable && splitTextAndImages(g.items).images.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                        {splitTextAndImages(g.items).images.map((img, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                        ))}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-                      {g.items.map((item, i) => (
+                      {(editable ? g.items : splitTextAndImages(g.items).textItems).map((item, i) => (
                         <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                           <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
                           {editable ? (
