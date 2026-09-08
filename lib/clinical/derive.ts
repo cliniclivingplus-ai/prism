@@ -171,19 +171,26 @@ export function computeChecklistHeatmap(
   const today = new Date().toISOString().slice(0, 10)
   const created = roadmapCreatedAt ? roadmapCreatedAt.slice(0, 10) : null
 
-  // Don't show days before the checklist could have existed — a blank
-  // square there would misread as "skipped" rather than "not yet a thing."
-  const daysSinceCreated = created
-    ? Math.floor((utcDateFromISODate(today).getTime() - utcDateFromISODate(created).getTime()) / 86_400_000) + 1
-    : HEATMAP_MAX_DAYS
-  const span = Math.max(1, Math.min(HEATMAP_MAX_DAYS, daysSinceCreated))
-
   const checkedByDate = new Map<string, Set<string>>()
+  let earliestCheckin: string | null = null
   for (const c of checkins) {
     if (c.week_number !== 0 || !c.item_id) continue
     if (!checkedByDate.has(c.checkin_date)) checkedByDate.set(c.checkin_date, new Set())
     checkedByDate.get(c.checkin_date)!.add(c.item_id)
+    if (!earliestCheckin || c.checkin_date < earliestCheckin) earliestCheckin = c.checkin_date
   }
+
+  // The window starts at the roadmap's creation date by default — a blank
+  // square before that would misread as "skipped" rather than "not yet a
+  // thing." But the date picker on the patient's own checklist has no
+  // floor (a coach or patient can log a catch-up entry for any earlier
+  // date), so real data can exist before that default floor too — when it
+  // does, the window opens back to cover it instead of silently hiding it.
+  const floor = earliestCheckin && (!created || earliestCheckin < created) ? earliestCheckin : created
+  const daysSinceFloor = floor
+    ? Math.floor((utcDateFromISODate(today).getTime() - utcDateFromISODate(floor).getTime()) / 86_400_000) + 1
+    : HEATMAP_MAX_DAYS
+  const span = Math.max(1, Math.min(HEATMAP_MAX_DAYS, daysSinceFloor))
 
   const days: ChecklistHeatmapDay[] = []
   for (let i = span - 1; i >= 0; i--) {
