@@ -2213,7 +2213,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6 }} rows={7}
                     value={founderNote} onChange={(e) => setFounderNote(e.target.value)}
                     placeholder="One paragraph per blank line" />
-                  <ImagePreviewStrip value={founderNote} />
+                  <ImagePreviewStrip value={founderNote} onChange={setFounderNote} />
                 </>
               ) : (
                 founderNote.split('\n\n').map((para, i) => <p key={i} style={bulletStyle}>{para}</p>)
@@ -2250,7 +2250,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5, fontStyle: 'italic' }} rows={2}
                       value={coachQuote} onChange={(e) => setCoachQuote(e.target.value)}
                       placeholder={`Personal callback quote, e.g. "${firstName}, I remember what you said about..." or leave blank.`} />
-                    <ImagePreviewStrip value={coachQuote} />
+                    <ImagePreviewStrip value={coachQuote} onChange={setCoachQuote} />
                   </>
                 ) : (
                   <>
@@ -2404,7 +2404,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5 }} rows={3}
                     value={whyReflection} onChange={(e) => setWhyReflection(e.target.value)}
                     placeholder="1-2 sentences on what this plan is actually for, in their words." />
-                  <ImagePreviewStrip value={whyReflection} />
+                  <ImagePreviewStrip value={whyReflection} onChange={setWhyReflection} />
                 </>
               ) : whyReflection ? (
                 <p style={bulletStyle}>{renderMarkdownBold(whyReflection)}</p>
@@ -2465,7 +2465,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       value={lifestyleByPeriod[period]} onChange={(e) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: e.target.value }))}
                       onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: next })))}
                       placeholder={`One item per line, e.g.\n${period === 'Morning' ? '12-hour overnight fast' : period === 'Afternoon' ? '15 minute walk after lunch' : 'Dinner finished by 8:30pm'}`} />
-                    <ImagePreviewStrip value={lifestyleByPeriod[period]} />
+                    <ImagePreviewStrip value={lifestyleByPeriod[period]}
+                      onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
                   </div>
                 ))}
               </div>
@@ -2491,7 +2492,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       value={mealsByPeriod[period]} onChange={(e) => setMealsByPeriod((prev) => ({ ...prev, [period]: e.target.value }))}
                       onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => setMealsByPeriod((prev) => ({ ...prev, [period]: next })))}
                       placeholder={`One item per line, e.g.\n${period === 'Breakfast' ? 'A bowl of fruit + a handful of berries' : period === 'Lunch' ? '50% vegetables, 25% lentils, 25% grains' : 'Same plate ratio, finished by 8:30pm'}`} />
-                    <ImagePreviewStrip value={mealsByPeriod[period]} />
+                    <ImagePreviewStrip value={mealsByPeriod[period]}
+                      onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
                   </div>
                 ))}
               </div>
@@ -2506,7 +2508,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6 }} rows={5}
                 value={dailyScheduleText} onChange={(e) => setDailyScheduleText(e.target.value)}
                 placeholder={'One time-block per line, e.g.\n7:30 AM — Wake up, hydrate\n9:30 AM — Breakfast\n8:30 PM — Dinner finished'} />
-              <ImagePreviewStrip value={dailyScheduleText} />
+              <ImagePreviewStrip value={dailyScheduleText} onChange={setDailyScheduleText} />
             </div>
           )}
 
@@ -2693,7 +2695,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <textarea style={{ ...editInputStyle, resize: 'vertical' as const }} rows={3}
                         value={(w.actions || []).join('\n')} onChange={(e) => updateWeek(w.week_number, { actions: e.target.value.split('\n') })}
                         onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => updateWeek(w.week_number, { actions: next.split('\n') }))} />
-                      <ImagePreviewStrip value={(w.actions || []).join('\n')} />
+                      <ImagePreviewStrip value={(w.actions || []).join('\n')}
+                        onChange={(v) => updateWeek(w.week_number, { actions: v.split('\n') })} />
                     </div>
                     <div>
                       <div style={editLabelStyle}>Success looks like</div>
