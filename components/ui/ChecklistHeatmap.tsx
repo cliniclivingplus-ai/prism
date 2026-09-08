@@ -85,12 +85,24 @@ export default function ChecklistHeatmap({ data }: { data: ChecklistHeatmapData 
           </div>
         ))}
 
-        {/* Date axis, first/mid/last only — a label per column would be unreadable at this cell size. */}
+        {/* Date axis — first/last labels only (a label per column would be
+            unreadable at this cell size). Too few columns for both to fit
+            side by side without colliding (a brand-new plan might only
+            have a single day yet), so below a width threshold this shows
+            one centered label instead of two overlapping ones. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 108, flexShrink: 0 }} />
           <div style={{ position: 'relative', width: data.days.length * (cell + gap) - gap, height: 14 }}>
-            <span style={{ position: 'absolute', left: 0, fontSize: 10, color: 'var(--ink-faint)' }}>{dayLabel(data.days[0].date)}</span>
-            <span style={{ position: 'absolute', right: 0, fontSize: 10, color: 'var(--ink-faint)' }}>{dayLabel(data.days[data.days.length - 1].date)}</span>
+            {data.days.length * (cell + gap) < 90 ? (
+              <span style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: 10, color: 'var(--ink-faint)', whiteSpace: 'nowrap' }}>
+                {data.days.length === 1 ? dayLabel(data.days[0].date) : `${dayLabel(data.days[0].date)} – ${dayLabel(data.days[data.days.length - 1].date)}`}
+              </span>
+            ) : (
+              <>
+                <span style={{ position: 'absolute', left: 0, fontSize: 10, color: 'var(--ink-faint)' }}>{dayLabel(data.days[0].date)}</span>
+                <span style={{ position: 'absolute', right: 0, fontSize: 10, color: 'var(--ink-faint)' }}>{dayLabel(data.days[data.days.length - 1].date)}</span>
+              </>
+            )}
           </div>
         </div>
       </div>
