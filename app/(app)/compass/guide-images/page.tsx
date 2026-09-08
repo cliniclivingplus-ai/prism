@@ -40,6 +40,16 @@ export default function GuideImagesPage() {
   const [uploadingAll, setUploadingAll] = useState(false)
   const [deletingId, setDeletingId] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  // A bulk import can land many pictures with no label/tags yet (no vision
+  // model on this account to auto-caption them) — editing in place here,
+  // plus this filter, is how a coach works through that backlog instead of
+  // re-uploading each one through the picker above.
+  const [editingId, setEditingId] = useState('')
+  const [editLabel, setEditLabel] = useState('')
+  const [editTags, setEditTags] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [showUnlabeledOnly, setShowUnlabeledOnly] = useState(false)
+  const unlabeledCount = images.filter((img) => !img.label.trim() || img.tags.length === 0).length
 
   useEffect(() => {
     fetch('/api/compass/guide-images')
@@ -120,6 +130,30 @@ export default function GuideImagesPage() {
     } finally { setDeletingId('') }
   }
 
+  function startEdit(img: GuideImage) {
+    setEditingId(img.id)
+    setEditLabel(img.label)
+    setEditTags(img.tags.join(', '))
+  }
+
+  async function saveEdit(id: string) {
+    if (!editLabel.trim() || !editTags.trim()) return
+    setSavingEdit(true)
+    try {
+      const r = await fetch(`/api/compass/guide-images/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: editLabel.trim(), tags: editTags.split(',').map((t) => t.trim()).filter(Boolean) }),
+      })
+      const j = await r.json()
+      if (r.ok) {
+        setImages((prev) => prev.map((img) => (img.id === id ? j : img)))
+        setEditingId('')
+      }
+    } finally { setSavingEdit(false) }
+  }
+
+  const visibleImages = showUnlabeledOnly ? images.filter((img) => !img.label.trim() || img.tags.length === 0) : images
+
   const readyCount = pending.filter((p) => p.label.trim() && p.tags.trim()).length
 
   return (
@@ -178,6 +212,15 @@ export default function GuideImagesPage() {
         )}
       </div>
 
+      {!loading && !loadError && images.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <button onClick={() => setShowUnlabeledOnly((v) => !v)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, border: `1px solid ${showUnlabeledOnly ? C.green : C.line}`, background: showUnlabeledOnly ? C.greenSoft : '#fff', color: showUnlabeledOnly ? C.greenDeep : C.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            {showUnlabeledOnly ? 'Showing unlabeled only' : `${unlabeledCount} need a label`}
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.muted, fontSize: 13 }}>
           <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Loading images…
@@ -190,20 +233,46 @@ export default function GuideImagesPage() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
-          {images.map((img) => (
-            <div key={img.id} className="tool-card" style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, overflow: 'hidden' }}>
+          {visibleImages.map((img) => (
+            <div key={img.id} className="tool-card" style={{ background: C.card, border: `1px solid ${img.label.trim() && img.tags.length > 0 ? C.line : C.greenBorder}`, borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ width: '100%', height: 110, background: `url(${img.image_url}) center/cover` }} />
               <div style={{ padding: '10px 12px' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 4 }}>{img.label}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-                  {img.tags.map((t) => (
-                    <span key={t} style={{ fontSize: 10.5, fontWeight: 600, color: C.greenDeep, background: C.greenSoft, border: `1px solid ${C.greenBorder}`, borderRadius: 10, padding: '2px 8px' }}>{t}</span>
-                  ))}
-                </div>
-                <button onClick={() => remove(img.id)} disabled={deletingId === img.id}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: `1px solid ${C.line}`, background: '#fff', color: C.danger, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
-                  {deletingId === img.id ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />} Delete
-                </button>
+                {editingId === img.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <input style={{ ...inputStyle, fontSize: 12.5, padding: '6px 9px' }} value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder="Label" autoFocus />
+                    <input style={{ ...inputStyle, fontSize: 12.5, padding: '6px 9px' }} value={editTags} onChange={(e) => setEditTags(e.target.value)} placeholder="Tags: walking, morning" />
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => saveEdit(img.id)} disabled={savingEdit || !editLabel.trim() || !editTags.trim()}
+                        style={{ flex: 1, padding: '6px 10px', borderRadius: 7, border: 'none', background: C.green, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', opacity: (!editLabel.trim() || !editTags.trim()) ? 0.6 : 1 }}>
+                        {savingEdit ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : 'Save'}
+                      </button>
+                      <button onClick={() => setEditingId('')} style={{ padding: '6px 10px', borderRadius: 7, border: `1px solid ${C.line}`, background: '#fff', color: C.muted, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: img.label.trim() ? C.ink : C.faint, marginBottom: 4, fontStyle: img.label.trim() ? 'normal' : 'italic' }}>
+                      {img.label.trim() || 'Untitled — needs a label'}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                      {img.tags.length > 0 ? img.tags.map((t) => (
+                        <span key={t} style={{ fontSize: 10.5, fontWeight: 600, color: C.greenDeep, background: C.greenSoft, border: `1px solid ${C.greenBorder}`, borderRadius: 10, padding: '2px 8px' }}>{t}</span>
+                      )) : (
+                        <span style={{ fontSize: 10.5, color: C.faint, fontStyle: 'italic' }}>No tags — won&apos;t be matched into a guide yet</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => startEdit(img)}
+                        style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
+                        Edit
+                      </button>
+                      <button onClick={() => remove(img.id)} disabled={deletingId === img.id}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: `1px solid ${C.line}`, background: '#fff', color: C.danger, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
+                        {deletingId === img.id ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           ))}
