@@ -14,19 +14,33 @@ import { Fragment } from 'react'
 // http(s) URLs render as a real link, anything else (a typo, a javascript:
 // URL) falls back to showing the literal bracket text untouched rather than
 // producing a broken or unsafe anchor.
+// Also handles ![alt](url) — standard markdown image syntax, written by
+// ImageInsertButton after a coach uploads a picture into a lifestyle/meal/
+// goal textarea (same "plain text in, real element out on the read view"
+// pattern as the link case). The leading "!" is what tells this apart from
+// a plain link at the same position, so it must be checked before the bare
+// link alternative — but since only IMAGE_TOKEN's pattern can start with
+// "!", there's no real ambiguity in the combined regex either way.
+//
 // Exported so the react-pdf renderer (lib/pdf/ClientGuideDocument.tsx, which
-// can't use raw DOM <a> tags and needs its own <Link>-based composition) can
-// split on the exact same grammar rather than maintaining a second regex
-// that could silently drift from this one.
-export const MARKDOWN_TOKEN = /(\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g
+// can't use raw DOM <a>/<img> tags and needs its own composition) can split
+// on the exact same grammar rather than maintaining a second regex that
+// could silently drift from this one.
+export const MARKDOWN_TOKEN = /(\*\*[^*]+\*\*|!\[[^\]]*\]\(https?:\/\/[^\s)]+\)|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g
 export const LINK_TOKEN = /^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/
+export const IMAGE_TOKEN = /^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/
 
 export function renderMarkdownBold(text: string): React.ReactNode {
-  if (!text || (!text.includes('**') && !text.includes(']('))) return text
+  if (!text || (!text.includes('**') && !text.includes('![') && !text.includes(']('))) return text
   const parts = text.split(MARKDOWN_TOKEN)
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
       return <strong key={i}>{part.slice(2, -2)}</strong>
+    }
+    const image = part.match(IMAGE_TOKEN)
+    if (image) {
+      // eslint-disable-next-line @next/next/no-img-element -- coach-uploaded, arbitrary external URL; next/image's domain allowlist doesn't fit a per-upload host
+      return <img key={i} src={image[2]} alt={image[1]} style={{ maxWidth: '100%', display: 'block', borderRadius: 10, margin: '10px 0' }} />
     }
     const link = part.match(LINK_TOKEN)
     if (link) {

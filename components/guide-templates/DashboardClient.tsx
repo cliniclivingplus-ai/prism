@@ -19,6 +19,7 @@ import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from 
 import AiEditButton from '@/components/AiEditButton'
 import LinkInsertButton from '@/components/LinkInsertButton'
 import ProtocolPickerButton from '@/components/ProtocolPickerButton'
+import ImageInsertButton from '@/components/ImageInsertButton'
 import { useKeywordLinkBank } from '@/lib/hooks/useKeywordLinkBank'
 import { autoLinkText } from '@/lib/autoLinkKeywords'
 
@@ -2165,7 +2166,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             {editable && <SectionToggle hidden={isHidden('founder')} onToggle={() => toggleSection('founder')} />}
             <div style={{ ...sectionTitleStyle, justifyContent: editable ? 'space-between' : 'center' }}>
               <span>Founder&apos;s note</span>
-              {editable && <AiEditButton roadmapId={rid} kind="text" value={founderNote} context={aiContext} onApply={setFounderNote} />}
+              {editable && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ImageInsertButton value={founderNote} onChange={setFounderNote} />
+                  <AiEditButton roadmapId={rid} kind="text" value={founderNote} context={aiContext} onApply={setFounderNote} />
+                </div>
+              )}
             </div>
             <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
               style={{ width: 72, height: 72, borderRadius: 36, background: C.accent, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 20, fontWeight: 700, fontFamily: 'inherit', margin: '12px auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -2207,7 +2213,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       {coaches.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                     </select>
                     <div style={{ fontSize: 11, color: C.muted, margin: '5px 0 10px' }}>Photo, designation and bio come from the coach&apos;s own profile, updates after you save.</div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 5 }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 5 }}>
+                      <ImageInsertButton value={coachQuote} onChange={setCoachQuote} />
                       <AiEditButton roadmapId={rid} kind="text" value={coachQuote} context={aiContext} onApply={setCoachQuote} />
                     </div>
                     <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5, fontStyle: 'italic' }} rows={2}
@@ -2354,7 +2361,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             <div id="why" style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.rule}`, scrollMarginTop: SECTION_SCROLL_MARGIN }}>
               <div style={{ ...sectionTitleStyle, fontSize: 15, marginBottom: 10, justifyContent: 'space-between' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>Your why</span>
-                {editable && <AiEditButton roadmapId={rid} kind="text" value={whyReflection} context={aiContext} onApply={setWhyReflection} />}
+                {editable && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <ImageInsertButton value={whyReflection} onChange={setWhyReflection} />
+                    <AiEditButton roadmapId={rid} kind="text" value={whyReflection} context={aiContext} onApply={setWhyReflection} />
+                  </div>
+                )}
               </div>
               {editable ? (
                 <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5 }} rows={3}
@@ -2409,6 +2421,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                           onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} onLinked={addKeywordLink} />
                         <ProtocolPickerButton value={lifestyleByPeriod[period]}
                           onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
+                        <ImageInsertButton value={lifestyleByPeriod[period]}
+                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
                         <AiEditButton roadmapId={rid} kind="text" value={lifestyleByPeriod[period]} context={`${aiContext} Only the ${period.toLowerCase()} routine — a short bullet list, one item per line, no "${period}:" prefix needed.`}
                           onApply={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
                       </div>
@@ -2432,6 +2446,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                           onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} onLinked={addKeywordLink} />
                         <ProtocolPickerButton value={mealsByPeriod[period]}
                           onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
+                        <ImageInsertButton value={mealsByPeriod[period]}
+                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
                         <AiEditButton roadmapId={rid} kind="text" value={mealsByPeriod[period]} context={`${aiContext} Only ${period.toLowerCase()} — a short bullet list, one item per line, no "${period}:" prefix needed.`}
                           onApply={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
                       </div>
@@ -2446,7 +2462,10 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 }}>
                 <div style={editLabelStyle}>Daily schedule</div>
-                <AiEditButton roadmapId={rid} kind="text" value={dailyScheduleText} context={aiContext} onApply={setDailyScheduleText} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ImageInsertButton value={dailyScheduleText} onChange={setDailyScheduleText} />
+                  <AiEditButton roadmapId={rid} kind="text" value={dailyScheduleText} context={aiContext} onApply={setDailyScheduleText} />
+                </div>
               </div>
               <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6 }} rows={5}
                 value={dailyScheduleText} onChange={(e) => setDailyScheduleText(e.target.value)}
@@ -2626,7 +2645,10 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <input style={editInputStyle} value={w.focus_theme || ''} onChange={(e) => updateWeek(w.week_number, { focus_theme: e.target.value })} />
                     </div>
                     <div style={{ marginBottom: 7 }}>
-                      <div style={editLabelStyle}>Micro goals (one per line)</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={editLabelStyle}>Micro goals (one per line)</div>
+                        <ImageInsertButton value={(w.actions || []).join('\n')} onChange={(v) => updateWeek(w.week_number, { actions: v.split('\n') })} />
+                      </div>
                       <textarea style={{ ...editInputStyle, resize: 'vertical' as const }} rows={3}
                         value={(w.actions || []).join('\n')} onChange={(e) => updateWeek(w.week_number, { actions: e.target.value.split('\n') })}
                         onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => updateWeek(w.week_number, { actions: next.split('\n') }))} />
