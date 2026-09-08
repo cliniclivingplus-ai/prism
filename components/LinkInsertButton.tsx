@@ -12,7 +12,7 @@ const C = { accent: '#2563EB', accentSoft: '#EFF4FF', line: '#ECEBE3', danger: '
 // source URL anywhere in this app's data to link to automatically (see
 // interpret/route.ts's KB search, which only has document titles), so the
 // coach supplies the link themselves, same as inserting a hyperlink in Word.
-export default function LinkInsertButton({ getTextarea, value, onChange }: {
+export default function LinkInsertButton({ getTextarea, value, onChange, onLinked }: {
   // A lazy getter rather than a ref object directly: the caller keeps one
   // ref map for several periods (Morning/Afternoon/Evening, etc), and
   // reading `.current` has to happen inside an event handler, never during
@@ -21,6 +21,11 @@ export default function LinkInsertButton({ getTextarea, value, onChange }: {
   getTextarea: () => HTMLTextAreaElement | null
   value: string
   onChange: (next: string) => void
+  // Fires after a link is successfully created, with the exact phrase and
+  // URL just linked — lets the caller grow its own keyword-link bank
+  // (see lib/hooks/useKeywordLinkBank.ts) without a page reload. The
+  // route itself is the source of truth; this is just a same-page cache bump.
+  onLinked?: (phrase: string, url: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState('')
@@ -61,6 +66,16 @@ export default function LinkInsertButton({ getTextarea, value, onChange }: {
     setOpen(false)
     setUrl('')
     requestAnimationFrame(() => getTextarea()?.focus())
+
+    // Grows the shared keyword -> URL bank so this exact phrase auto-links
+    // itself next time any coach types it elsewhere. Fire-and-forget: a
+    // failed save here shouldn't block the link the coach just made.
+    fetch('/api/compass/keyword-links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword: phrase, url: trimmed }),
+    }).catch(() => {})
+    onLinked?.(phrase, trimmed)
   }
 
   return (

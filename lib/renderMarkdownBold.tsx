@@ -30,7 +30,11 @@ export function renderMarkdownBold(text: string): React.ReactNode {
     }
     const link = part.match(LINK_TOKEN)
     if (link) {
-      return <a key={i} href={link[2]} target="_blank" rel="noopener noreferrer">{link[1]}</a>
+      // Explicit color rather than relying on default/inherited link
+      // styling — this needs to read as a link at a glance wherever it
+      // shows up (coach editor, patient dashboard, PDF), not blend into
+      // the surrounding paragraph text.
+      return <a key={i} href={link[2]} target="_blank" rel="noopener noreferrer" style={{ color: '#2563EB', textDecoration: 'underline', fontWeight: 600 }}>{link[1]}</a>
     }
     return <Fragment key={i}>{part}</Fragment>
   })

@@ -19,6 +19,8 @@ import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from 
 import AiEditButton from '@/components/AiEditButton'
 import LinkInsertButton from '@/components/LinkInsertButton'
 import ProtocolPickerButton from '@/components/ProtocolPickerButton'
+import { useKeywordLinkBank } from '@/lib/hooks/useKeywordLinkBank'
+import { autoLinkText } from '@/lib/autoLinkKeywords'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -874,6 +876,15 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // current selection directly off these to know what phrase to wrap.
   const lifestyleTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const mealsTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
+  // Keyword -> URL bank behind auto-linking (see lib/autoLinkKeywords.ts):
+  // fetched once, grown in-place whenever LinkInsertButton creates a new
+  // link (onLinked below), and re-scanned against each period box on blur
+  // so a coach who types a known phrase gets it linked without asking.
+  const { bank: keywordLinkBank, addToBank: addKeywordLink } = useKeywordLinkBank()
+  function autoLinkOnBlur(current: string, apply: (next: string) => void) {
+    const { next, linkedCount } = autoLinkText(current, keywordLinkBank)
+    if (linkedCount > 0) apply(next)
+  }
   const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule)
   // "Regenerate roadmap" — see regenerate-roadmap/route.ts. Explicit,
   // confirmed coach action only (never auto-triggered): resets this
@@ -2387,7 +2398,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div style={{ ...editLabelStyle, fontSize: 10.5 }}>{period}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <LinkInsertButton getTextarea={() => lifestyleTextareaRefs.current[period]} value={lifestyleByPeriod[period]}
-                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
+                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} onLinked={addKeywordLink} />
                         <ProtocolPickerButton value={lifestyleByPeriod[period]}
                           onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
                         <AiEditButton roadmapId={rid} kind="text" value={lifestyleByPeriod[period]} context={`${aiContext} Only the ${period.toLowerCase()} routine — a short bullet list, one item per line, no "${period}:" prefix needed.`}
@@ -2396,6 +2407,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     </div>
                     <textarea ref={(el) => { lifestyleTextareaRefs.current[period] = el }} style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.55, fontSize: 12.5 }} rows={4}
                       value={lifestyleByPeriod[period]} onChange={(e) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: e.target.value }))}
+                      onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: next })))}
                       placeholder={`One item per line, e.g.\n${period === 'Morning' ? '12-hour overnight fast' : period === 'Afternoon' ? '15 minute walk after lunch' : 'Dinner finished by 8:30pm'}`} />
                   </div>
                 ))}
@@ -2409,7 +2421,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div style={{ ...editLabelStyle, fontSize: 10.5 }}>{period}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <LinkInsertButton getTextarea={() => mealsTextareaRefs.current[period]} value={mealsByPeriod[period]}
-                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
+                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} onLinked={addKeywordLink} />
                         <ProtocolPickerButton value={mealsByPeriod[period]}
                           onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
                         <AiEditButton roadmapId={rid} kind="text" value={mealsByPeriod[period]} context={`${aiContext} Only ${period.toLowerCase()} — a short bullet list, one item per line, no "${period}:" prefix needed.`}
@@ -2418,6 +2430,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     </div>
                     <textarea ref={(el) => { mealsTextareaRefs.current[period] = el }} style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.55, fontSize: 12.5 }} rows={4}
                       value={mealsByPeriod[period]} onChange={(e) => setMealsByPeriod((prev) => ({ ...prev, [period]: e.target.value }))}
+                      onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => setMealsByPeriod((prev) => ({ ...prev, [period]: next })))}
                       placeholder={`One item per line, e.g.\n${period === 'Breakfast' ? 'A bowl of fruit + a handful of berries' : period === 'Lunch' ? '50% vegetables, 25% lentils, 25% grains' : 'Same plate ratio, finished by 8:30pm'}`} />
                   </div>
                 ))}
