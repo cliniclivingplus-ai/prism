@@ -11,7 +11,7 @@
 // paragraph block. A coach always edits content in the Classic editor
 // regardless of which template is picked; this component never runs in
 // editable mode.
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
@@ -1161,30 +1161,52 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
           </Card>
         )}
 
-        {/* Supplements — a time-of-day timeline instead of a table */}
+        {/* Supplements — same table every other template uses, grouped by
+            time-of-day sub-headers so "when to take" is still at-a-glance,
+            not just a column. */}
         {data.confirmedSupplements.length > 0 && (
           <Card id="supplements" hidden={isHidden('supplements')}>
             <Eyebrow>Confirmed by {coachFirst}</Eyebrow>
             <SecTitle icon={<Pill size={20} />}>Your supplement plan</SecTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14, marginTop: 18 }}>
-              {['Morning', 'Afternoon', 'Evening', 'Bedtime', 'As directed'].map((bucket) => {
-                const items = data.confirmedSupplements.filter((s) => bucketForTiming(s.timing) === bucket)
-                if (items.length === 0) return null
-                return (
-                  <div key={bucket} style={{ border: `1px solid ${V.line}`, borderRadius: 14, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>{bucket}</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {items.map((s, i) => (
-                        <div key={i}>
-                          <div style={{ fontSize: 13, fontWeight: 700 }}>{s.name}</div>
-                          <div style={{ fontSize: 11.5, color: V.muted, marginTop: 1 }}>{[s.dose, s.timing, s.duration].filter(Boolean).join(' · ')}</div>
-                          {s.notes && <div style={{ fontSize: 11, color: V.warn, marginTop: 2 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
+            <div style={{ overflowX: 'auto', marginTop: 18 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', color: V.muted, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <th style={{ padding: '4px 10px 8px 0' }}>Supplement</th>
+                    <th style={{ padding: '4px 10px 8px 0' }}>Dose</th>
+                    <th style={{ padding: '4px 10px 8px 0' }}>When to take</th>
+                    <th style={{ padding: '4px 0 8px 0' }}>Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {['Morning', 'Afternoon', 'Evening', 'Bedtime', 'As directed'].map((bucket) => {
+                    const items = data.confirmedSupplements.filter((s) => bucketForTiming(s.timing) === bucket)
+                    if (items.length === 0) return null
+                    return (
+                      <Fragment key={bucket}>
+                        <tr>
+                          <td colSpan={4} style={{ padding: '12px 0 4px 0', fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{bucket}</td>
+                        </tr>
+                        {items.map((s, i) => (
+                          <Fragment key={i}>
+                            <tr style={{ borderTop: `1px solid ${V.line}` }}>
+                              <td style={{ padding: '9px 10px 9px 0', fontWeight: 700 }}>{s.name}</td>
+                              <td style={{ padding: '9px 10px 9px 0', color: V.muted }}>{s.dose}</td>
+                              <td style={{ padding: '9px 10px 9px 0', color: V.muted }}>{s.timing}</td>
+                              <td style={{ padding: '9px 0', color: V.muted }}>{s.duration}</td>
+                            </tr>
+                            {s.notes && (
+                              <tr>
+                                <td colSpan={4} style={{ padding: '0 0 9px 0', color: V.warn, fontSize: 11.5 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        ))}
+                      </Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
             <div style={{ fontSize: 11.5, color: V.muted, marginTop: 16 }}>Don&apos;t start, stop, or change a dose without confirming with {coachFirst} first.</div>
           </Card>

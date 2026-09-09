@@ -13,7 +13,7 @@
 // plus a water/energy/mood log per real calendar date. A coach always
 // edits content in the Classic editor regardless of which template is
 // picked; this component never runs in editable mode.
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
@@ -1460,14 +1460,34 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
             <Eyebrow dark>Confirmed by {coachFirst}</Eyebrow>
             <SecTitle dark icon={<Pill size={26} color={PALETTE.cream} />} sectionId="supplements" open={isSectionOpen('supplements')} onToggle={() => toggleSection('supplements')}>Your Supplement Plan</SecTitle>
             <div data-section-body="supplements" style={{ display: isSectionOpen('supplements') ? 'block' : 'none' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 20 }}>
-              {data.confirmedSupplements.map((s, i) => (
-                <div key={i} style={{ background: 'rgba(241,245,249,0.06)', border: '1px solid rgba(241,245,249,0.22)', borderRadius: 10, padding: '14px 16px' }}>
-                  <div style={{ color: PALETTE.cream, fontWeight: 600, fontSize: '0.95rem' }}>{s.name}</div>
-                  <div style={{ color: PALETTE.cream, opacity: 0.75, fontSize: '0.85rem', marginTop: 4 }}>{[s.dose, s.timing, s.duration].filter(Boolean).join(' · ')}</div>
-                  {s.notes && <div style={{ color: PALETTE.gold1, fontSize: '0.8rem', marginTop: 6 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</div>}
-                </div>
-              ))}
+            <div style={{ overflowX: 'auto', marginTop: 20 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', color: PALETTE.cream, opacity: 0.6, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <th style={{ padding: '4px 10px 8px 0' }}>Supplement</th>
+                    <th style={{ padding: '4px 10px 8px 0' }}>Dose</th>
+                    <th style={{ padding: '4px 10px 8px 0' }}>When to take</th>
+                    <th style={{ padding: '4px 0 8px 0' }}>Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.confirmedSupplements.map((s, i) => (
+                    <Fragment key={i}>
+                      <tr style={{ borderTop: `1px solid rgba(241,245,249,0.22)` }}>
+                        <td style={{ padding: '9px 10px 9px 0', fontWeight: 600, color: PALETTE.cream }}>{s.name}</td>
+                        <td style={{ padding: '9px 10px 9px 0', color: PALETTE.cream, opacity: 0.85 }}>{s.dose}</td>
+                        <td style={{ padding: '9px 10px 9px 0', color: PALETTE.cream, opacity: 0.85 }}>{s.timing}</td>
+                        <td style={{ padding: '9px 0', color: PALETTE.cream, opacity: 0.85 }}>{s.duration}</td>
+                      </tr>
+                      {s.notes && (
+                        <tr>
+                          <td colSpan={4} style={{ padding: '0 0 9px 0', color: PALETTE.gold1, fontSize: 11.5 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
             </div>
             <div style={{ color: PALETTE.cream, opacity: 0.5, fontSize: '0.78rem', marginTop: 16 }}>Don&apos;t start, stop, or change a dose without confirming with {coachFirst} first.</div>
             </div>

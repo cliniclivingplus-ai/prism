@@ -7,7 +7,7 @@
 // as the centerpiece instead of Almanac's tree. A coach always edits content
 // in the Classic editor regardless of which template is picked; this
 // component never runs in editable mode.
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Flame, Target, TrendingUp,
@@ -1459,14 +1459,34 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
           <Card id="supplements" hidden={isHidden('supplements')}>
             <Eyebrow>Confirmed by {coachFirst}</Eyebrow>
             <SecTitle icon={<Pill size={20} />}>Your supplement plan</SecTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10, marginTop: 16 }}>
-              {data.confirmedSupplements.map((s, i) => (
-                <div key={i} style={{ background: PULSE.bg, border: `1px solid ${PULSE.border}`, borderRadius: 12, padding: '12px 14px' }}>
-                  <div style={{ color: PULSE.ink, fontWeight: 700, fontSize: '0.9rem' }}>{s.name}</div>
-                  <div style={{ color: PULSE.inkSoft, fontSize: '0.82rem', marginTop: 4 }}>{[s.dose, s.timing, s.duration].filter(Boolean).join(' · ')}</div>
-                  {s.notes && <div style={{ color: PULSE.warn, fontSize: '0.78rem', marginTop: 6 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</div>}
-                </div>
-              ))}
+            <div style={{ overflowX: 'auto', marginTop: 16 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', color: PULSE.muted, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <th style={{ padding: '4px 10px 8px 0' }}>Supplement</th>
+                    <th style={{ padding: '4px 10px 8px 0' }}>Dose</th>
+                    <th style={{ padding: '4px 10px 8px 0' }}>When to take</th>
+                    <th style={{ padding: '4px 0 8px 0' }}>Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.confirmedSupplements.map((s, i) => (
+                    <Fragment key={i}>
+                      <tr style={{ borderTop: `1px solid ${PULSE.border}` }}>
+                        <td style={{ padding: '9px 10px 9px 0', fontWeight: 700, color: PULSE.ink }}>{s.name}</td>
+                        <td style={{ padding: '9px 10px 9px 0', color: PULSE.inkSoft }}>{s.dose}</td>
+                        <td style={{ padding: '9px 10px 9px 0', color: PULSE.inkSoft }}>{s.timing}</td>
+                        <td style={{ padding: '9px 0', color: PULSE.inkSoft }}>{s.duration}</td>
+                      </tr>
+                      {s.notes && (
+                        <tr>
+                          <td colSpan={4} style={{ padding: '0 0 9px 0', color: PULSE.warn, fontSize: 11.5 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
             </div>
             <div style={{ color: PULSE.muted, fontSize: '0.76rem', marginTop: 14 }}>Don&apos;t start, stop, or change a dose without confirming with {coachFirst} first.</div>
           </Card>
