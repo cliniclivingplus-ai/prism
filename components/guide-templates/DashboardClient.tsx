@@ -903,11 +903,19 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // in it — only the textarea's own displayed value and its onChange are
   // filtered/merged, via these two, so ImageInsertButton/ImagePreviewStrip
   // (which read and write the real, unfiltered value) don't need to change.
+  //
+  // Splits on raw '\n' — NOT parseBullets, which trims each line and drops
+  // empty ones. This function's output becomes a *controlled* textarea's
+  // value, recomputed on every render, so parseBullets's trimming silently
+  // reverted a trailing space or a freshly-typed blank line (from Enter) on
+  // the very next keystroke — space and Enter looked like they didn't work.
+  // parseBullets still runs wherever this text is actually rendered as
+  // bullets; blank lines/stray whitespace get cleaned up there, not here.
   function textOnlyValue(fullValue: string): string {
-    return splitTextAndImages(parseBullets(fullValue)).textItems.join('\n')
+    return splitTextAndImages((fullValue || '').split('\n')).textItems.join('\n')
   }
   function mergeImagesBack(newText: string, previousFullValue: string): string {
-    const { images } = splitTextAndImages(parseBullets(previousFullValue))
+    const { images } = splitTextAndImages((previousFullValue || '').split('\n'))
     if (images.length === 0) return newText
     const imageLines = images.map((img) => `![${img.alt}](${img.url})`).join('\n')
     return newText.trim() ? `${newText}\n${imageLines}` : imageLines
