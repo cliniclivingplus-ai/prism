@@ -1506,18 +1506,29 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const getSlotRecipes = (weekNumber: number) =>
     sharedGetSlotRecipes(weekNumber, DAY_MEAL_SLOTS, weeklyManualRecipes, manualRecipes, weekMealMatches, data.recipeBank, `Picked by ${coachFirst} for your plan.`)
 
-  const allWeekSlotRecipes = months.flatMap((m) => m.weeks.flatMap((w) => getSlotRecipes(w.week_number)))
+  // getSlotRecipes does a recipeBank.find() (linear scan of ~500+ recipes)
+  // per slot per week — summing that across every week of the plan is real
+  // CPU work, not free. Every lifestyle/meal/schedule textarea in this
+  // editor re-renders the whole component on every keystroke (plain
+  // setState, not debounced), so leaving this as a bare `const` reran the
+  // full plan-wide scan on every character typed anywhere in the editor —
+  // fine on a fast CPU, a visible typing lag on a slower one. Memoized on
+  // the actual recipe-selection state, none of which changes on a keystroke.
+  const allWeekSlotRecipes = useMemo(
+    () => months.flatMap((m) => m.weeks.flatMap((w) => getSlotRecipes(w.week_number))),
+    [months, weeklyManualRecipes, manualRecipes, weekMealMatches, data.recipeBank, coachFirst]
+  )
 
-  const allMatches = (() => {
+  const allMatches = useMemo(() => {
     const combined = [...mealMatches.breakfast, ...mealMatches.lunch, ...mealMatches.dinner, ...mealMatches.snack, ...mealMatches.dessert,
       ...allWeekSlotRecipes.flatMap((s) => s.matches)]
     return combined.filter((m, i) => combined.findIndex((x) => x.recipe.id === m.recipe.id) === i)
-  })()
+  }, [mealMatches, allWeekSlotRecipes])
   // Real ingredients from this patient's own matched recipes, categorized —
   // falls back to the generic reference list only when no recipe has been
   // matched yet, so the list is never left empty. Used as the fallback for
   // any week whose own curated recipes don't yield ingredients.
-  const patientGroceryCategories = buildGroceryList(allMatches.map((m) => m.recipe))
+  const patientGroceryCategories = useMemo(() => buildGroceryList(allMatches.map((m) => m.recipe)), [allMatches])
   const groceryCategories = patientGroceryCategories.length > 0 ? patientGroceryCategories : GROCERY_CATEGORIES
 
   // The regex cleanup in groceryList.ts is instant but rule-based — an AI
