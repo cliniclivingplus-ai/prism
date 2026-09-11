@@ -1057,13 +1057,12 @@ function clpToggleGroceryCat(head){
           <Eyebrow>A note from the founder</Eyebrow>
           <SecTitle icon={<HeartPulse size={26} />} sectionId="founder" open={isSectionOpen('founder')} onToggle={() => toggleSection('founder')}>Founder&apos;s Note</SecTitle>
           <div data-section-body="founder" style={{ display: isSectionOpen('founder') ? 'block' : 'none' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', marginTop: 20 }}>
-            <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-              style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: 'none', cursor: 'pointer' }} />
-            <div>
+          <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 20, cursor: 'pointer' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover` }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', fontWeight: 500, marginTop: -8 }}>Roshni Sanghvi</div>
               <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>Founder, Living Plus</div>
-              <div style={{ fontSize: '0.78rem', opacity: 0.7, marginTop: 6, maxWidth: 420 }}>{FOUNDER_INTRO}</div>
+              <div style={{ fontSize: '0.78rem', opacity: 0.7, marginTop: 6}}>{FOUNDER_INTRO}</div>
               <div style={{ fontSize: '0.72rem', opacity: 0.55, marginTop: 8 }}>Tap the photo to read the note</div>
             </div>
           </div>
@@ -1080,10 +1079,9 @@ function clpToggleGroceryCat(head){
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <Eyebrow>Your coach</Eyebrow>
             <SecTitle icon={<MessageCircle size={26} />} sectionId="coach" open={isSectionOpen('coach')} onToggle={() => toggleSection('coach')}>Meet Your Coach</SecTitle>
-            <div data-section-body="coach" style={{ display: isSectionOpen('coach') ? 'flex' : 'none', alignItems: 'center', gap: 20, flexWrap: 'wrap', marginTop: 10 }}>
-              <button data-coach-trigger onClick={() => data.coachQuote && setCoachOpen((v) => !v)}
-                style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}`, padding: 0, cursor: data.coachQuote ? 'pointer' : 'default' }} />
-              <div>
+            <div data-section-body="coach" data-coach-trigger onClick={() => data.coachQuote && setCoachOpen((v) => !v)} style={{ display: isSectionOpen('coach') ? 'flex' : 'none', alignItems: 'center', gap: 20, marginTop: 10, cursor: data.coachQuote ? 'pointer' : 'default' }}>
+              <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}` }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', fontWeight: 500 }}>{data.coach.full_name}</div>
                 <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>{data.coach.designation}</div>
                 {data.coachQuote && (

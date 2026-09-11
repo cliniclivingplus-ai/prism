@@ -829,14 +829,13 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
 
         {/* Founder's note — round photo, tap to reveal the note */}
         <Card id="founder" hidden={isHidden('founder')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-              style={{ width: 54, height: 54, borderRadius: '50%', flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${ONYX.border}`, padding: 0, cursor: 'pointer' }} />
-            <div>
+          <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: 18, cursor: 'pointer' }}>
+            <div style={{ width: 54, height: 54, borderRadius: '50%', flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${ONYX.border}` }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
               <Eyebrow>Founder&apos;s note</Eyebrow>
               <div style={{ fontFamily: SERIF, fontSize: '1.2rem', fontWeight: 500, marginTop: -6, color: ONYX.ink }}>Roshni Sanghvi</div>
               <div style={{ fontSize: '0.8rem', color: ONYX.muted, marginTop: 2 }}>Founder, Living Plus</div>
-              <div style={{ fontSize: '0.74rem', color: ONYX.muted, marginTop: 6, maxWidth: 560 }}>{FOUNDER_INTRO}</div>
+              <div style={{ fontSize: '0.74rem', color: ONYX.muted, marginTop: 6 }}>{FOUNDER_INTRO}</div>
               <div style={{ fontSize: '0.7rem', color: ONYX.muted, marginTop: 6 }}>Tap the photo to read the note</div>
             </div>
           </div>
@@ -854,11 +853,12 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
             quote sits behind a tap on the photo, same as the founder's
             note above. */}
         {data.coach && (
-          <Card id="coach" hidden={isHidden('coach')} style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <button data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
-              style={{ width: 54, height: 54, borderRadius: '50%', flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : ONYX.accentSoft, border: `1px solid ${ONYX.border}`, padding: 0, cursor: coachQuote || editable ? 'pointer' : 'default' }} />
-            <div>
-              <Eyebrow>Your coach</Eyebrow>
+          <Card id="coach" hidden={isHidden('coach')}>
+            <div data-coach-trigger onClick={() => !editable && coachQuote && setCoachOpen((v) => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 18, cursor: !editable && coachQuote ? 'pointer' : 'default' }}>
+              <div style={{ width: 54, height: 54, borderRadius: '50%', flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : ONYX.accentSoft, border: `1px solid ${ONYX.border}` }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Eyebrow>Your coach</Eyebrow>
               <div style={{ fontFamily: SERIF, fontSize: '1.2rem', fontWeight: 500, marginTop: -6, color: ONYX.ink }}>{data.coach.full_name}</div>
               <div style={{ fontSize: '0.8rem', color: ONYX.muted, marginTop: 2 }}>{data.coach.designation}</div>
               {editable ? (
@@ -875,6 +875,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                   <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: ONYX.accentDeep, fontSize: '0.88rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(coachQuote)}&rdquo;</div>
                 </>
               )}
+              </div>
             </div>
           </Card>
         )}

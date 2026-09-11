@@ -984,13 +984,12 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <Eyebrow>A note from the founder</Eyebrow>
           <SecTitle icon={<HeartPulse size={26} />}>Founder&apos;s Note</SecTitle>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', marginTop: 20 }}>
-            <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-              style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: 'none', cursor: 'pointer' }} />
-            <div>
+          <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 20, cursor: 'pointer' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover` }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 500, marginTop: -8 }}>Roshni Sanghvi</div>
               <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>Founder, Living Plus</div>
-              <div style={{ fontSize: '0.78rem', opacity: 0.7, marginTop: 6, maxWidth: 420 }}>{FOUNDER_INTRO}</div>
+              <div style={{ fontSize: '0.78rem', opacity: 0.7, marginTop: 6 }}>{FOUNDER_INTRO}</div>
               <div style={{ fontSize: '0.72rem', opacity: 0.55, marginTop: 8 }}>Tap the photo to read the note</div>
             </div>
           </div>
@@ -1011,10 +1010,10 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
           note above. */}
       {data.coach && (
         <section id="coach" style={{ background: PALETTE.paper2, borderTop: `1px solid ${PALETTE.line}`, borderBottom: `1px solid ${PALETTE.line}`, padding: '3rem 1.5rem', ...hiddenStyle('coach') }}>
-          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-            <button data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
-              style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}`, padding: 0, cursor: (coachQuote || editable) ? 'pointer' : 'default' }} />
-            <div>
+          <div data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
+            style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 20, cursor: (coachQuote || editable) ? 'pointer' : 'default' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}` }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
               <Eyebrow>Your coach</Eyebrow>
               <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 500, marginTop: -8 }}>{data.coach.full_name}</div>
               <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>{data.coach.designation}</div>

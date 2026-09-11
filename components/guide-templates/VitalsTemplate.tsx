@@ -773,7 +773,7 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                   style={{ fontSize: '1.05rem', lineHeight: 1.5, color: V.ink, fontWeight: 500 }} />
                 <div style={{ fontSize: 14, fontWeight: 700, color: V.ink, marginTop: 8 }}>Roshni Sanghvi</div>
                 <div style={{ fontSize: 12.5, color: V.muted, marginTop: 1 }}>Founder, Living Plus</div>
-                <div style={{ fontSize: 12, color: V.muted, marginTop: 4, maxWidth: 420 }}>{FOUNDER_INTRO}</div>
+                <div style={{ fontSize: 12, color: V.muted, marginTop: 4 }}>{FOUNDER_INTRO}</div>
               </div>
             </div>
           ) : (

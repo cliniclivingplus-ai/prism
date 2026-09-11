@@ -2283,14 +2283,13 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8 }}>
-              <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-                style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${C.rule}`, padding: 0, cursor: 'pointer' }} />
+            <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8, cursor: 'pointer' }}>
+              <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${C.rule}` }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Roshni Sanghvi</div>
                 <div style={{ fontSize: 12, color: C.muted }}>Founder, Clinic Living Plus</div>
-                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 6, maxWidth: 560 }}>{FOUNDER_INTRO}</div>
-                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 4 }}>Tap the photo to read the note</div>
+                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 6 }}>{FOUNDER_INTRO}</div>
+                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 4 }}>Tap here to read the note</div>
               </div>
             </div>
             <div data-founder-body style={{ display: (editable || founderOpen) ? 'block' : 'none', marginTop: 16 }}>
@@ -2312,13 +2311,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               the photo instead of always showing, same pattern as the
               founder's note above. */}
           {(data.coach || editable) && (
-            <div id="coach" {...hiddenAttrs('coach')} style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 16, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('coach') }}>
-              {editable ? (
-                <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: data.coach?.photo_url ? `url(${data.coach.photo_url}) center/cover` : C.accentSoft, border: `1px solid ${C.rule}` }} />
-              ) : (
-                <button data-coach-trigger onClick={() => coachQuote && setCoachOpen((v) => !v)}
-                  style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: data.coach?.photo_url ? `url(${data.coach.photo_url}) center/cover` : C.accentSoft, border: `1px solid ${C.rule}`, padding: 0, cursor: coachQuote ? 'pointer' : 'default' }} />
-              )}
+            <div id="coach" data-coach-trigger {...hiddenAttrs('coach')} onClick={() => !editable && coachQuote && setCoachOpen((v) => !v)}
+              style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 16, scrollMarginTop: SECTION_SCROLL_MARGIN, cursor: !editable && coachQuote ? 'pointer' : 'default', ...hiddenStyle('coach') }}>
+              <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: data.coach?.photo_url ? `url(${data.coach.photo_url}) center/cover` : C.accentSoft, border: `1px solid ${C.rule}` }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 {editable && <SectionToggle hidden={isHidden('coach')} onToggle={() => toggleSection('coach')} />}
                 {editable ? (

@@ -883,14 +883,13 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
 
         {/* Founder's note — round photo, tap to reveal the note */}
         <Card id="founder" hidden={isHidden('founder')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-              style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${PULSE.border}`, padding: 0, cursor: 'pointer' }} />
-            <div>
+          <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: 18, cursor: 'pointer' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${PULSE.border}` }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
               <Eyebrow>Founder&apos;s note</Eyebrow>
               <div style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: -4, color: PULSE.ink }}>Roshni Sanghvi</div>
               <div style={{ fontSize: '0.82rem', color: PULSE.muted, marginTop: 2 }}>Founder, Living Plus</div>
-              <div style={{ fontSize: '0.78rem', color: PULSE.muted, marginTop: 6, maxWidth: 560 }}>{FOUNDER_INTRO}</div>
+              <div style={{ fontSize: '0.78rem', color: PULSE.muted, marginTop: 6 }}>{FOUNDER_INTRO}</div>
               <div style={{ fontSize: '0.72rem', color: PULSE.muted, marginTop: 6 }}>Tap the photo to read the note</div>
             </div>
           </div>
@@ -908,27 +907,29 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
             quote sits behind a tap on the photo, same as the founder's
             note above. */}
         {data.coach && (
-          <Card id="coach" hidden={isHidden('coach')} style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <button data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
-              style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PULSE.accentSoft, border: `1px solid ${PULSE.border}`, padding: 0, cursor: coachQuote || editable ? 'pointer' : 'default' }} />
-            <div>
-              <Eyebrow>Your coach</Eyebrow>
-              <div style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: -4 }}>{data.coach.full_name}</div>
-              <div style={{ fontSize: '0.82rem', color: PULSE.muted, marginTop: 2 }}>{data.coach.designation}</div>
-              {editable ? (
-                <>
-                  <div style={{ fontSize: '0.72rem', color: PULSE.muted, marginTop: 6 }}>A note from {coachFirst} (shown to the patient below the photo)</div>
-                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, maxWidth: 560 }}>
-                    <InlineEditableText editable multiline value={coachQuote} onSave={saveCoachQuote} placeholder="Add a personal note…"
-                      style={{ display: 'block', fontStyle: 'italic', color: PULSE.accentDeep, fontSize: '0.88rem' }} />
-                  </div>
-                </>
-              ) : coachQuote && (
-                <>
-                  <div style={{ fontSize: '0.72rem', color: PULSE.muted, marginTop: 6 }}>Tap the photo for a note from {coachFirst}</div>
-                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: PULSE.accentDeep, fontSize: '0.88rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(coachQuote)}&rdquo;</div>
-                </>
-              )}
+          <Card id="coach" hidden={isHidden('coach')}>
+            <div data-coach-trigger onClick={() => !editable && coachQuote && setCoachOpen((v) => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 18, cursor: !editable && coachQuote ? 'pointer' : 'default' }}>
+              <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PULSE.accentSoft, border: `1px solid ${PULSE.border}` }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Eyebrow>Your coach</Eyebrow>
+                <div style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: -4 }}>{data.coach.full_name}</div>
+                <div style={{ fontSize: '0.82rem', color: PULSE.muted, marginTop: 2 }}>{data.coach.designation}</div>
+                {editable ? (
+                  <>
+                    <div style={{ fontSize: '0.72rem', color: PULSE.muted, marginTop: 6 }}>A note from {coachFirst} (shown to the patient below the photo)</div>
+                    <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, maxWidth: 560 }}>
+                      <InlineEditableText editable multiline value={coachQuote} onSave={saveCoachQuote} placeholder="Add a personal note…"
+                        style={{ display: 'block', fontStyle: 'italic', color: PULSE.accentDeep, fontSize: '0.88rem' }} />
+                    </div>
+                  </>
+                ) : coachQuote && (
+                  <>
+                    <div style={{ fontSize: '0.72rem', color: PULSE.muted, marginTop: 6 }}>Tap the photo for a note from {coachFirst}</div>
+                    <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: PULSE.accentDeep, fontSize: '0.88rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(coachQuote)}&rdquo;</div>
+                  </>
+                )}
+              </div>
             </div>
           </Card>
         )}
