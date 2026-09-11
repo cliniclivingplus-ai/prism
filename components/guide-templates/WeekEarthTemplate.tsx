@@ -1057,7 +1057,7 @@ function clpToggleGroceryCat(head){
           <Eyebrow>A note from the founder</Eyebrow>
           <SecTitle icon={<HeartPulse size={26} />} sectionId="founder" open={isSectionOpen('founder')} onToggle={() => toggleSection('founder')}>Founder&apos;s Note</SecTitle>
           <div data-section-body="founder" style={{ display: isSectionOpen('founder') ? 'block' : 'none' }}>
-          <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 20, cursor: 'pointer' }}>
+          <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 20, marginTop: 20, cursor: 'pointer' }}>
             <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover` }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', fontWeight: 500, marginTop: -8 }}>Roshni Sanghvi</div>
@@ -1079,7 +1079,7 @@ function clpToggleGroceryCat(head){
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <Eyebrow>Your coach</Eyebrow>
             <SecTitle icon={<MessageCircle size={26} />} sectionId="coach" open={isSectionOpen('coach')} onToggle={() => toggleSection('coach')}>Meet Your Coach</SecTitle>
-            <div data-section-body="coach" data-coach-trigger onClick={() => data.coachQuote && setCoachOpen((v) => !v)} style={{ display: isSectionOpen('coach') ? 'flex' : 'none', alignItems: 'center', gap: 20, marginTop: 10, cursor: data.coachQuote ? 'pointer' : 'default' }}>
+            <div data-section-body="coach" data-coach-trigger onClick={() => data.coachQuote && setCoachOpen((v) => !v)} style={{ display: isSectionOpen('coach') ? 'flex' : 'none', alignItems: 'flex-start', gap: 20, marginTop: 10, cursor: data.coachQuote ? 'pointer' : 'default' }}>
               <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}` }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', fontWeight: 500 }}>{data.coach.full_name}</div>

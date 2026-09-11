@@ -984,7 +984,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <Eyebrow>A note from the founder</Eyebrow>
           <SecTitle icon={<HeartPulse size={26} />}>Founder&apos;s Note</SecTitle>
-          <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 20, cursor: 'pointer' }}>
+          <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 20, marginTop: 20, cursor: 'pointer' }}>
             <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover` }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 500, marginTop: -8 }}>Roshni Sanghvi</div>
@@ -1011,7 +1011,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
       {data.coach && (
         <section id="coach" style={{ background: PALETTE.paper2, borderTop: `1px solid ${PALETTE.line}`, borderBottom: `1px solid ${PALETTE.line}`, padding: '3rem 1.5rem', ...hiddenStyle('coach') }}>
           <div data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
-            style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 20, cursor: (coachQuote || editable) ? 'pointer' : 'default' }}>
+            style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'flex-start', gap: 20, cursor: (coachQuote || editable) ? 'pointer' : 'default' }}>
             <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}` }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <Eyebrow>Your coach</Eyebrow>

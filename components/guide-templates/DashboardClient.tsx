@@ -2283,7 +2283,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 </div>
               )}
             </div>
-            <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8, cursor: 'pointer' }}>
+            <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginTop: 8, cursor: 'pointer' }}>
               <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${C.rule}` }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Roshni Sanghvi</div>
@@ -2312,7 +2312,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               founder's note above. */}
           {(data.coach || editable) && (
             <div id="coach" data-coach-trigger {...hiddenAttrs('coach')} onClick={() => !editable && coachQuote && setCoachOpen((v) => !v)}
-              style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 16, scrollMarginTop: SECTION_SCROLL_MARGIN, cursor: !editable && coachQuote ? 'pointer' : 'default', ...hiddenStyle('coach') }}>
+              style={{ ...cardStyle, display: 'flex', alignItems: 'flex-start', gap: 16, scrollMarginTop: SECTION_SCROLL_MARGIN, cursor: !editable && coachQuote ? 'pointer' : 'default', ...hiddenStyle('coach') }}>
               {/* Deliberately editable-excluded here (unlike Pulse/Onyx) —
                   Classic shows the coach-quote textarea unconditionally in
                   edit mode, not behind this click, so toggling coachOpen
