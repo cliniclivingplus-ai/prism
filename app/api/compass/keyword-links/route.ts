@@ -62,7 +62,9 @@ export async function POST(req: NextRequest) {
   const source = typeof body?.source === 'string' ? body.source.trim() : null
 
   if (!keyword || keyword.length < 2) return NextResponse.json({ error: 'Keyword too short' }, { status: 400 })
-  if (!/^https?:\/\//i.test(url)) return NextResponse.json({ error: 'Invalid URL' }, { status: 400 })
+  // One URL per row — a "url1; url2" value is what produced unrenderable
+  // [phrase](url1; url2) links (see normalizeLinks in lib/renderMarkdownBold).
+  if (!/^https?:\/\/[^\s)]+$/i.test(url) || /;\s*https?:\/\//i.test(url)) return NextResponse.json({ error: 'Invalid URL' }, { status: 400 })
 
   const { error } = await supabaseAdmin
     .from('keyword_links')

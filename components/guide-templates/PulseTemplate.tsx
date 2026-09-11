@@ -22,6 +22,7 @@ import { reshapeRoadmapIntoMonths, type WeeklyPlan } from '@/lib/pdf/reshapeRoad
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
 import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkdownBold'
 import ImageInsertButton from '@/components/ImageInsertButton'
+import { CareServiceLinkButton, CareServiceLinkFields, isVisibleCareService } from '@/components/CareServiceLink'
 import ImagePreviewStrip from '@/components/ImagePreviewStrip'
 import { splitRecipeLines } from '@/lib/recipeText'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
@@ -254,6 +255,15 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
         const actions = (w.actions ?? []).map((a, j) => (j === actionIndex ? next : a))
         return { ...w, actions }
       })
+      patchRoadmap({ weekly_schedule: updated })
+      return updated
+    })
+  }
+
+  // The week heading on each roadmap week card ("Week 1 · <theme>").
+  function saveWeekTheme(weekNumber: number, next: string) {
+    setWeeklySchedule((prev) => {
+      const updated = prev.map((w) => (w.week_number === weekNumber ? { ...w, focus_theme: next } : w))
       patchRoadmap({ weekly_schedule: updated })
       return updated
     })
@@ -857,16 +867,19 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
         </Card>
 
         {/* Founder's note — round photo, tap to reveal the note */}
-        <Card id="founder" hidden={isHidden('founder')} style={{ textAlign: 'center' }}>
-          <Eyebrow>A note from the founder</Eyebrow>
-          <SecTitle icon={<HeartPulse size={20} />}>Founder&apos;s note</SecTitle>
-          <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-            style={{ width: 76, height: 76, borderRadius: 38, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: 'none', cursor: 'pointer', margin: '16px auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: PULSE.ink }}>Roshni Sanghvi</div>
-          <div style={{ fontSize: '0.72rem', letterSpacing: '0.06em', color: PULSE.muted, textTransform: 'uppercase', marginBottom: 8 }}>Founder, Living Plus</div>
-          <div style={{ fontSize: '0.78rem', color: PULSE.muted, maxWidth: 380, margin: '0 auto 6px' }}>{FOUNDER_INTRO}</div>
-          <div style={{ fontSize: '0.75rem', color: PULSE.muted }}>Tap the photo to read the note</div>
-          <div data-founder-body style={{ display: founderOpen ? 'block' : 'none', textAlign: 'left', marginTop: 16, fontSize: '0.92rem', lineHeight: 1.7, color: PULSE.inkSoft }}>
+        <Card id="founder" hidden={isHidden('founder')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+            <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
+              style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${PULSE.border}`, padding: 0, cursor: 'pointer' }} />
+            <div>
+              <Eyebrow>Founder&apos;s note</Eyebrow>
+              <div style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: -4, color: PULSE.ink }}>Roshni Sanghvi</div>
+              <div style={{ fontSize: '0.82rem', color: PULSE.muted, marginTop: 2 }}>Founder, Living Plus</div>
+              <div style={{ fontSize: '0.78rem', color: PULSE.muted, marginTop: 6, maxWidth: 560 }}>{FOUNDER_INTRO}</div>
+              <div style={{ fontSize: '0.72rem', color: PULSE.muted, marginTop: 6 }}>Tap the photo to read the note</div>
+            </div>
+          </div>
+          <div data-founder-body style={{ display: founderOpen ? 'block' : 'none', marginTop: 16, fontSize: '0.92rem', lineHeight: 1.7, color: PULSE.inkSoft }}>
             {editable ? (
               <InlineEditableText editable multiline value={founderNote} onSave={saveFounderNote}
                 style={{ display: 'block', fontSize: '0.92rem', lineHeight: 1.7, color: PULSE.inkSoft, minHeight: 120 }} />
@@ -983,8 +996,11 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
           <p style={{ marginTop: 14, marginBottom: 18, fontSize: '0.92rem', fontWeight: 700, color: PULSE.accent }}>Follow → Track → Adjust</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             {[
-              { icon: MapPin, title: 'This week', text: 'Check your goals and meals for the week.' },
-              { icon: CheckCircle2, title: 'Each day', text: 'Tick off what you complete.' },
+              { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
+              { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
+              { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
+              { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
+              { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
               { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
             ].map(({ icon: Icon, title, text }) => (
               <div key={title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: PULSE.bg, border: `1px solid ${PULSE.border}`, borderRadius: 14, padding: '12px 14px' }}>
@@ -1156,17 +1172,29 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
             {months.map((m) => (
               <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 22, display: openMonth === m.monthNumber ? 'block' : 'none' }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-                  {m.weeks.map((w) => (
-                    <button key={w.week_number} data-week-trigger={w.week_number} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
+                  {m.weeks.map((w) => {
+                    // A div in edit mode: a text field inside a <button> would
+                    // toggle the week on every click into it (and on Space).
+                    const WeekCard = editable ? 'div' : 'button'
+                    return (
+                    <WeekCard key={w.week_number} data-week-trigger={w.week_number} role={editable ? 'button' : undefined} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
                       style={{
                         textAlign: 'left', padding: '11px 15px', borderRadius: 12, cursor: 'pointer', minWidth: 150,
                         border: `1px solid ${openWeek === w.week_number ? PULSE.accent : PULSE.border}`,
                         background: openWeek === w.week_number ? PULSE.accentSoft : PULSE.bg,
                       }}>
                       <div style={{ color: PULSE.accentDeep, fontSize: '0.72rem', fontWeight: 700 }}>Week {w.week_number}</div>
-                      <div style={{ color: PULSE.ink, fontSize: '0.83rem', marginTop: 3 }}>{w.focus_theme}</div>
-                    </button>
-                  ))}
+                      {editable ? (
+                        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 3 }}>
+                          <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
+                            style={{ color: PULSE.ink, fontSize: '0.83rem' }} />
+                        </div>
+                      ) : (
+                        <div style={{ color: PULSE.ink, fontSize: '0.83rem', marginTop: 3 }}>{w.focus_theme}</div>
+                      )}
+                    </WeekCard>
+                    )
+                  })}
                 </div>
 
                 {m.weeks.map((w) => (
@@ -1522,7 +1550,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
         )}
 
         {/* What's included in your care */}
-        {(careServices.length > 0 || editable) && (
+        {(careServices.some(isVisibleCareService) || editable) && (
           <Card id="services" hidden={isHidden('services')}>
             <Eyebrow>Your plan</Eyebrow>
             <SecTitle icon={<Star size={20} />}>What&apos;s included in your care</SecTitle>
@@ -1540,6 +1568,9 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                       style={{ fontSize: '0.78rem', color: PULSE.muted, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '5px 6px', width: 110 }} />
                     <textarea value={svc.description || ''} onChange={(e) => updateCareServiceField(i, 'description', e.target.value)} onBlur={blurCareServices} placeholder="Description" rows={2}
                       style={{ fontSize: '0.83rem', lineHeight: 1.5, color: PULSE.inkSoft, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '5px 6px', width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
+                    <CareServiceLinkFields link={svc.link} label={svc.linkLabel} mutedColor={PULSE.muted}
+                      onLink={(v) => updateCareServiceField(i, 'link', v)} onLabel={(v) => updateCareServiceField(i, 'linkLabel', v)} onBlur={blurCareServices}
+                      inputStyle={{ fontSize: '0.8rem', color: PULSE.ink, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '5px 6px' }} />
                     <button type="button" onClick={() => saveCareServices(careServices.filter((_, idx) => idx !== i))} title="Remove"
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: PULSE.muted, flexShrink: 0 }}><X size={15} /></button>
                   </div>
@@ -1553,17 +1584,21 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginTop: 16 }}>
                   {careServices.map((svc, i) => {
+                    if (!isVisibleCareService(svc)) return null
                     const Icon = CARE_ICON_MAP[svc.icon] || Star
                     const isOpen = openService === i
                     return (
-                      <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
-                        style={{ textAlign: 'left', padding: '13px 12px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${isOpen ? PULSE.accent : PULSE.border}`, background: isOpen ? PULSE.accentSoft : PULSE.bg }}>
-                        <div style={{ width: 30, height: 30, borderRadius: 8, background: '#fff', border: `1px solid ${PULSE.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 9 }}>
-                          <Icon size={15} color={PULSE.accent} />
-                        </div>
-                        <div style={{ fontSize: '0.83rem', fontWeight: 700, color: PULSE.ink }}>{svc.name}</div>
-                        {svc.sessions && <div style={{ fontSize: '0.73rem', color: PULSE.muted, marginTop: 2 }}>{svc.sessions}</div>}
-                      </button>
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <button data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
+                          style={{ flex: 1, textAlign: 'left', padding: '13px 12px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${isOpen ? PULSE.accent : PULSE.border}`, background: isOpen ? PULSE.accentSoft : PULSE.bg }}>
+                          <div style={{ width: 30, height: 30, borderRadius: 8, background: '#fff', border: `1px solid ${PULSE.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 9 }}>
+                            <Icon size={15} color={PULSE.accent} />
+                          </div>
+                          <div style={{ fontSize: '0.83rem', fontWeight: 700, color: PULSE.ink }}>{svc.name}</div>
+                          {svc.sessions && <div style={{ fontSize: '0.73rem', color: PULSE.muted, marginTop: 2 }}>{svc.sessions}</div>}
+                        </button>
+                        <CareServiceLinkButton link={svc.link} label={svc.linkLabel} accent={PULSE.accent} />
+                      </div>
                     )
                   })}
                 </div>

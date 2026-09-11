@@ -4,6 +4,8 @@
 // lifestyle/meal guideline text is shown. This is the "automatic" half:
 // given a bank of known keyword -> URL pairs, find any of those phrases
 // still sitting as plain text and wrap them.
+import { firstUrl } from './renderMarkdownBold'
+
 export interface KeywordLinkEntry {
   keyword: string
   keyword_norm: string
@@ -78,7 +80,8 @@ export function autoLinkText(text: string, bank: KeywordLinkEntry[]): { next: st
         linkedPhrases.push(phrase)
         const out: Chunk[] = []
         if (before) out.push({ kind: 'text', value: before })
-        out.push({ kind: 'link', value: `[${phrase}](${entry.url})` })
+        // firstUrl: some seeded bank rows hold "url1; url2" — see normalizeLinks.
+        out.push({ kind: 'link', value: `[${phrase}](${firstUrl(entry.url)})` })
         if (after) out.push({ kind: 'text', value: after })
         return out
       })

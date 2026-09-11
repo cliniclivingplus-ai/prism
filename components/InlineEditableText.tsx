@@ -1,5 +1,7 @@
 'use client'
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
+import { renderMarkdownBold } from '@/lib/renderMarkdownBold'
+import { stripLinks, reattachLinks } from '@/lib/linkText'
 
 // Click-to-edit primitive for coach inline editing directly on a
 // patient-facing template (WeekTemplate first, more templates later).
@@ -27,7 +29,11 @@ export default function InlineEditableText({
   onClick?: () => void
 }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
+  // The draft never contains a link's URL — a coach editing "20 minutes of
+  // yoga" types over the words only; commit() puts each link back onto its
+  // phrase. A raw [phrase](https://…) in the box read as broken text and
+  // long URLs overflowed the column.
+  const [draft, setDraft] = useState(() => stripLinks(value))
   const inputRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
 
   // Keyed on `editing` alone (not `draft`), so this fires exactly once when
@@ -49,17 +55,19 @@ export default function InlineEditableText({
 
   if (!editable) {
     return (
-      <Tag style={style} onClick={onClick}>{value || placeholder || ''}</Tag>
+      <Tag style={style} onClick={onClick}>{value ? (value.includes('](') ? renderMarkdownBold(value) : value) : (placeholder || '')}</Tag>
     )
   }
 
   function commit() {
     setEditing(false)
     const trimmed = draft.trim()
-    if (trimmed && trimmed !== value) onSave(trimmed)
+    if (!trimmed) return
+    const next = reattachLinks(trimmed, value)
+    if (next !== value) onSave(next)
   }
   function cancel() {
-    setDraft(value)
+    setDraft(stripLinks(value))
     setEditing(false)
   }
 
@@ -102,12 +110,16 @@ export default function InlineEditableText({
   return (
     <Tag
       title="Click to edit"
-      onClick={(e) => { e.stopPropagation(); setDraft(value); setEditing(true) }}
-      style={{ ...style, cursor: 'text', borderRadius: 4, outline: '1px dashed transparent', outlineOffset: 2, transition: 'outline-color 0.15s ease' }}
+      // A click on a rendered link edits the text rather than leaving the
+      // editor — the link itself is still one tap away for the patient.
+      onClick={(e) => { e.stopPropagation(); if ((e.target as HTMLElement).closest('a')) e.preventDefault(); setDraft(stripLinks(value)); setEditing(true) }}
+      style={{ ...style, cursor: 'text', borderRadius: 4, outline: '1px dashed transparent', outlineOffset: 2, transition: 'outline-color 0.15s ease', overflowWrap: 'anywhere' }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.outlineColor = 'currentColor' }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.outlineColor = 'transparent' }}
     >
-      {value || placeholder || ''}
+      {/* Linked phrases show as the same blue link the patient sees, never
+          as [phrase](url) — so the coach can tell what's linked at a glance. */}
+      {value ? (value.includes('](') ? renderMarkdownBold(value) : value) : (placeholder || '')}
     </Tag>
   )
 }

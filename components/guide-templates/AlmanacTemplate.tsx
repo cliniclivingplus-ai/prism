@@ -41,6 +41,7 @@ import { toBlockTheme } from '@/lib/blocks/BlockRenderer'
 import { splitIntoPeriods, joinPeriods, parseScheduleLines } from '@/lib/periodBullets'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import InlineEditableText from '@/components/InlineEditableText'
+import { CareServiceLinkButton, CareServiceLinkFields, isVisibleCareService } from '@/components/CareServiceLink'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -299,6 +300,14 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
   // below.
   const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
   const months = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+  // The week heading on each roadmap week card ("Week 1 · <theme>").
+  function saveWeekTheme(weekNumber: number, next: string) {
+    setWeeklySchedule((prev) => {
+      const updated = prev.map((w) => (w.week_number === weekNumber ? { ...w, focus_theme: next } : w))
+      patchRoadmap({ weekly_schedule: updated })
+      return updated
+    })
+  }
   function saveRoadmapAction(weekNumber: number, dayIndex: number, actionIndex: number, next: string) {
     setWeeklySchedule((prev) => {
       const updated = prev.map((w) => {
@@ -1104,8 +1113,11 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
           <p style={{ marginTop: 16, marginBottom: 20, fontSize: '0.95rem', fontWeight: 600, color: PALETTE.berry }}>Follow → Track → Adjust</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20 }}>
             {[
-              { icon: MapPin, title: 'This week', text: 'Check your goals and meals for the week.' },
-              { icon: CheckCircle2, title: 'Each day', text: 'Tick off what you complete.' },
+              { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
+              { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
+              { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
+              { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
+              { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
               { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
             ].map(({ icon: Icon, title, text }) => (
               <div key={title}>
@@ -1333,17 +1345,29 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
             {months.map((m) => (
               <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 28, display: openMonth === m.monthNumber ? 'block' : 'none' }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-                  {m.weeks.map((w) => (
-                    <button key={w.week_number} data-week-trigger={w.week_number} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
+                  {m.weeks.map((w) => {
+                    // A div in edit mode: a text field inside a <button> would
+                    // toggle the week on every click into it (and on Space).
+                    const WeekCard = editable ? 'div' : 'button'
+                    return (
+                    <WeekCard key={w.week_number} data-week-trigger={w.week_number} role={editable ? 'button' : undefined} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
                       style={{
                         textAlign: 'left', padding: '12px 16px', borderRadius: 10, cursor: 'pointer', minWidth: 150,
                         border: `1px solid ${openWeek === w.week_number ? PALETTE.gold1 : 'rgba(243,236,218,0.22)'}`,
                         background: openWeek === w.week_number ? 'rgba(224,195,132,0.14)' : 'rgba(243,236,218,0.05)',
                       }}>
                       <div style={{ color: PALETTE.gold1, fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.72rem', letterSpacing: '0.05em' }}>Week {w.week_number}</div>
-                      <div style={{ color: PALETTE.cream, fontSize: '0.85rem', marginTop: 3 }}>{w.focus_theme}</div>
-                    </button>
-                  ))}
+                      {editable ? (
+                        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 3 }}>
+                          <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
+                            style={{ color: PALETTE.cream, fontSize: '0.85rem' }} />
+                        </div>
+                      ) : (
+                        <div style={{ color: PALETTE.cream, fontSize: '0.85rem', marginTop: 3 }}>{w.focus_theme}</div>
+                      )}
+                    </WeekCard>
+                    )
+                  })}
                 </div>
 
                 {m.weeks.map((w) => (
@@ -1672,7 +1696,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
 
       {/* What's included in your care — same coach-entered tiles as
           Classic; expands inline instead of a popup. */}
-      {(careServices.length > 0 || editable) && (
+      {(careServices.some(isVisibleCareService) || editable) && (
         <section id="services" style={{ background: PALETTE.paper3, padding: '4rem 1.5rem', ...hiddenStyle('services') }}>
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <Eyebrow>Your plan</Eyebrow>
@@ -1691,6 +1715,13 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                       style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: 4, display: 'block' }} />
                     <InlineEditableText editable as="div" multiline value={svc.description || ''} placeholder="Description" onSave={(next) => saveCareServices(careServices.map((x, idx) => (idx === i ? { ...x, description: next } : x)))}
                       style={{ fontSize: '0.87rem', lineHeight: 1.55, marginTop: 8 }} />
+                    <div style={{ marginTop: 10 }}>
+                      <CareServiceLinkFields link={svc.link} label={svc.linkLabel}
+                        onLink={(v) => setCareServices((prev) => prev.map((x, idx) => (idx === i ? { ...x, link: v } : x)))}
+                        onLabel={(v) => setCareServices((prev) => prev.map((x, idx) => (idx === i ? { ...x, linkLabel: v } : x)))}
+                        onBlur={() => patchRoadmap({ guide_overrides: { care_services: careServices } })}
+                        inputStyle={{ fontSize: '0.82rem', color: PALETTE.ink, background: 'rgba(255,255,255,0.5)', border: `1px dashed ${PALETTE.line}`, borderRadius: 8, padding: '6px 8px' }} />
+                    </div>
                   </div>
                 ))}
                 <button type="button" onClick={() => saveCareServices([...careServices, { name: '', icon: 'coaching', sessions: '', description: '' }])}
@@ -1702,17 +1733,21 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 20 }}>
                   {careServices.map((svc, i) => {
+                    if (!isVisibleCareService(svc)) return null
                     const Icon = CARE_ICON_MAP[svc.icon] || Star
                     const isOpen = openService === i
                     return (
-                      <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
-                        style={{ textAlign: 'left', padding: '14px 12px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${isOpen ? PALETTE.berry : PALETTE.line}`, background: isOpen ? 'rgba(122,51,70,0.06)' : 'rgba(255,255,255,0.35)' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: PALETTE.gold1, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                          <Icon size={16} color={PALETTE.ink} />
-                        </div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{svc.name}</div>
-                        {svc.sessions && <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: 2 }}>{svc.sessions}</div>}
-                      </button>
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <button data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
+                          style={{ flex: 1, textAlign: 'left', padding: '14px 12px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${isOpen ? PALETTE.berry : PALETTE.line}`, background: isOpen ? 'rgba(122,51,70,0.06)' : 'rgba(255,255,255,0.35)' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: PALETTE.gold1, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                            <Icon size={16} color={PALETTE.ink} />
+                          </div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{svc.name}</div>
+                          {svc.sessions && <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: 2 }}>{svc.sessions}</div>}
+                        </button>
+                        <CareServiceLinkButton link={svc.link} label={svc.linkLabel} accent={PALETTE.berry} />
+                      </div>
                     )
                   })}
                 </div>

@@ -31,6 +31,20 @@ export const LINK_TOKEN = /^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/
 export const IMAGE_TOKEN = /^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/
 const IMAGE_TOKEN_GLOBAL = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g
 
+// The keyword-link bank was seeded from old PDF exports where one phrase
+// often carried several URLs joined by "; " (e.g. two YouTube videos). Auto-
+// linking pasted that whole value in as [phrase](url1; url2), which none of
+// the tokens above match — so the patient page showed the raw text, URLs and
+// all. A link has exactly one target: the first URL wins.
+export function firstUrl(raw: string): string {
+  return raw.trim().split(/\s*;\s*(?=https?:\/\/)|\s+/).find((u) => /^https?:\/\//i.test(u)) ?? raw.trim()
+}
+const MULTI_URL_LINK = /(?<!!)\[([^\]]+)\]\((https?:\/\/[^)]*?(?:\s|;(?=https?:\/\/))[^)]*)\)/g
+export function normalizeLinks(text: string): string {
+  if (!text || !text.includes('](')) return text
+  return text.replace(MULTI_URL_LINK, (_, label: string, urls: string) => `[${label}](${firstUrl(urls)})`)
+}
+
 // The coach-editor side of an image insert has no rendered view at all —
 // the textarea just shows the raw ![alt](url) text — so a coach who picks
 // or uploads a picture has no visible confirmation it actually landed,
@@ -81,7 +95,7 @@ export function splitTextAndImagesIndexed(items: string[]): { images: { alt: str
 
 export function renderMarkdownBold(text: string): React.ReactNode {
   if (!text || (!text.includes('**') && !text.includes('![') && !text.includes(']('))) return text
-  const parts = text.split(MARKDOWN_TOKEN)
+  const parts = normalizeLinks(text).split(MARKDOWN_TOKEN)
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
       return <strong key={i}>{part.slice(2, -2)}</strong>

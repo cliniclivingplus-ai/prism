@@ -21,6 +21,7 @@ import {
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { parseBullets, splitIntoPeriods, joinPeriods, parseScheduleLines } from '@/lib/periodBullets'
 import InlineEditableText from '@/components/InlineEditableText'
+import { CareServiceLinkButton, isVisibleCareService } from '@/components/CareServiceLink'
 import type { ChecklistItem } from '@/lib/dailyChecklist'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
 import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
@@ -398,6 +399,16 @@ export default function WeekEarthTemplate({ shareToken, data, initialCheckins, e
   // A week with no per-day breakdown shares one `actions` list across all
   // 7 days, so editing any day there edits that shared list — matching what
   // is actually displayed rather than silently forking a per-day copy.
+  // The week heading shown under "Your Roadmap".
+  function saveWeekTheme(next: string) {
+    if (!week) return
+    setWeeklySchedule((prev) => {
+      const updated = prev.map((w) => (w.week_number === week.week_number ? { ...w, focus_theme: next } : w))
+      patchRoadmap({ weekly_schedule: updated })
+      return updated
+    })
+  }
+
   function saveScheduleAction(dayIndex: number, actionIndex: number, next: string) {
     if (!week) return
     setWeeklySchedule((prev) => {
@@ -1164,8 +1175,11 @@ function clpToggleGroceryCat(head){
           <p style={{ marginTop: 16, marginBottom: 20, fontSize: '0.95rem', fontWeight: 600, color: PALETTE.berry }}>Follow → Track → Adjust</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20 }}>
             {[
-              { icon: MapPin, title: 'This week', text: 'Check your goals and meals for the week.' },
-              { icon: CheckCircle2, title: 'Each day', text: 'Tick off what you complete, including your daily check-in above.' },
+              { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
+              { icon: MapPin, title: 'Your goals', text: 'Your roadmap is one focused week, Sunday to Saturday. Open today to see its few small goals.' },
+              { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
+              { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
+              { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
               { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
             ].map(({ icon: Icon, title, text }) => (
               <div key={title}>
@@ -1371,7 +1385,14 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
             <Eyebrow dark>Your one week</Eyebrow>
             <SecTitle dark icon={<MapPin size={26} color={PALETTE.cream} />} sectionId="roadmap" open={isSectionOpen('roadmap')} onToggle={() => toggleSection('roadmap')}>Your Roadmap</SecTitle>
             <div data-section-body="roadmap" style={{ display: isSectionOpen('roadmap') ? 'block' : 'none' }}>
-            <p style={{ color: PALETTE.cream, opacity: 0.75, fontSize: '0.92rem', marginTop: 12, marginBottom: 24 }}>{week.focus_theme}</p>
+            {editable ? (
+              <div style={{ marginTop: 12, marginBottom: 24 }}>
+                <InlineEditableText editable as="div" value={week.focus_theme || ''} placeholder="Add a heading for this week" onSave={saveWeekTheme}
+                  style={{ color: PALETTE.cream, opacity: 0.75, fontSize: '0.92rem' }} />
+              </div>
+            ) : (
+              <p style={{ color: PALETTE.cream, opacity: 0.75, fontSize: '0.92rem', marginTop: 12, marginBottom: 24 }}>{week.focus_theme}</p>
+            )}
 
             {(week.actions?.length ?? 0) > 0 && (
               <div style={{ marginBottom: 28 }}>
@@ -1647,7 +1668,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
       </section>
 
       {/* What's included in your care */}
-      {data.careServices.length > 0 && (
+      {data.careServices.some(isVisibleCareService) && (
         <section id="services" style={{ background: PALETTE.paper3, padding: '4rem 1.5rem', ...hiddenStyle('services') }}>
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <Eyebrow>Your plan</Eyebrow>
@@ -1655,17 +1676,21 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
             <div data-section-body="services" style={{ display: isSectionOpen('services') ? 'block' : 'none' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 20 }}>
               {data.careServices.map((svc, i) => {
+                if (!isVisibleCareService(svc)) return null
                 const Icon = CARE_ICON_MAP[svc.icon] || Star
                 const isOpen = openService === i
                 return (
-                  <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
-                    style={{ textAlign: 'left', padding: '14px 12px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${isOpen ? PALETTE.berry : PALETTE.line}`, background: isOpen ? 'rgba(74,124,89,0.06)' : 'rgba(255,255,255,0.35)' }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: PALETTE.gold1, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                      <Icon size={16} color={PALETTE.ink} />
-                    </div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{svc.name}</div>
-                    {svc.sessions && <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: 2 }}>{svc.sessions}</div>}
-                  </button>
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
+                      style={{ flex: 1, textAlign: 'left', padding: '14px 12px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${isOpen ? PALETTE.berry : PALETTE.line}`, background: isOpen ? 'rgba(74,124,89,0.06)' : 'rgba(255,255,255,0.35)' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: PALETTE.gold1, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                        <Icon size={16} color={PALETTE.ink} />
+                      </div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{svc.name}</div>
+                      {svc.sessions && <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: 2 }}>{svc.sessions}</div>}
+                    </button>
+                    <CareServiceLinkButton link={svc.link} label={svc.linkLabel} accent={PALETTE.berry} />
+                  </div>
                 )
               })}
             </div>

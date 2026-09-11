@@ -60,6 +60,7 @@ export default function LinkInsertButton({ getTextarea, value, onChange, onLinke
     if (!selection) return
     const trimmed = url.trim()
     if (!/^https?:\/\//i.test(trimmed)) { setError('Enter a full link starting with http:// or https://'); return }
+    if (/[\s)]/.test(trimmed)) { setError('One link only — no spaces, and no second URL'); return }
     const phrase = value.slice(selection.start, selection.end)
     const next = value.slice(0, selection.start) + `[${phrase}](${trimmed})` + value.slice(selection.end)
     onChange(next)

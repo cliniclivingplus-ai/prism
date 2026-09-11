@@ -39,6 +39,7 @@ import { PALETTES } from './palettes'
 import { splitIntoPeriods, parseScheduleLines, joinPeriods } from '@/lib/periodBullets'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import InlineEditableText from '@/components/InlineEditableText'
+import { CareServiceLinkButton, isVisibleCareService } from '@/components/CareServiceLink'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -241,6 +242,14 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
     saveCareTeam([...careTeam, { name: person.full_name, role: person.designation || '', intro: person.bio || '', photo: person.photo_url || '' }])
   }
 
+  // The week heading on each roadmap week card ("Week 1 · <theme>").
+  function saveWeekTheme(weekNumber: number, next: string) {
+    setWeeklySchedule((prev) => {
+      const updated = prev.map((w) => (w.week_number === weekNumber ? { ...w, focus_theme: next } : w))
+      patchRoadmap({ weekly_schedule: updated })
+      return updated
+    })
+  }
   function saveScheduleAction(weekNumber: number, dayIndex: number, actionIndex: number, next: string) {
     setWeeklySchedule((prev) => {
       const updated = prev.map((w) => {
@@ -851,8 +860,11 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
           <SecTitle icon={<HelpCircle size={20} />}>How to use your plan</SecTitle>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 18 }}>
             {[
-              { icon: MapPin, title: 'This week', text: 'Check your goals and meals for the week.' },
-              { icon: CheckCircle2, title: 'Each day', text: 'Tick off what you complete.' },
+              { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
+              { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
+              { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
+              { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
+              { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
               { icon: HelpCircle, title: 'Need help?', text: `Message ${coachFirst} if something doesn't work for you.` },
             ].map(({ icon: Icon, title, text }) => (
               <div key={title}>
@@ -1051,13 +1063,25 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
             {months.map((m) => (
               <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 24, display: openMonth === m.monthNumber ? 'block' : 'none', borderTop: `1px solid ${V.line}`, paddingTop: 20 }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                  {m.weeks.map((w) => (
-                    <button key={w.week_number} data-week-trigger={w.week_number} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
+                  {m.weeks.map((w) => {
+                    // A div in edit mode: a text field inside a <button> would
+                    // toggle the week on every click into it (and on Space).
+                    const WeekCard = editable ? 'div' : 'button'
+                    return (
+                    <WeekCard key={w.week_number} data-week-trigger={w.week_number} role={editable ? 'button' : undefined} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
                       style={{ textAlign: 'left', padding: '10px 14px', borderRadius: 10, cursor: 'pointer', minWidth: 140, border: `1px solid ${openWeek === w.week_number ? V.accent : V.line}`, background: openWeek === w.week_number ? V.accentSoft : '#fff' }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: V.accent }}>Week {w.week_number}</div>
-                      <div style={{ fontSize: 12.5, marginTop: 2 }}>{w.focus_theme}</div>
-                    </button>
-                  ))}
+                      {editable ? (
+                        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 2 }}>
+                          <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
+                            style={{ fontSize: 12.5 }} />
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12.5, marginTop: 2 }}>{w.focus_theme}</div>
+                      )}
+                    </WeekCard>
+                    )
+                  })}
                 </div>
 
                 {m.weeks.map((w) => (
@@ -1355,23 +1379,27 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
         </Card>
 
         {/* Services */}
-        {data.careServices.length > 0 && (
+        {data.careServices.some(isVisibleCareService) && (
           <Card id="services" hidden={isHidden('services')}>
             <Eyebrow>Your plan</Eyebrow>
             <SecTitle icon={<Star size={20} />}>What&apos;s included in your care</SecTitle>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginTop: 16 }}>
               {data.careServices.map((svc, i) => {
+                if (!isVisibleCareService(svc)) return null
                 const Icon = CARE_ICON_MAP[svc.icon] || Star
                 const isOpen = openService === i
                 return (
-                  <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
-                    style={{ textAlign: 'left', padding: '14px 12px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${isOpen ? V.accent : V.line}`, background: isOpen ? V.accentSoft : '#fff' }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: V.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                      <Icon size={16} color="#fff" />
-                    </div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700 }}>{svc.name}</div>
-                    {svc.sessions && <div style={{ fontSize: 11, color: V.muted, marginTop: 2 }}>{svc.sessions}</div>}
-                  </button>
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
+                      style={{ flex: 1, textAlign: 'left', padding: '14px 12px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${isOpen ? V.accent : V.line}`, background: isOpen ? V.accentSoft : '#fff' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 9, background: V.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                        <Icon size={16} color="#fff" />
+                      </div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700 }}>{svc.name}</div>
+                      {svc.sessions && <div style={{ fontSize: 11, color: V.muted, marginTop: 2 }}>{svc.sessions}</div>}
+                    </button>
+                    <CareServiceLinkButton link={svc.link} label={svc.linkLabel} accent={V.accent} />
+                  </div>
                 )
               })}
             </div>

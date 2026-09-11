@@ -9,7 +9,7 @@ import { selectRecipesForPatient, type BankRecipe } from './matchRecipes'
 import { splitRecipeLines } from '../recipeText'
 import { cleanSourceTitle, sourceSearchUrl } from '../sourceLinks'
 import { groupBulletsByLabel } from '../periodBullets'
-import { MARKDOWN_TOKEN, LINK_TOKEN } from '../renderMarkdownBold'
+import { MARKDOWN_TOKEN, LINK_TOKEN, normalizeLinks } from '../renderMarkdownBold'
 import type { ChecklistPageBlock } from '../blocks/types'
 import type { ChecklistItem } from '../dailyChecklist'
 import type { GroceryCategory } from '../groceryList'
@@ -57,7 +57,7 @@ export type GuideData = {
   template: string // coach-picked page template for the patient-facing dashboard — 'classic' (default) or 'almanac'; editing always happens in the classic editor regardless of which one is picked
   createdAt: string // roadmap's real creation timestamp — the only anchor a week's Sunday-Saturday day tabs have to real calendar dates, since roadmaps don't store an explicit start date
   confirmedSupplements: { name: string; dose: string; timing: string; duration: string; notes: string }[] // from a patient_reports row a coach explicitly reviewed & confirmed — never shown pre-confirmation
-  careServices: { name: string; icon: string; sessions: string; description?: string }[] // "What's included in your care" tiles — coach-entered, empty by default rather than generic filler copy
+  careServices: { name: string; icon: string; sessions: string; description?: string; link?: string; linkLabel?: string }[] // "What's included in your care" tiles — coach-entered, empty by default rather than generic filler copy
   nextAppointment: { date: string; time: string; mode: string } // shown in "When to reach us" — coach-entered, blank fields just don't render rather than showing a placeholder
   careTeam: { name: string; role: string; intro: string; date: string; time: string; mode: string }[] // "Your care team" — other providers (doctor, therapist, naturopath, etc.) beyond the primary coach, each with their own intro + appointment. Empty by default.
   hiddenSections: string[] // section keys (GUIDE_SECTIONS keys / dashboard section ids) the coach has switched off for this patient — omitted everywhere: live dashboard, PDF, offline export
@@ -464,7 +464,7 @@ function roadmapPages(data: GuideData): ReactElement[] {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function renderInlinePdf(text: string, style: any): ReactElement {
   if (!text.includes('**') && !text.includes('](')) return <Text style={style}>{text}</Text>
-  const parts = text.split(MARKDOWN_TOKEN)
+  const parts = normalizeLinks(text).split(MARKDOWN_TOKEN)
   return (
     <Text style={style}>
       {parts.map((part, i) => {

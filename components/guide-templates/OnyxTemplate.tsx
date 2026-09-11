@@ -26,6 +26,7 @@ import { reshapeRoadmapIntoMonths, type WeeklyPlan } from '@/lib/pdf/reshapeRoad
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
 import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkdownBold'
 import ImageInsertButton from '@/components/ImageInsertButton'
+import { CareServiceLinkButton, CareServiceLinkFields, isVisibleCareService } from '@/components/CareServiceLink'
 import ImagePreviewStrip from '@/components/ImagePreviewStrip'
 import { splitRecipeLines } from '@/lib/recipeText'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
@@ -245,6 +246,14 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
   // week's actions — saveWeekAction below finds the right week by number.
   const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
   const months = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+  // The week heading on each roadmap week card ("WEEK 1 · <theme>").
+  function saveWeekTheme(weekNumber: number, next: string) {
+    setWeeklySchedule((prev) => {
+      const updated = prev.map((w) => (w.week_number === weekNumber ? { ...w, focus_theme: next } : w))
+      patchRoadmap({ weekly_schedule: updated })
+      return updated
+    })
+  }
   function saveWeekAction(weekNumber: number, dayIndex: number, actionIndex: number, next: string) {
     setWeeklySchedule((prev) => {
       const updated = prev.map((w) => {
@@ -814,16 +823,19 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
         </Card>
 
         {/* Founder's note — round photo, tap to reveal the note */}
-        <Card id="founder" hidden={isHidden('founder')} style={{ textAlign: 'center' }}>
-          <Eyebrow>A note from the founder</Eyebrow>
-          <SecTitle icon={<HeartPulse size={18} />}>Founder&apos;s note</SecTitle>
-          <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-            style={{ width: 72, height: 72, borderRadius: '50%', background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: 'none', cursor: 'pointer', margin: '16px auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-          <div style={{ fontFamily: SERIF, fontSize: '1.05rem', fontWeight: 500, color: ONYX.ink }}>Roshni Sanghvi</div>
-          <div style={{ fontSize: '0.7rem', letterSpacing: '0.08em', color: ONYX.muted, textTransform: 'uppercase', marginBottom: 8 }}>Founder, Living Plus</div>
-          <div style={{ fontSize: '0.74rem', color: ONYX.muted, maxWidth: 380, margin: '0 auto 6px' }}>{FOUNDER_INTRO}</div>
-          <div style={{ fontSize: '0.72rem', color: ONYX.muted }}>Tap the photo to read the note</div>
-          <div data-founder-body style={{ display: founderOpen ? 'block' : 'none', textAlign: 'left', marginTop: 16, fontSize: '0.92rem', lineHeight: 1.7, color: ONYX.inkSoft }}>
+        <Card id="founder" hidden={isHidden('founder')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+            <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
+              style={{ width: 54, height: 54, borderRadius: '50%', flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${ONYX.border}`, padding: 0, cursor: 'pointer' }} />
+            <div>
+              <Eyebrow>Founder&apos;s note</Eyebrow>
+              <div style={{ fontFamily: SERIF, fontSize: '1.2rem', fontWeight: 500, marginTop: -6, color: ONYX.ink }}>Roshni Sanghvi</div>
+              <div style={{ fontSize: '0.8rem', color: ONYX.muted, marginTop: 2 }}>Founder, Living Plus</div>
+              <div style={{ fontSize: '0.74rem', color: ONYX.muted, marginTop: 6, maxWidth: 560 }}>{FOUNDER_INTRO}</div>
+              <div style={{ fontSize: '0.7rem', color: ONYX.muted, marginTop: 6 }}>Tap the photo to read the note</div>
+            </div>
+          </div>
+          <div data-founder-body style={{ display: founderOpen ? 'block' : 'none', marginTop: 16, fontSize: '0.92rem', lineHeight: 1.7, color: ONYX.inkSoft }}>
             {editable ? (
               <InlineEditableText editable multiline value={founderNote} onSave={saveFounderNote}
                 style={{ display: 'block', fontSize: '0.92rem', lineHeight: 1.7, color: ONYX.inkSoft, minHeight: 120 }} />
@@ -940,8 +952,11 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
           <p style={{ marginTop: 14, marginBottom: 18, fontSize: '0.92rem', fontWeight: 600, color: ONYX.accent }}>Follow → Track → Adjust</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 1, background: ONYX.border }}>
             {[
-              { icon: MapPin, title: 'This week', text: 'Check your goals and meals for the week.' },
-              { icon: CheckCircle2, title: 'Each day', text: 'Tick off what you complete.' },
+              { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
+              { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
+              { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
+              { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
+              { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
               { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
             ].map(({ icon: Icon, title, text }) => (
               <div key={title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: ONYX.card, padding: '14px' }}>
@@ -1113,17 +1128,29 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
             {months.map((m) => (
               <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 22, display: openMonth === m.monthNumber ? 'block' : 'none' }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-                  {m.weeks.map((w) => (
-                    <button key={w.week_number} data-week-trigger={w.week_number} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
+                  {m.weeks.map((w) => {
+                    // A div in edit mode: a text field inside a <button> would
+                    // toggle the week on every click into it (and on Space).
+                    const WeekCard = editable ? 'div' : 'button'
+                    return (
+                    <WeekCard key={w.week_number} data-week-trigger={w.week_number} role={editable ? 'button' : undefined} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
                       style={{
                         textAlign: 'left', padding: '11px 15px', borderRadius: 2, cursor: 'pointer', minWidth: 150,
                         border: `1px solid ${openWeek === w.week_number ? ONYX.accent : ONYX.border}`,
                         background: openWeek === w.week_number ? ONYX.accentSoft : ONYX.bg,
                       }}>
                       <div style={{ color: ONYX.accentDeep, fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.04em' }}>WEEK {w.week_number}</div>
-                      <div style={{ color: ONYX.inkSoft, fontSize: '0.83rem', marginTop: 3 }}>{w.focus_theme}</div>
-                    </button>
-                  ))}
+                      {editable ? (
+                        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 3 }}>
+                          <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
+                            style={{ color: ONYX.inkSoft, fontSize: '0.83rem' }} />
+                        </div>
+                      ) : (
+                        <div style={{ color: ONYX.inkSoft, fontSize: '0.83rem', marginTop: 3 }}>{w.focus_theme}</div>
+                      )}
+                    </WeekCard>
+                    )
+                  })}
                 </div>
 
                 {m.weeks.map((w) => (
@@ -1480,7 +1507,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
         )}
 
         {/* What's included in your care */}
-        {(careServices.length > 0 || editable) && (
+        {(careServices.some(isVisibleCareService) || editable) && (
           <Card id="services" hidden={isHidden('services')}>
             <Eyebrow>Your plan</Eyebrow>
             <SecTitle icon={<Star size={18} />}>What&apos;s included in your care</SecTitle>
@@ -1498,6 +1525,9 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                       style={{ fontSize: '0.78rem', color: ONYX.muted, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '5px 6px', width: 110 }} />
                     <textarea value={svc.description || ''} onChange={(e) => updateCareServiceField(i, 'description', e.target.value)} onBlur={blurCareServices} placeholder="Description" rows={2}
                       style={{ fontSize: '0.83rem', lineHeight: 1.5, color: ONYX.inkSoft, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '5px 6px', width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
+                    <CareServiceLinkFields link={svc.link} label={svc.linkLabel} mutedColor={ONYX.muted}
+                      onLink={(v) => updateCareServiceField(i, 'link', v)} onLabel={(v) => updateCareServiceField(i, 'linkLabel', v)} onBlur={blurCareServices}
+                      inputStyle={{ fontSize: '0.8rem', color: ONYX.ink, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '5px 6px' }} />
                     <button type="button" onClick={() => saveCareServices(careServices.filter((_, idx) => idx !== i))} title="Remove"
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: ONYX.muted, flexShrink: 0 }}><X size={15} /></button>
                   </div>
@@ -1511,17 +1541,21 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginTop: 16 }}>
                   {careServices.map((svc, i) => {
+                    if (!isVisibleCareService(svc)) return null
                     const Icon = CARE_ICON_MAP[svc.icon] || Star
                     const isOpen = openService === i
                     return (
-                      <button key={i} data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
-                        style={{ textAlign: 'left', padding: '13px 12px', borderRadius: 2, cursor: 'pointer', border: `1px solid ${isOpen ? ONYX.accent : ONYX.border}`, background: isOpen ? ONYX.accentSoft : ONYX.bg }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 2, background: ONYX.card, border: `1px solid ${ONYX.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 9 }}>
-                          <Icon size={14} color={ONYX.accent} />
-                        </div>
-                        <div style={{ fontSize: '0.83rem', fontWeight: 600, color: ONYX.ink }}>{svc.name}</div>
-                        {svc.sessions && <div style={{ fontSize: '0.73rem', color: ONYX.muted, marginTop: 2 }}>{svc.sessions}</div>}
-                      </button>
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <button data-care-trigger={i} onClick={() => setOpenService(isOpen ? null : i)}
+                          style={{ flex: 1, textAlign: 'left', padding: '13px 12px', borderRadius: 2, cursor: 'pointer', border: `1px solid ${isOpen ? ONYX.accent : ONYX.border}`, background: isOpen ? ONYX.accentSoft : ONYX.bg }}>
+                          <div style={{ width: 28, height: 28, borderRadius: 2, background: ONYX.card, border: `1px solid ${ONYX.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 9 }}>
+                            <Icon size={14} color={ONYX.accent} />
+                          </div>
+                          <div style={{ fontSize: '0.83rem', fontWeight: 600, color: ONYX.ink }}>{svc.name}</div>
+                          {svc.sessions && <div style={{ fontSize: '0.73rem', color: ONYX.muted, marginTop: 2 }}>{svc.sessions}</div>}
+                        </button>
+                        <CareServiceLinkButton link={svc.link} label={svc.linkLabel} accent={ONYX.accent} color={ONYX.onAccent} style={{ borderRadius: 2 }} />
+                      </div>
                     )
                   })}
                 </div>

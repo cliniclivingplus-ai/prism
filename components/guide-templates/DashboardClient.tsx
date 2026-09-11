@@ -13,7 +13,7 @@ import { selectRecipesForPatient, type RecipeMatch } from '@/lib/pdf/matchRecipe
 import { curatedSlotIds as sharedCuratedSlotIds, getSlotRecipes as sharedGetSlotRecipes } from '@/lib/pdf/weekRecipes'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { splitRecipeLines } from '@/lib/recipeText'
-import { renderMarkdownBold, splitTextAndImages } from '@/lib/renderMarkdownBold'
+import { renderMarkdownBold, splitTextAndImages, normalizeLinks } from '@/lib/renderMarkdownBold'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from '@/lib/periodBullets'
@@ -22,8 +22,10 @@ import LinkInsertButton from '@/components/LinkInsertButton'
 import ProtocolPickerButton from '@/components/ProtocolPickerButton'
 import ImageInsertButton from '@/components/ImageInsertButton'
 import ImagePreviewStrip from '@/components/ImagePreviewStrip'
+import { CareServiceLinkButton, CareServiceLinkFields, isVisibleCareService } from '@/components/CareServiceLink'
 import { useKeywordLinkBank } from '@/lib/hooks/useKeywordLinkBank'
 import { autoLinkText } from '@/lib/autoLinkKeywords'
+import { INLINE_LINK_RE, linksIn, reattachLinks } from '@/lib/linkText'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -31,6 +33,31 @@ const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
 // always a positive integer) for the whole-plan fallback list's own AI-cleaned
 // result — see the grocery useEffect below.
 const FULL_PLAN_GROCERY_CACHE_KEY = -1
+
+// Linked phrases for one box, listed under it — the only place a coach sees
+// which words carry a link now that the textarea hides the URLs.
+function LinkChips({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  const clean = normalizeLinks(value || '')
+  const links = linksIn(splitTextAndImages(clean.split('\n')).textItems.join('\n'))
+  if (links.length === 0) return null
+  const unlink = (i: number) => {
+    let n = -1
+    onChange(clean.replace(INLINE_LINK_RE, (m, label) => (++n === i ? label : m)))
+  }
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+      {links.map((l, i) => (
+        <span key={i} title={l.url}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '100%', fontSize: 11, fontWeight: 600, color: '#2563EB', background: '#EFF4FF', borderRadius: 20, padding: '2px 4px 2px 8px' }}>
+          <LinkIcon size={10} />
+          <a href={l.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.label}</a>
+          <button type="button" onClick={() => unlink(i)} title="Remove link"
+            style={{ display: 'inline-flex', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', opacity: 0.6 }}><X size={11} /></button>
+        </span>
+      ))}
+    </div>
+  )
+}
 import { Rnd } from 'react-rnd'
 import { Copy, Wand2, Send, AlertTriangle } from 'lucide-react'
 import { BlockCard, BlockBody, computeCanvasHeight, CANVAS_WIDTH, toBlockTheme, type RecipeLookup, type ImageLookup } from '@/lib/blocks/BlockRenderer'
@@ -873,8 +900,11 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // so a coach editing "Evening" is editing precisely what renders in the
   // Evening card, and joinPeriods reassembles it into the one stored string
   // on save.
-  const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS))
-  const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS))
+  // normalizeLinks: older saves can hold [phrase](url1; url2), which the
+  // link grammar doesn't recognise — cleaned here so the box hides it too
+  // and the next save writes the fixed single-URL form.
+  const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(normalizeLinks(data.dailyLifestyleGuidelines), LIFESTYLE_PERIODS))
+  const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(normalizeLinks(data.mealGuidelines), MEAL_PERIODS))
   // Textarea DOM refs, keyed by period — LinkInsertButton reads the coach's
   // current selection directly off these to know what phrase to wrap.
   const lifestyleTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
@@ -912,16 +942,22 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // the very next keystroke — space and Enter looked like they didn't work.
   // parseBullets still runs wherever this text is actually rendered as
   // bullets; blank lines/stray whitespace get cleaned up there, not here.
+  //
+  // Links get the same treatment: a raw [phrase](https://…) in the box read
+  // as broken text, so the textarea shows only the phrase and the URL is
+  // carried over from the stored value on every change (reattachLinks). The
+  // linked phrases are listed under the box instead (LinkChips).
   function textOnlyValue(fullValue: string): string {
-    return splitTextAndImages((fullValue || '').split('\n')).textItems.join('\n')
+    return splitTextAndImages(normalizeLinks(fullValue || '').split('\n')).textItems.join('\n').replace(INLINE_LINK_RE, '$1')
   }
   function mergeImagesBack(newText: string, previousFullValue: string): string {
-    const { images } = splitTextAndImages((previousFullValue || '').split('\n'))
-    if (images.length === 0) return newText
+    const { images, textItems } = splitTextAndImages(normalizeLinks(previousFullValue || '').split('\n'))
+    const withLinks = reattachLinks(newText, textItems.join('\n'))
+    if (images.length === 0) return withLinks
     const imageLines = images.map((img) => `![${img.alt}](${img.url})`).join('\n')
-    return newText.trim() ? `${newText}\n${imageLines}` : imageLines
+    return withLinks.trim() ? `${withLinks}\n${imageLines}` : imageLines
   }
-  const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule)
+  const [dailyScheduleText, setDailyScheduleText] = useState(() => normalizeLinks(data.dailySchedule))
   // "Regenerate roadmap" — see regenerate-roadmap/route.ts. Explicit,
   // confirmed coach action only (never auto-triggered): resets this
   // roadmap's check-in history and rewrites every week's goals, unlike the
@@ -2235,9 +2271,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           {/* Founder's note — coach-editable text, personalized with name +
               goal only until a coach actually edits it (see
               defaultFounderNote in buildGuideData.ts) */}
-          <div id="founder" {...hiddenAttrs('founder')} style={{ ...cardStyle, textAlign: 'center', scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('founder') }}>
+          <div id="founder" {...hiddenAttrs('founder')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('founder') }}>
             {editable && <SectionToggle hidden={isHidden('founder')} onToggle={() => toggleSection('founder')} />}
-            <div style={{ ...sectionTitleStyle, justifyContent: editable ? 'space-between' : 'center' }}>
+            <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
               <span>Founder&apos;s note</span>
               {editable && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2246,13 +2282,17 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 </div>
               )}
             </div>
-            <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-              style={{ width: 72, height: 72, borderRadius: 36, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: 'none', cursor: 'pointer', margin: '12px auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>Roshni Sanghvi</div>
-            <div style={{ fontSize: 11, color: C.muted, letterSpacing: '0.04em', marginBottom: 6 }}>FOUNDER, CLINIC LIVING PLUS</div>
-            <div style={{ fontSize: 11.5, color: C.muted, maxWidth: 380, margin: '0 auto 6px' }}>{FOUNDER_INTRO}</div>
-            <div style={{ fontSize: 11.5, color: C.muted }}>Tap the photo to read the note</div>
-            <div data-founder-body style={{ display: (editable || founderOpen) ? 'block' : 'none', textAlign: 'left', marginTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8 }}>
+              <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
+                style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${C.rule}`, padding: 0, cursor: 'pointer' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Roshni Sanghvi</div>
+                <div style={{ fontSize: 12, color: C.muted }}>Founder, Clinic Living Plus</div>
+                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 6, maxWidth: 560 }}>{FOUNDER_INTRO}</div>
+                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 4 }}>Tap the photo to read the note</div>
+              </div>
+            </div>
+            <div data-founder-body style={{ display: (editable || founderOpen) ? 'block' : 'none', marginTop: 16 }}>
               {editable ? (
                 <>
                   <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6 }} rows={7}
@@ -2446,8 +2486,11 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             <p style={{ ...bulletStyle, marginBottom: 16, fontWeight: 700, color: C.accent }}>Follow → Track → Adjust</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 16 }}>
               {[
-                { icon: MapPin, title: 'This week', text: 'Check your goals and meals for the week.' },
-                { icon: CheckCircle2, title: 'Each day', text: 'Tick off what you complete.' },
+                { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
+                { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
+                { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
+                { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
+                { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
                 { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
               ].map(({ icon: Icon, title, text }) => (
                 <div key={title}>
@@ -2518,9 +2561,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 4 }}>
                 {LIFESTYLE_PERIODS.map((period) => (
                   <div key={period}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ ...editLabelStyle, fontSize: 10.5 }}>{period}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                      <div style={{ ...editLabelStyle, fontSize: 10.5, marginBottom: 0 }}>{period}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                         <LinkInsertButton getTextarea={() => lifestyleTextareaRefs.current[period]} value={textOnlyValue(lifestyleByPeriod[period])}
                           onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} onLinked={addKeywordLink} />
                         <ProtocolPickerButton value={textOnlyValue(lifestyleByPeriod[period])}
@@ -2533,8 +2576,10 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     </div>
                     <textarea ref={(el) => { lifestyleTextareaRefs.current[period] = el }} style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.55, fontSize: 12.5 }} rows={4}
                       value={textOnlyValue(lifestyleByPeriod[period])} onChange={(e) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(e.target.value, prev[period]) }))}
-                      onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(next, prev[period]) })))}
+                      onBlur={() => autoLinkOnBlur(lifestyleByPeriod[period], (next) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: next })))}
                       placeholder={`One item per line, e.g.\n${period === 'Morning' ? '12-hour overnight fast' : period === 'Afternoon' ? '15 minute walk after lunch' : 'Dinner finished by 8:30pm'}`} />
+                    <LinkChips value={lifestyleByPeriod[period]}
+                      onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
                     <ImagePreviewStrip value={lifestyleByPeriod[period]}
                       onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
                   </div>
@@ -2545,9 +2590,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 4 }}>
                 {MEAL_PERIODS.map((period) => (
                   <div key={period}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ ...editLabelStyle, fontSize: 10.5 }}>{period}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                      <div style={{ ...editLabelStyle, fontSize: 10.5, marginBottom: 0 }}>{period}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                         <LinkInsertButton getTextarea={() => mealsTextareaRefs.current[period]} value={textOnlyValue(mealsByPeriod[period])}
                           onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} onLinked={addKeywordLink} />
                         <ProtocolPickerButton value={textOnlyValue(mealsByPeriod[period])}
@@ -2560,8 +2605,10 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     </div>
                     <textarea ref={(el) => { mealsTextareaRefs.current[period] = el }} style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.55, fontSize: 12.5 }} rows={4}
                       value={textOnlyValue(mealsByPeriod[period])} onChange={(e) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(e.target.value, prev[period]) }))}
-                      onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(next, prev[period]) })))}
+                      onBlur={() => autoLinkOnBlur(mealsByPeriod[period], (next) => setMealsByPeriod((prev) => ({ ...prev, [period]: next })))}
                       placeholder={`One item per line, e.g.\n${period === 'Breakfast' ? 'A bowl of fruit + a handful of berries' : period === 'Lunch' ? '50% vegetables, 25% lentils, 25% grains' : 'Same plate ratio, finished by 8:30pm'}`} />
+                    <LinkChips value={mealsByPeriod[period]}
+                      onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
                     <ImagePreviewStrip value={mealsByPeriod[period]}
                       onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />
                   </div>
@@ -2579,6 +2626,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6 }} rows={5}
                 value={textOnlyValue(dailyScheduleText)} onChange={(e) => setDailyScheduleText((prev) => mergeImagesBack(e.target.value, prev))}
                 placeholder={'One time-block per line, e.g.\n7:30 AM — Wake up, hydrate\n9:30 AM — Breakfast\n8:30 PM — Dinner finished'} />
+              <LinkChips value={dailyScheduleText} onChange={setDailyScheduleText} />
               <ImagePreviewStrip value={dailyScheduleText} onChange={setDailyScheduleText} />
             </div>
           )}
@@ -2784,7 +2832,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <textarea style={{ ...editInputStyle, resize: 'vertical' as const }} rows={3}
                         value={textOnlyValue((w.actions || []).join('\n'))}
                         onChange={(e) => updateWeek(w.week_number, { actions: mergeImagesBack(e.target.value, (w.actions || []).join('\n')).split('\n') })}
-                        onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => updateWeek(w.week_number, { actions: mergeImagesBack(next, (w.actions || []).join('\n')).split('\n') }))} />
+                        onBlur={() => autoLinkOnBlur((w.actions || []).join('\n'), (next) => updateWeek(w.week_number, { actions: next.split('\n') }))} />
+                      <LinkChips value={(w.actions || []).join('\n')}
+                        onChange={(v) => updateWeek(w.week_number, { actions: v.split('\n') })} />
                       <ImagePreviewStrip value={(w.actions || []).join('\n')}
                         onChange={(v) => updateWeek(w.week_number, { actions: v.split('\n') })} />
                     </div>
@@ -2819,12 +2869,14 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                                 <div key={actionIndex} style={{ marginBottom: 8 }}>
                                   <div style={{ fontSize: 10.5, color: C.muted, fontWeight: 700, marginBottom: 3 }}>Goal {actionIndex + 1} · {DAY_LABELS[dayIndex]}</div>
                                   <textarea
-                                    value={w.days?.[dayIndex]?.[actionIndex] ?? ''}
-                                    onChange={(e) => updateDayAction(w.week_number, dayIndex, actionIndex, e.target.value)}
-                                    onBlur={(e) => autoLinkOnBlur(e.target.value, (next) => updateDayAction(w.week_number, dayIndex, actionIndex, next))}
+                                    value={textOnlyValue(w.days?.[dayIndex]?.[actionIndex] ?? '')}
+                                    onChange={(e) => updateDayAction(w.week_number, dayIndex, actionIndex, mergeImagesBack(e.target.value, w.days?.[dayIndex]?.[actionIndex] ?? ''))}
+                                    onBlur={() => autoLinkOnBlur(w.days?.[dayIndex]?.[actionIndex] ?? '', (next) => updateDayAction(w.week_number, dayIndex, actionIndex, next))}
                                     rows={2}
                                     style={{ width: '100%', fontSize: 12.5, padding: '7px 9px', border: `1px solid ${C.rule}`, borderRadius: 7, fontFamily: 'inherit', resize: 'vertical' as const }}
                                   />
+                                  <LinkChips value={w.days?.[dayIndex]?.[actionIndex] ?? ''}
+                                    onChange={(v) => updateDayAction(w.week_number, dayIndex, actionIndex, v)} />
                                 </div>
                               ))}
                             </div>
@@ -3024,7 +3076,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     <div key={i} style={{ border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', background: C.bg }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
                         <AiEditButton roadmapId={rid} kind="service" value={svc} context={aiContext}
-                          onApply={(v) => { const next = [...careServices]; next[i] = v; setCareServices(next) }} />
+                          onApply={(v) => { const next = [...careServices]; next[i] = { ...svc, ...v }; setCareServices(next) }} />
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 8 }}>
                         <div>
@@ -3053,6 +3105,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                         <textarea style={{ ...editInputStyle, resize: 'vertical' as const }} rows={2} value={svc.description || ''}
                           onChange={(e) => { const next = [...careServices]; next[i] = { ...svc, description: e.target.value }; setCareServices(next) }} />
                       </div>
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={editLabelStyle}>Link (optional — meeting, Google Form, any URL)</div>
+                        <CareServiceLinkFields link={svc.link} label={svc.linkLabel} mutedColor={C.muted} inputStyle={editInputStyle}
+                          onLink={(v) => { const next = [...careServices]; next[i] = { ...svc, link: v }; setCareServices(next) }}
+                          onLabel={(v) => { const next = [...careServices]; next[i] = { ...svc, linkLabel: v }; setCareServices(next) }} />
+                      </div>
                       <button onClick={() => setCareServices(careServices.filter((_, idx) => idx !== i))}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: '#b4462f', fontSize: 12, fontWeight: 700, padding: 0 }}>
                         <Trash2 size={13} /> Remove
@@ -3065,19 +3123,23 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   <Plus size={14} /> Add service
                 </button>
               </>
-            ) : careServices.length > 0 ? (
+            ) : careServices.some(isVisibleCareService) ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
                 {careServices.map((svc, i) => {
+                  if (!isVisibleCareService(svc)) return null
                   const Icon = CARE_ICON_MAP[svc.icon] || Star
                   return (
-                    <button key={i} data-care-trigger={i} onClick={() => setOpenCareService(i)}
-                      style={{ textAlign: 'left', padding: '14px 12px', borderRadius: 12, border: `1px solid ${C.rule}`, background: C.bg, cursor: 'pointer' }}>
-                      <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                        <Icon size={17} color={C.accent} />
-                      </div>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, marginBottom: 2 }}>{svc.name}</div>
-                      {svc.sessions && <div style={{ fontSize: 11, color: C.muted }}>{svc.sessions}</div>}
-                    </button>
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <button data-care-trigger={i} onClick={() => setOpenCareService(i)}
+                        style={{ flex: 1, textAlign: 'left', padding: '14px 12px', borderRadius: 12, border: `1px solid ${C.rule}`, background: C.bg, cursor: 'pointer' }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                          <Icon size={17} color={C.accent} />
+                        </div>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, marginBottom: 2 }}>{svc.name}</div>
+                        {svc.sessions && <div style={{ fontSize: 11, color: C.muted }}>{svc.sessions}</div>}
+                      </button>
+                      <CareServiceLinkButton link={svc.link} label={svc.linkLabel} accent={C.accent} />
+                    </div>
                   )
                 })}
               </div>
