@@ -874,7 +874,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                     <>
                       <button type="button" onClick={() => saveCareTeam(careTeam.filter((_, idx) => idx !== i))} title="Remove"
                         style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: ONYX.muted }}><X size={14} /></button>
-                      {m.photo && <div style={{ width: 32, height: 32, borderRadius: 16, background: `url(${m.photo}) center/cover`, border: `1px solid ${ONYX.border}`, marginBottom: 6 }} />}
+                      {m.photo && <div style={{ width: 44, height: 44, borderRadius: 22, background: `url(${m.photo}) center/cover`, border: `1px solid ${ONYX.border}`, marginBottom: 6 }} />}
                       <input value={m.name} onChange={(e) => updateCareTeamField(i, 'name', e.target.value)} onBlur={blurCareTeam} placeholder="Name"
                         style={{ display: 'block', width: '100%', fontFamily: SERIF, fontSize: '1.05rem', fontWeight: 500, color: ONYX.ink, background: 'transparent', border: `1px dashed ${ONYX.border}`, borderRadius: 2, padding: '2px 4px', marginBottom: 6, boxSizing: 'border-box' }} />
                       <input value={m.role} onChange={(e) => updateCareTeamField(i, 'role', e.target.value)} onBlur={blurCareTeam} placeholder="Role"
@@ -892,7 +892,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                     </>
                   ) : (
                     <div style={{ display: 'flex', gap: 10 }}>
-                      {m.photo && <div style={{ width: 36, height: 36, borderRadius: 18, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${ONYX.border}` }} />}
+                      {m.photo && <div style={{ width: 52, height: 52, borderRadius: 26, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${ONYX.border}` }} />}
                       <div>
                         <div style={{ fontFamily: SERIF, fontSize: '1.05rem', fontWeight: 500, color: ONYX.ink }}>{m.name}</div>
                         {m.role && <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.muted, marginTop: 2 }}>{m.role}</div>}

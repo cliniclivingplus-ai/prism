@@ -2332,7 +2332,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div key={i} style={{ border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', background: C.bg }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                           {member.photo ? (
-                            <div style={{ width: 32, height: 32, borderRadius: 16, background: `url(${member.photo}) center/cover`, border: `1px solid ${C.rule}` }} />
+                            <div style={{ width: 44, height: 44, borderRadius: 22, background: `url(${member.photo}) center/cover`, border: `1px solid ${C.rule}` }} />
                           ) : <div />}
                           <AiEditButton roadmapId={rid} kind="care_team_member" value={member} context={aiContext}
                             onApply={(v) => { const next = [...careTeam]; next[i] = v; setCareTeam(next) }} />
@@ -2411,9 +2411,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   {careTeam.map((member, i) => (
                     <div key={i} style={{ display: 'flex', gap: 12, border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', background: C.bg }}>
                       {member.photo ? (
-                        <div style={{ width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: `url(${member.photo}) center/cover`, border: `1px solid ${C.rule}` }} />
+                        <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${member.photo}) center/cover`, border: `1px solid ${C.rule}` }} />
                       ) : (
-                        <div style={{ width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: C.accentSoft }} />
+                        <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: C.accentSoft }} />
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{member.name}</div>

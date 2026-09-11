@@ -797,7 +797,7 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                     <button type="button" onClick={() => removeCareTeamMember(i)} title="Remove"
                       style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: V.accent, opacity: 0.6 }}><X size={14} /></button>
                   )}
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: m.photo ? `url(${m.photo}) center/cover` : V.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: V.accentDeep, marginBottom: 10 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 14, background: m.photo ? `url(${m.photo}) center/cover` : V.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: V.accentDeep, marginBottom: 10 }}>
                     {!m.photo && (m.name || '?').charAt(0)}
                   </div>
                   {editable ? (

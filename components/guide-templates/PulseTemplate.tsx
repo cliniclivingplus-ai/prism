@@ -917,7 +917,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                     <>
                       <button type="button" onClick={() => saveCareTeam(careTeam.filter((_, idx) => idx !== i))} title="Remove"
                         style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: PULSE.muted }}><X size={14} /></button>
-                      {m.photo && <div style={{ width: 32, height: 32, borderRadius: 16, background: `url(${m.photo}) center/cover`, border: `1px solid ${PULSE.border}`, marginBottom: 6 }} />}
+                      {m.photo && <div style={{ width: 44, height: 44, borderRadius: 22, background: `url(${m.photo}) center/cover`, border: `1px solid ${PULSE.border}`, marginBottom: 6 }} />}
                       <input value={m.name} onChange={(e) => updateCareTeamField(i, 'name', e.target.value)} onBlur={blurCareTeam} placeholder="Name"
                         style={{ display: 'block', width: '100%', fontSize: '0.98rem', fontWeight: 700, color: PULSE.ink, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '2px 4px', marginBottom: 6, boxSizing: 'border-box' }} />
                       <input value={m.role} onChange={(e) => updateCareTeamField(i, 'role', e.target.value)} onBlur={blurCareTeam} placeholder="Role"
@@ -935,7 +935,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                     </>
                   ) : (
                     <div style={{ display: 'flex', gap: 10 }}>
-                      {m.photo && <div style={{ width: 36, height: 36, borderRadius: 18, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PULSE.border}` }} />}
+                      {m.photo && <div style={{ width: 52, height: 52, borderRadius: 26, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PULSE.border}` }} />}
                       <div>
                         <div style={{ fontSize: '0.98rem', fontWeight: 700 }}>{m.name}</div>
                         {m.role && <div style={{ fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.muted, marginTop: 2 }}>{m.role}</div>}

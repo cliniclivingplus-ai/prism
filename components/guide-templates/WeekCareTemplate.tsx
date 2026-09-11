@@ -1094,7 +1094,7 @@ function clpToggleGroceryCat(head){
                   {editable ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        {m.photo && <div style={{ width: 32, height: 32, borderRadius: 16, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PALETTE.line}` }} />}
+                        {m.photo && <div style={{ width: 44, height: 44, borderRadius: 22, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PALETTE.line}` }} />}
                         <InlineEditableText editable value={m.name} placeholder="Name" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, name: next } : x)))}
                           style={{ fontFamily: "'Inter', serif", fontSize: '1.1rem', fontWeight: 500, flex: 1 }} />
                         <button type="button" onClick={() => removeCareTeamMember(i)} title="Remove"
@@ -1113,7 +1113,7 @@ function clpToggleGroceryCat(head){
                     </div>
                   ) : (
                     <div style={{ display: 'flex', gap: 12 }}>
-                      {m.photo && <div style={{ width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PALETTE.line}` }} />}
+                      {m.photo && <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PALETTE.line}` }} />}
                       <div>
                         <div style={{ fontFamily: "'Inter', serif", fontSize: '1.1rem', fontWeight: 500 }}>{m.name}</div>
                         {m.role && <div style={{ fontFamily: "'Inter', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry, marginTop: 4 }}>{m.role}</div>}
