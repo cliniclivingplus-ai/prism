@@ -11,12 +11,17 @@ const C = {
 type Coach = {
   id: string
   full_name: string
+  department: string | null
   designation: string | null
   bio: string | null
   response_note: string | null
   photo_url: string | null
   email: string | null
 }
+
+// Grouping only — a coach can still type any free-text department, this
+// is just what the "Add team member" picker offers as a starting list.
+const DEPARTMENTS = ['Medical', 'Front desk', 'Coaching', 'Nutrition', 'Therapy', 'Naturopathy', 'Admin']
 
 const inputStyle = {
   width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.line}`,
@@ -43,6 +48,7 @@ function CoachRow({ coach, onUpdated, onDeleted }: {
 }) {
   const [expanded, setExpanded] = useState(false)
   const [fullName, setFullName] = useState(coach.full_name)
+  const [department, setDepartment] = useState(coach.department ?? '')
   const [designation, setDesignation] = useState(coach.designation ?? '')
   const [email, setEmail] = useState(coach.email ?? '')
   const [bio, setBio] = useState(coach.bio ?? '')
@@ -60,7 +66,7 @@ function CoachRow({ coach, onUpdated, onDeleted }: {
     try {
       const r = await fetch(`/api/compass/nutritionists/${coach.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: fullName, designation, email, bio, response_note: responseNote }),
+        body: JSON.stringify({ full_name: fullName, department, designation, email, bio, response_note: responseNote }),
       })
       const j = await r.json()
       if (!r.ok) { setError(j.error || 'Save failed'); return }
@@ -109,7 +115,7 @@ function CoachRow({ coach, onUpdated, onDeleted }: {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{coach.full_name}</div>
           <div style={{ fontSize: 12, color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {coach.designation || 'No designation set'}{coach.email ? ` · ${coach.email}` : ''}
+            {coach.department ? `${coach.department} · ` : ''}{coach.designation || 'No designation set'}{coach.email ? ` · ${coach.email}` : ''}
           </div>
         </div>
         {expanded ? <ChevronUp size={16} color={C.faint} /> : <ChevronDown size={16} color={C.faint} />}
@@ -139,6 +145,13 @@ function CoachRow({ coach, onUpdated, onDeleted }: {
                 <label style={labelStyle}>Designation</label>
                 <input style={inputStyle} value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Nutrition Coach · Gut & Metabolic Health" />
               </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Department</label>
+              <input style={inputStyle} list="department-options" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Medical, Front desk" />
+              <datalist id="department-options">
+                {DEPARTMENTS.map((d) => <option key={d} value={d} />)}
+              </datalist>
             </div>
             <div>
               <label style={labelStyle}>Email</label>

@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   if (!body.full_name?.trim()) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
   const { data, error } = await supabaseAdmin.from('nutritionists').insert({
     full_name: body.full_name.trim(),
+    department: body.department ?? null,
     designation: body.designation ?? null,
     bio: body.bio ?? null,
     response_note: body.response_note ?? null,

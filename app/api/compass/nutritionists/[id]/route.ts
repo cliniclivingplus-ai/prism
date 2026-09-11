@@ -7,7 +7,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const body = await req.json()
   const update: Record<string, unknown> = {}
-  for (const key of ['full_name', 'designation', 'bio', 'response_note', 'photo_url', 'email'] as const) {
+  for (const key of ['full_name', 'department', 'designation', 'bio', 'response_note', 'photo_url', 'email'] as const) {
     if (key in body) update[key] = body[key]
   }
   const { data, error } = await supabaseAdmin.from('nutritionists').update(update).eq('id', id).select().single()
