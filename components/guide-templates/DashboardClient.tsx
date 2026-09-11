@@ -850,7 +850,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // in `editable` mode. In read-only (patient-facing) mode these just mirror
   // `data` untouched, so using them everywhere below (instead of branching
   // every render on `editable`) is safe and keeps one rendering codepath.
-  const [coaches, setCoaches] = useState<{ id: string; full_name: string }[]>([])
+  const [coaches, setCoaches] = useState<{ id: string; full_name: string; department: string | null; designation: string | null; bio: string | null; photo_url: string | null }[]>([])
   // Shared grounding context for every AiEditButton on this page — never
   // more than name/concern/goal, so the AI edit endpoint has just enough
   // to stay relevant without being handed anything it could over-invent from.
@@ -1005,7 +1005,16 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const [careServices, setCareServices] = useState(data.careServices || [])
   const [openCareService, setOpenCareService] = useState<number | null>(null)
   const [nextAppointment, setNextAppointment] = useState(data.nextAppointment || { date: '', time: '', mode: '' })
-  const [careTeam, setCareTeam] = useState(data.careTeam || [])
+  const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date: string; time: string; mode: string }[]>(data.careTeam || [])
+  // Adding from the staff directory (the Coaches page, same source as the
+  // primary "Coach" picker above) pre-fills name/role/intro/photo instead
+  // of a coach retyping a person's details fresh for every patient — the
+  // fields stay editable afterward, this is just the starting point.
+  function addTeamMemberFromDirectory(id: string) {
+    const person = coaches.find((c) => c.id === id)
+    if (!person) return
+    setCareTeam([...careTeam, { name: person.full_name, role: person.designation || '', intro: person.bio || '', photo: person.photo_url || '', date: '', time: '', mode: '' }])
+  }
   const [hiddenSections, setHiddenSections] = useState<string[]>(data.hiddenSections || [])
   const isHidden = (id: string) => hiddenSections.includes(id)
   const toggleSection = (id: string) => setHiddenSections((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -2321,7 +2330,10 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 14 }}>
                     {careTeam.map((member, i) => (
                       <div key={i} style={{ border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', background: C.bg }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          {member.photo ? (
+                            <div style={{ width: 32, height: 32, borderRadius: 16, background: `url(${member.photo}) center/cover`, border: `1px solid ${C.rule}` }} />
+                          ) : <div />}
                           <AiEditButton roadmapId={rid} kind="care_team_member" value={member} context={aiContext}
                             onApply={(v) => { const next = [...careTeam]; next[i] = v; setCareTeam(next) }} />
                         </div>
@@ -2374,26 +2386,48 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       </div>
                     ))}
                   </div>
-                  <button onClick={() => setCareTeam([...careTeam, { name: '', role: '', intro: '', date: '', time: '', mode: '' }])}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.rule}`, background: C.paper, color: C.ink, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                    <Plus size={14} /> Add team member
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {coaches.length > 0 && (
+                      <select value="" onChange={(e) => { if (e.target.value) addTeamMemberFromDirectory(e.target.value) }}
+                        style={{ ...editInputStyle, width: 'auto', maxWidth: 260, fontWeight: 700, color: C.accent, cursor: 'pointer' }}>
+                        <option value="">+ Add from staff directory…</option>
+                        {Array.from(new Set(coaches.map((c) => c.department || 'No department'))).sort().map((dept) => (
+                          <optgroup key={dept} label={dept}>
+                            {coaches.filter((c) => (c.department || 'No department') === dept).map((c) => (
+                              <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    )}
+                    <button onClick={() => setCareTeam([...careTeam, { name: '', role: '', intro: '', photo: '', date: '', time: '', mode: '' }])}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.rule}`, background: C.paper, color: C.ink, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                      <Plus size={14} /> Add manually
+                    </button>
+                  </div>
                 </>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {careTeam.map((member, i) => (
-                    <div key={i} style={{ border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', background: C.bg }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{member.name}</div>
-                      {member.role && <div style={{ fontSize: 12, color: C.muted, marginBottom: member.intro ? 6 : 0 }}>{member.role}</div>}
-                      {member.intro && <p style={{ ...bulletStyle, marginBottom: member.date ? 8 : 0 }}>{renderMarkdownBold(member.intro)}</p>}
-                      {member.date && (
-                        <div style={{ fontSize: 12.5, color: C.accent, fontWeight: 700 }}>
-                          <CalendarCheck size={13} style={{ verticalAlign: -2, marginRight: 5 }} />
-                          {new Date(member.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                          {member.time && ` · ${new Date(`2000-01-01T${member.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
-                          {member.mode && ` · ${member.mode}`}
-                        </div>
+                    <div key={i} style={{ display: 'flex', gap: 12, border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', background: C.bg }}>
+                      {member.photo ? (
+                        <div style={{ width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: `url(${member.photo}) center/cover`, border: `1px solid ${C.rule}` }} />
+                      ) : (
+                        <div style={{ width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: C.accentSoft }} />
                       )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{member.name}</div>
+                        {member.role && <div style={{ fontSize: 12, color: C.muted, marginBottom: member.intro ? 6 : 0 }}>{member.role}</div>}
+                        {member.intro && <p style={{ ...bulletStyle, marginBottom: member.date ? 8 : 0 }}>{renderMarkdownBold(member.intro)}</p>}
+                        {member.date && (
+                          <div style={{ fontSize: 12.5, color: C.accent, fontWeight: 700 }}>
+                            <CalendarCheck size={13} style={{ verticalAlign: -2, marginRight: 5 }} />
+                            {new Date(member.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                            {member.time && ` · ${new Date(`2000-01-01T${member.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
+                            {member.mode && ` · ${member.mode}`}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
