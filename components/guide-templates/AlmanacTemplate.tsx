@@ -16,6 +16,7 @@
 // totalActionsInPlan, the same number "Track your progress" already shows)
 // increases — a meaningful visual grounded in real data instead.
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
   HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
@@ -971,12 +972,11 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
           <SecTitle icon={<HeartPulse size={26} />}>Founder&apos;s Note</SecTitle>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', marginTop: 20 }}>
             <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-              style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: PALETTE.berry, color: '#fff', border: 'none', cursor: 'pointer', fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              RS
-            </button>
+              style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: 'none', cursor: 'pointer' }} />
             <div>
               <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 500, marginTop: -8 }}>Roshni Sanghvi</div>
               <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>Founder, Living Plus</div>
+              <div style={{ fontSize: '0.78rem', opacity: 0.7, marginTop: 6, maxWidth: 420 }}>{FOUNDER_INTRO}</div>
               <div style={{ fontSize: '0.72rem', opacity: 0.55, marginTop: 8 }}>Tap the photo to read the note</div>
             </div>
           </div>

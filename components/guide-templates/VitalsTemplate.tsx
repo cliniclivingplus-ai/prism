@@ -12,6 +12,7 @@
 // regardless of which template is picked; this component never runs in
 // editable mode.
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
   HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
@@ -746,16 +747,17 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
           <Eyebrow>A note from the founder</Eyebrow>
           {editable ? (
             <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <div style={{ width: 84, height: 84, borderRadius: 22, flexShrink: 0, background: V.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 26, fontWeight: 800 }}>RS</div>
+              <div style={{ width: 84, height: 84, borderRadius: 22, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover` }} />
               <div style={{ flex: '1 1 320px', minWidth: 0 }}>
                 <InlineEditableText editable as="div" multiline value={founderNote} onSave={saveFounderNote}
                   style={{ fontSize: '1.05rem', lineHeight: 1.5, color: V.ink, fontWeight: 500 }} />
                 <div style={{ fontSize: 14, fontWeight: 700, color: V.ink, marginTop: 8 }}>Roshni Sanghvi</div>
                 <div style={{ fontSize: 12.5, color: V.muted, marginTop: 1 }}>Founder, Living Plus</div>
+                <div style={{ fontSize: 12, color: V.muted, marginTop: 4, maxWidth: 420 }}>{FOUNDER_INTRO}</div>
               </div>
             </div>
           ) : (
-            <PullQuote initials="RS" name="Roshni Sanghvi" role="Founder, Living Plus"
+            <PullQuote photo={FOUNDER_PHOTO_URL} initials="RS" name="Roshni Sanghvi" role="Founder, Living Plus"
               accentColor={V.accent} accentSoft={V.accentSoft} borderColor={V.line}
               quote={founderNote.split('\n\n').join(' ')} />
           )}

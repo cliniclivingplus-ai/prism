@@ -6,6 +6,7 @@ import { Splash } from '@/lib/kawaii/Mascot'
 import { KAWAII } from '@/lib/kawaii/tokens'
 import { KAWAII_MOTION_CSS } from '@/lib/kawaii/motion'
 import { reshapeRoadmapIntoMonths, type WeeklyPlan } from '@/lib/pdf/reshapeRoadmap'
+import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
 import { matchGuideImageDistinct } from '@/lib/pdf/matchGuideImage'
 import { selectRecipesForPatient, type RecipeMatch } from '@/lib/pdf/matchRecipes'
@@ -2246,11 +2247,10 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               )}
             </div>
             <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-              style={{ width: 72, height: 72, borderRadius: 36, background: C.accent, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 20, fontWeight: 700, fontFamily: 'inherit', margin: '12px auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              RS
-            </button>
+              style={{ width: 72, height: 72, borderRadius: 36, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: 'none', cursor: 'pointer', margin: '12px auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
             <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>Roshni Sanghvi</div>
             <div style={{ fontSize: 11, color: C.muted, letterSpacing: '0.04em', marginBottom: 6 }}>FOUNDER, CLINIC LIVING PLUS</div>
+            <div style={{ fontSize: 11.5, color: C.muted, maxWidth: 380, margin: '0 auto 6px' }}>{FOUNDER_INTRO}</div>
             <div style={{ fontSize: 11.5, color: C.muted }}>Tap the photo to read the note</div>
             <div data-founder-body style={{ display: (editable || founderOpen) ? 'block' : 'none', textAlign: 'left', marginTop: 16 }}>
               {editable ? (

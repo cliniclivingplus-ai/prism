@@ -12,6 +12,7 @@
 // edits content in the Classic editor regardless of which template is
 // picked; this component never runs in editable mode.
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
   HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Flame, Target, TrendingUp,
@@ -817,11 +818,10 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
           <Eyebrow>A note from the founder</Eyebrow>
           <SecTitle icon={<HeartPulse size={18} />}>Founder&apos;s note</SecTitle>
           <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-            style={{ width: 72, height: 72, borderRadius: '50%', background: ONYX.accent, color: ONYX.onAccent, border: 'none', cursor: 'pointer', fontFamily: SERIF, fontSize: 20, fontWeight: 500, margin: '16px auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            RS
-          </button>
+            style={{ width: 72, height: 72, borderRadius: '50%', background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: 'none', cursor: 'pointer', margin: '16px auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
           <div style={{ fontFamily: SERIF, fontSize: '1.05rem', fontWeight: 500, color: ONYX.ink }}>Roshni Sanghvi</div>
           <div style={{ fontSize: '0.7rem', letterSpacing: '0.08em', color: ONYX.muted, textTransform: 'uppercase', marginBottom: 8 }}>Founder, Living Plus</div>
+          <div style={{ fontSize: '0.74rem', color: ONYX.muted, maxWidth: 380, margin: '0 auto 6px' }}>{FOUNDER_INTRO}</div>
           <div style={{ fontSize: '0.72rem', color: ONYX.muted }}>Tap the photo to read the note</div>
           <div data-founder-body style={{ display: founderOpen ? 'block' : 'none', textAlign: 'left', marginTop: 16, fontSize: '0.92rem', lineHeight: 1.7, color: ONYX.inkSoft }}>
             {editable ? (

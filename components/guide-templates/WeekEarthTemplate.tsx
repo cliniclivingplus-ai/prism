@@ -12,6 +12,7 @@
 // content in the Classic editor regardless of which template is picked;
 // this component never runs in editable mode.
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
   HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
@@ -1042,12 +1043,11 @@ function clpToggleGroceryCat(head){
           <div data-section-body="founder" style={{ display: isSectionOpen('founder') ? 'block' : 'none' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', marginTop: 20 }}>
             <button data-founder-trigger onClick={() => setFounderOpen((v) => !v)}
-              style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: PALETTE.berry, color: '#fff', border: 'none', cursor: 'pointer', fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              RS
-            </button>
+              style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: 'none', cursor: 'pointer' }} />
             <div>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', fontWeight: 500, marginTop: -8 }}>Roshni Sanghvi</div>
               <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>Founder, Living Plus</div>
+              <div style={{ fontSize: '0.78rem', opacity: 0.7, marginTop: 6, maxWidth: 420 }}>{FOUNDER_INTRO}</div>
               <div style={{ fontSize: '0.72rem', opacity: 0.55, marginTop: 8 }}>Tap the photo to read the note</div>
             </div>
           </div>
