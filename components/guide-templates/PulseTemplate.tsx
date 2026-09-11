@@ -138,12 +138,20 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
   // Pulse's own shape: some tokens map straight from the shared palette,
   // `warn` stays fixed (a warning color shouldn't shift with the aesthetic
   // palette), `accentDeep` uses the closest available "deep" tone.
-  const PULSE = {
+  // Memoized on `theme` (not recreated as a fresh object every render) —
+  // Eyebrow/SecTitle/Card/KVGrid/AdherenceRing below all close over this,
+  // and are themselves memoized on it, specifically so their identity stays
+  // stable across renders. Without that, every one of those locally-defined
+  // components got a brand-new identity on every render, so React treated
+  // every <Card> etc. on the page as a different component type and
+  // unmounted+remounted it on every click — losing focus (back to <body>)
+  // and resetting scroll to the top, however unrelated the click was.
+  const PULSE = useMemo(() => ({
     bg: p.bg, card: p.paper, border: p.rule,
     ink: p.ink, inkSoft: p.inkSoft, muted: p.muted,
     accent: p.accent, accentSoft: p.accentSoft, accentDeep: p.greenDeep,
     warn: '#D85A30',
-  }
+  }), [p])
 
   // Best-effort, fire-and-forget — same "local state already reflects the
   // edit optimistically" tolerance as WeekTemplate's own patchRoadmap.
@@ -154,24 +162,26 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
     }).catch(() => {})
   }
 
-  function Eyebrow({ children }: { children: React.ReactNode }) {
+  // Each of these is memoized on PULSE (not redeclared as a fresh function
+  // on every render) — see the note on PULSE above for why that matters.
+  const Eyebrow = useMemo(() => function Eyebrow({ children }: { children: React.ReactNode }) {
     return (
       <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: PULSE.accent, display: 'block', marginBottom: 8 }}>
         {children}
       </span>
     )
-  }
+  }, [PULSE])
 
-  function SecTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  const SecTitle = useMemo(() => function SecTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
         <span style={{ color: PULSE.accent, display: 'flex' }}>{icon}</span>
         <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: PULSE.ink }}>{children}</h2>
       </div>
     )
-  }
+  }, [PULSE])
 
-  function Card({ id, hidden, children, style }: { id?: string; hidden?: boolean; children: React.ReactNode; style?: CSSProperties }) {
+  const Card = useMemo(() => function Card({ id, hidden, children, style }: { id?: string; hidden?: boolean; children: React.ReactNode; style?: CSSProperties }) {
     return (
       <div id={id} style={{
         background: PULSE.card, border: `1px solid ${PULSE.border}`, borderRadius: 20, padding: '1.75rem 1.9rem', marginBottom: 16,
@@ -180,9 +190,9 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
         {children}
       </div>
     )
-  }
+  }, [PULSE])
 
-  function KVGrid({ items, showIcons }: { items: string[]; showIcons?: boolean }) {
+  const KVGrid = useMemo(() => function KVGrid({ items, showIcons }: { items: string[]; showIcons?: boolean }) {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: showIcons ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 18 }}>
         {items.map((bullet, i) => {
@@ -204,14 +214,14 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
         })}
       </div>
     )
-  }
+  }, [PULSE])
 
   // The centerpiece visual: a circular ring filled to the patient's real
   // tracked adherence (goalsDone / totalActionsInPlan, the same number "Track
   // your progress" shows) — grounded in real data, same principle as
   // Almanac's growing tree, different visual mechanism (a clinical/vital-signs
   // read rather than an organic one).
-  function AdherenceRing({ pct, size = 132 }: { pct: number; size?: number }) {
+  const AdherenceRing = useMemo(() => function AdherenceRing({ pct, size = 132 }: { pct: number; size?: number }) {
     const r = (size - 14) / 2
     const c = size / 2
     const circumference = 2 * Math.PI * r
@@ -225,7 +235,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
         <text x={c} y={c + 16} textAnchor="middle" fontSize={size * 0.075} fontWeight={700} letterSpacing="0.06em" fill={PULSE.muted} fontFamily="'Plus Jakarta Sans', sans-serif">ADHERENCE</text>
       </svg>
     )
-  }
+  }, [PULSE])
 
   const firstName = data.patient.full_name?.split(' ')[0] || 'there'
   const coachFirst = data.coach?.full_name?.split(' ')[0] || 'your coach'

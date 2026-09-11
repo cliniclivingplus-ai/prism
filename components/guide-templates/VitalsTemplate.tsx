@@ -149,32 +149,38 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
   const p = PALETTES[theme]
   // Vitals' own shape: most tokens map straight from the shared palette;
   // `faint`/`track`/`warn` have no equivalent and stay fixed.
-  const V = {
+  // Memoized on `theme` — see the note on Eyebrow/SecTitle/Card/Ring below
+  // for why: those closed over a fresh V object recreated every render, so
+  // React treated every <Card> etc. on the page as a different component
+  // type on every render and unmounted+remounted it on any click, however
+  // unrelated — losing focus (back to <body>) and resetting scroll to top.
+  const V = useMemo(() => ({
     bg: p.bg, card: p.paper, ink: p.ink, inkSoft: p.inkSoft, muted: p.muted, faint: '#9CA3AF',
     line: p.rule, accent: p.accent, accentSoft: p.accentSoft, accentDeep: p.greenDeep,
     warn: '#DC2626', track: '#E5E9F0',
-  }
+  }), [p])
 
-  function Eyebrow({ children }: { children: React.ReactNode }) {
+  const Eyebrow = useMemo(() => function Eyebrow({ children }: { children: React.ReactNode }) {
     return <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: V.accent, display: 'block', marginBottom: 8 }}>{children}</span>
-  }
-  function SecTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  }, [V])
+  const SecTitle = useMemo(() => function SecTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
         <span style={{ color: V.accent, display: 'flex' }}>{icon}</span>
         <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: V.ink, letterSpacing: '-0.01em' }}>{children}</h2>
       </div>
     )
-  }
+  }, [V])
   // Thin theme-aware wrappers around the shared primitives, which otherwise
   // default to a fixed blue — every Card/Ring call in this file goes through
-  // these instead so the palette actually reaches them.
-  function Card(props: Parameters<typeof PrimCard>[0]) {
+  // these instead so the palette actually reaches them. Memoized on V, same
+  // reason as Eyebrow/SecTitle above.
+  const Card = useMemo(() => function Card(props: Parameters<typeof PrimCard>[0]) {
     return <PrimCard background={V.card} borderColor={V.line} {...props} />
-  }
-  function Ring(props: Parameters<typeof PrimRing>[0]) {
+  }, [V])
+  const Ring = useMemo(() => function Ring(props: Parameters<typeof PrimRing>[0]) {
     return <PrimRing color={V.accent} trackColor={V.track} {...props} />
-  }
+  }, [V])
 
   const firstName = data.patient.full_name?.split(' ')[0] || 'there'
   const coachFirst = data.coach?.full_name?.split(' ')[0] || 'your coach'
