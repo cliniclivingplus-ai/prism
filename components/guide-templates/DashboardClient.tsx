@@ -1,6 +1,6 @@
 'use client'
 import { useState, useMemo, useEffect, useRef, Fragment, type ReactNode } from 'react'
-import { CheckCircle2, Circle, MapPin, Utensils, Pill, ShoppingCart, HeartPulse, HelpCircle, Phone, X, ChefHat, Download, Sparkles, Star, Save, Check, Loader2, ExternalLink, Flame, CalendarCheck, Target, TrendingUp, ChevronDown, ChevronRight, Video, MessageCircle, Users, Activity, Stethoscope, Plus, Trash2, Eye, EyeOff, LinkIcon, Droplet, Sun, type IconComponent } from '@/lib/kawaii/icons'
+import { CheckCircle2, Circle, MapPin, Utensils, Pill, ShoppingCart, HeartPulse, HelpCircle, Phone, Clock, X, ChefHat, Download, Sparkles, Star, Save, Check, Loader2, ExternalLink, Flame, CalendarCheck, Target, TrendingUp, ChevronDown, ChevronRight, Video, MessageCircle, Users, Activity, Stethoscope, Plus, Trash2, Eye, EyeOff, LinkIcon, Droplet, Sun, type IconComponent } from '@/lib/kawaii/icons'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import { Splash } from '@/lib/kawaii/Mascot'
 import { KAWAII } from '@/lib/kawaii/tokens'
@@ -1042,6 +1042,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const [careServices, setCareServices] = useState(data.careServices || [])
   const [openCareService, setOpenCareService] = useState<number | null>(null)
   const [nextAppointment, setNextAppointment] = useState(data.nextAppointment || { date: '', time: '', mode: '' })
+  const [reachInfo, setReachInfo] = useState(data.reachInfo || { phone: '', hours: '', frontDesk: '' })
   const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date: string; time: string; mode: string }[]>(data.careTeam || [])
   // Adding from the staff directory (the Coaches page, same source as the
   // primary "Coach" picker above) pre-fills name/role/intro/photo instead
@@ -1249,7 +1250,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             lifestyle_guidelines: lifestyleText,
-            guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText, daily_checklist_items: checklistItems },
+            guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, reach_info: reachInfo, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText, daily_checklist_items: checklistItems },
             weekly_schedule: editWeeks.map((w) => ({ ...w, actions: (w.actions || []).map((a) => a.trim()).filter(Boolean) })),
           }),
         }),
@@ -3189,6 +3190,33 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             <div style={sectionTitleStyle}><Phone size={18} color={C.accent} /> When to reach us</div>
             {editable ? (
               <div style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+                <div style={{ ...weekBoxLabel, marginBottom: 10 }}>Contact details</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+                  <div>
+                    <div style={editLabelStyle}>Phone</div>
+                    <input style={editInputStyle} value={reachInfo.phone} placeholder="Add a phone number"
+                      onChange={(e) => setReachInfo({ ...reachInfo, phone: e.target.value })} />
+                  </div>
+                  <div>
+                    <div style={editLabelStyle}>Work hours</div>
+                    <input style={editInputStyle} value={reachInfo.hours} placeholder="e.g. Mon-Sat, 9am-6pm"
+                      onChange={(e) => setReachInfo({ ...reachInfo, hours: e.target.value })} />
+                  </div>
+                  <div>
+                    <div style={editLabelStyle}>Front desk contact</div>
+                    <input style={editInputStyle} value={reachInfo.frontDesk} placeholder="e.g. phone or email"
+                      onChange={(e) => setReachInfo({ ...reachInfo, frontDesk: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+            ) : (reachInfo.phone || reachInfo.hours) && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 14, fontSize: 13, color: C.ink }}>
+                {reachInfo.phone && <span><Phone size={13} color={C.accent} style={{ verticalAlign: -2, marginRight: 5 }} />{reachInfo.phone}</span>}
+                {reachInfo.hours && <span><Clock size={13} color={C.accent} style={{ verticalAlign: -2, marginRight: 5 }} />{reachInfo.hours}</span>}
+              </div>
+            )}
+            {editable ? (
+              <div style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
                 <div style={{ ...weekBoxLabel, marginBottom: 10 }}>Next appointment</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
                   <div>
@@ -3222,23 +3250,13 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   {nextAppointment.mode && ` · ${nextAppointment.mode}`}
                 </div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, textTransform: 'uppercase', marginBottom: 8 }}>Until your next appointment</div>
-                <p style={{ ...bulletStyle, marginBottom: 6 }}>Contact your care team if you:</p>
-                <ul style={{ margin: '0 0 8px', paddingLeft: 18 }}>
-                  <li style={{ ...bulletStyle, marginBottom: 3 }}>Have questions about your plan</li>
-                  <li style={{ ...bulletStyle, marginBottom: 3 }}>Are struggling to follow a recommendation</li>
-                  <li style={{ ...bulletStyle, marginBottom: 0 }}>Notice an unexpected change in how you feel</li>
-                </ul>
-                <p style={{ ...bulletStyle, marginBottom: 0 }}><strong>Emergency?</strong> Seek immediate medical care.</p>
+                <p style={{ ...bulletStyle, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
+                <p style={{ ...bulletStyle, marginBottom: 0 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
               </div>
             ) : (
               <div style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
-                <p style={{ ...bulletStyle, marginBottom: 6 }}>Contact your care team if you:</p>
-                <ul style={{ margin: '0 0 8px', paddingLeft: 18 }}>
-                  <li style={{ ...bulletStyle, marginBottom: 3 }}>Have questions about your plan</li>
-                  <li style={{ ...bulletStyle, marginBottom: 3 }}>Are struggling to follow a recommendation</li>
-                  <li style={{ ...bulletStyle, marginBottom: 0 }}>Notice an unexpected change in how you feel</li>
-                </ul>
-                <p style={{ ...bulletStyle, marginBottom: 0 }}><strong>Emergency?</strong> Seek immediate medical care.</p>
+                <p style={{ ...bulletStyle, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
+                <p style={{ ...bulletStyle, marginBottom: 0 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
               </div>
             )}
           </div>

@@ -14,7 +14,7 @@
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
-  HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
+  HeartPulse, Utensils, Pill, Phone, Clock, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
   Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon, Flame, Award,
   type LucideIcon, AlertTriangle,
@@ -212,6 +212,11 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
   const [coachQuote, setCoachQuote] = useState(data.coachQuote)
   const [whyReflection, setWhyReflection] = useState(data.whyReflection)
   const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date?: string; time?: string; mode?: string }[]>(data.careTeam || [])
+  const [reachInfo, setReachInfo] = useState(data.reachInfo)
+  function saveReachInfo(next: typeof reachInfo) {
+    setReachInfo(next)
+    patchRoadmap({ guide_overrides: { reach_info: next } })
+  }
   function saveFounderNote(next: string) {
     setFounderNote(next)
     patchRoadmap({ guide_overrides: { founder_note: next } })
@@ -1458,6 +1463,30 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
         <Card id="reach" hidden={isHidden('reach')}>
           <Eyebrow>Reach us</Eyebrow>
           <SecTitle icon={<Phone size={20} />}>When to reach us</SecTitle>
+          {editable ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginTop: 14, marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: V.muted, marginBottom: 4 }}>Phone</div>
+                <input value={reachInfo.phone} onChange={(e) => setReachInfo({ ...reachInfo, phone: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
+                  placeholder="Add a phone number" style={{ width: '100%', background: V.card, border: `1px solid ${V.line}`, borderRadius: 10, padding: '6px 9px', fontSize: 13, color: V.ink, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: V.muted, marginBottom: 4 }}>Work hours</div>
+                <input value={reachInfo.hours} onChange={(e) => setReachInfo({ ...reachInfo, hours: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
+                  placeholder="e.g. Mon-Sat, 9am-6pm" style={{ width: '100%', background: V.card, border: `1px solid ${V.line}`, borderRadius: 10, padding: '6px 9px', fontSize: 13, color: V.ink, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: V.muted, marginBottom: 4 }}>Front desk contact</div>
+                <input value={reachInfo.frontDesk} onChange={(e) => setReachInfo({ ...reachInfo, frontDesk: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
+                  placeholder="e.g. phone or email" style={{ width: '100%', background: V.card, border: `1px solid ${V.line}`, borderRadius: 10, padding: '6px 9px', fontSize: 13, color: V.ink, boxSizing: 'border-box' }} />
+              </div>
+            </div>
+          ) : (reachInfo.phone || reachInfo.hours) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 14, marginBottom: 2, fontSize: 13, color: V.inkSoft }}>
+              {reachInfo.phone && <span><Phone size={12} style={{ verticalAlign: -2, marginRight: 5 }} />{reachInfo.phone}</span>}
+              {reachInfo.hours && <span><Clock size={12} style={{ verticalAlign: -2, marginRight: 5 }} />{reachInfo.hours}</span>}
+            </div>
+          )}
           {data.nextAppointment.date && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: V.accent, fontWeight: 700, fontSize: 13, marginTop: 14, marginBottom: 4 }}>
               <CalendarCheck size={15} />
@@ -1466,13 +1495,8 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
               {data.nextAppointment.mode && ` · ${data.nextAppointment.mode}`}
             </div>
           )}
-          <p style={{ fontSize: 13, color: V.inkSoft, lineHeight: 1.6, marginTop: 14, marginBottom: 6 }}>Contact your care team if you:</p>
-          <ul style={{ margin: '0 0 10px', paddingLeft: 20, fontSize: 13, color: V.inkSoft, lineHeight: 1.6 }}>
-            <li>Have questions about your plan</li>
-            <li>Are struggling to follow a recommendation</li>
-            <li>Notice an unexpected change in how you feel</li>
-          </ul>
-          <p style={{ fontSize: 13, color: V.inkSoft, lineHeight: 1.6 }}><strong>Emergency?</strong> Seek immediate medical care.</p>
+          <p style={{ fontSize: 13, color: V.inkSoft, lineHeight: 1.6, marginTop: 14, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
+          <p style={{ fontSize: 13, color: V.inkSoft, lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
           {data.coach?.email && <p style={{ fontSize: 12.5, color: V.accent, marginTop: 8 }}>Message {coachFirst} directly at {data.coach.email}.</p>}
         </Card>
 

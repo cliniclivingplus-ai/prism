@@ -15,7 +15,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
-  HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
+  HeartPulse, Utensils, Pill, Phone, Clock, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
   Droplet, Zap, Sun, Moon, Footprints, Wind, Link as LinkIcon, type LucideIcon, AlertTriangle,
 } from 'lucide-react'
@@ -320,6 +320,11 @@ export default function WeekBrutalTemplate({ shareToken, data, initialCheckins, 
   const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS))
   const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule)
   const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date: string; time: string; mode: string }[]>(data.careTeam || [])
+  const [reachInfo, setReachInfo] = useState(data.reachInfo)
+  function saveReachInfo(next: typeof reachInfo) {
+    setReachInfo(next)
+    patchRoadmap({ guide_overrides: { reach_info: next } })
+  }
   function saveCareTeam(next: typeof careTeam) {
     setCareTeam(next)
     patchRoadmap({ guide_overrides: { care_team: next } })
@@ -1739,6 +1744,30 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
           <Eyebrow dark>Reach us</Eyebrow>
           <SecTitle dark icon={<Phone size={26} color={PALETTE.cream} />} sectionId="reach" open={isSectionOpen('reach')} onToggle={() => toggleSection('reach')}>When To Reach Us</SecTitle>
           <div data-section-body="reach" style={{ display: isSectionOpen('reach') ? 'block' : 'none' }}>
+          {editable ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginTop: 20, marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.cream, opacity: 0.6, marginBottom: 4 }}>Phone</div>
+                <input value={reachInfo.phone} onChange={(e) => setReachInfo({ ...reachInfo, phone: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
+                  placeholder="Add a phone number" style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${PALETTE.cream}55`, borderRadius: 8, padding: '7px 10px', fontSize: '0.85rem', color: PALETTE.cream, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.cream, opacity: 0.6, marginBottom: 4 }}>Work hours</div>
+                <input value={reachInfo.hours} onChange={(e) => setReachInfo({ ...reachInfo, hours: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
+                  placeholder="e.g. Mon-Sat, 9am-6pm" style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${PALETTE.cream}55`, borderRadius: 8, padding: '7px 10px', fontSize: '0.85rem', color: PALETTE.cream, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.cream, opacity: 0.6, marginBottom: 4 }}>Front desk contact</div>
+                <input value={reachInfo.frontDesk} onChange={(e) => setReachInfo({ ...reachInfo, frontDesk: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
+                  placeholder="e.g. phone or email" style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${PALETTE.cream}55`, borderRadius: 8, padding: '7px 10px', fontSize: '0.85rem', color: PALETTE.cream, boxSizing: 'border-box' }} />
+              </div>
+            </div>
+          ) : (reachInfo.phone || reachInfo.hours) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 20, marginBottom: 4, fontSize: '0.88rem', color: PALETTE.cream, opacity: 0.9 }}>
+              {reachInfo.phone && <span><Phone size={13} style={{ verticalAlign: -2, marginRight: 5 }} />{reachInfo.phone}</span>}
+              {reachInfo.hours && <span><Clock size={13} style={{ verticalAlign: -2, marginRight: 5 }} />{reachInfo.hours}</span>}
+            </div>
+          )}
           {data.nextAppointment.date ? (
             <div style={{ marginTop: 20 }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: PALETTE.gold1, fontFamily: "'Space Mono', monospace", fontSize: '0.85rem', marginBottom: 14 }}>
@@ -1747,23 +1776,13 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                 {data.nextAppointment.time && ` · ${new Date(`2000-01-01T${data.nextAppointment.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
                 {data.nextAppointment.mode && ` · ${data.nextAppointment.mode}`}
               </div>
-              <p style={{ color: PALETTE.cream, opacity: 0.85, fontSize: '0.92rem', lineHeight: 1.6, marginBottom: 6 }}>Contact your care team if you:</p>
-              <ul style={{ margin: '0 0 10px', paddingLeft: 20, color: PALETTE.cream, opacity: 0.85, fontSize: '0.92rem', lineHeight: 1.6 }}>
-                <li>Have questions about your plan</li>
-                <li>Are struggling to follow a recommendation</li>
-                <li>Notice an unexpected change in how you feel</li>
-              </ul>
-              <p style={{ color: PALETTE.cream, opacity: 0.85, fontSize: '0.92rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Seek immediate medical care.</p>
+              <p style={{ color: PALETTE.cream, opacity: 0.85, fontSize: '0.92rem', lineHeight: 1.6, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
+              <p style={{ color: PALETTE.cream, opacity: 0.85, fontSize: '0.92rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
             </div>
           ) : (
             <div style={{ marginTop: 20 }}>
-              <p style={{ color: PALETTE.cream, opacity: 0.85, fontSize: '0.92rem', lineHeight: 1.6, marginBottom: 6 }}>Contact your care team if you:</p>
-              <ul style={{ margin: '0 0 10px', paddingLeft: 20, color: PALETTE.cream, opacity: 0.85, fontSize: '0.92rem', lineHeight: 1.6 }}>
-                <li>Have questions about your plan</li>
-                <li>Are struggling to follow a recommendation</li>
-                <li>Notice an unexpected change in how you feel</li>
-              </ul>
-              <p style={{ color: PALETTE.cream, opacity: 0.85, fontSize: '0.92rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Seek immediate medical care.</p>
+              <p style={{ color: PALETTE.cream, opacity: 0.85, fontSize: '0.92rem', lineHeight: 1.6, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
+              <p style={{ color: PALETTE.cream, opacity: 0.85, fontSize: '0.92rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
             </div>
           )}
           {data.coach?.email && (

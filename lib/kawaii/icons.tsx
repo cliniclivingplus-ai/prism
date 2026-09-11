@@ -83,6 +83,9 @@ export const Flame: IconComponent = (p) => (
 export const CalendarCheck: IconComponent = (p) => (
   <Base {...p}><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 9.5h17M8 3v3.5M16 3v3.5" /><path d="M8.5 14 10.7 16.2 15.5 11.3" /></Base>
 )
+export const Clock: IconComponent = (p) => (
+  <Base {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></Base>
+)
 export const Target: IconComponent = (p) => (
   <Base {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.8" /><circle cx="12" cy="12" r="1.2" fill={p.color || 'currentColor'} stroke="none" /></Base>
 )

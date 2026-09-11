@@ -14,7 +14,7 @@
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
-  HeartPulse, Utensils, Pill, Phone, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
+  HeartPulse, Utensils, Pill, Phone, Clock, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Flame, Target, TrendingUp,
   Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon,
   type LucideIcon, AlertTriangle,
@@ -294,6 +294,11 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
     patchRoadmap({ guide_overrides: { why_reflection: next } })
   }
   const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date: string; time: string; mode: string }[]>(data.careTeam || [])
+  const [reachInfo, setReachInfo] = useState(data.reachInfo)
+  function saveReachInfo(next: typeof reachInfo) {
+    setReachInfo(next)
+    patchRoadmap({ guide_overrides: { reach_info: next } })
+  }
   function saveCareTeam(next: typeof careTeam) {
     setCareTeam(next)
     patchRoadmap({ guide_overrides: { care_team: next } })
@@ -1607,6 +1612,30 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
         <Card id="reach" hidden={isHidden('reach')}>
           <Eyebrow>Reach us</Eyebrow>
           <SecTitle icon={<Phone size={18} />}>When to reach us</SecTitle>
+          {editable ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginTop: 16, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.muted, marginBottom: 4 }}>Phone</div>
+                <input value={reachInfo.phone} onChange={(e) => setReachInfo({ ...reachInfo, phone: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
+                  placeholder="Add a phone number" style={{ width: '100%', background: ONYX.card, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '6px 9px', fontSize: '0.83rem', color: ONYX.ink, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.muted, marginBottom: 4 }}>Work hours</div>
+                <input value={reachInfo.hours} onChange={(e) => setReachInfo({ ...reachInfo, hours: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
+                  placeholder="e.g. Mon-Sat, 9am-6pm" style={{ width: '100%', background: ONYX.card, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '6px 9px', fontSize: '0.83rem', color: ONYX.ink, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.muted, marginBottom: 4 }}>Front desk contact</div>
+                <input value={reachInfo.frontDesk} onChange={(e) => setReachInfo({ ...reachInfo, frontDesk: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
+                  placeholder="e.g. phone or email" style={{ width: '100%', background: ONYX.card, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '6px 9px', fontSize: '0.83rem', color: ONYX.ink, boxSizing: 'border-box' }} />
+              </div>
+            </div>
+          ) : (reachInfo.phone || reachInfo.hours) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 16, marginBottom: 2, fontSize: '0.85rem', color: ONYX.inkSoft }}>
+              {reachInfo.phone && <span><Phone size={12} style={{ verticalAlign: -2, marginRight: 5 }} />{reachInfo.phone}</span>}
+              {reachInfo.hours && <span><Clock size={12} style={{ verticalAlign: -2, marginRight: 5 }} />{reachInfo.hours}</span>}
+            </div>
+          )}
           {data.nextAppointment.date ? (
             <div style={{ marginTop: 16 }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: ONYX.accentDeep, fontSize: '0.82rem', fontWeight: 600, marginBottom: 12, background: ONYX.accentSoft, padding: '6px 12px', borderRadius: 2, border: `1px solid ${ONYX.border}` }}>
@@ -1615,23 +1644,13 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                 {data.nextAppointment.time && ` · ${new Date(`2000-01-01T${data.nextAppointment.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
                 {data.nextAppointment.mode && ` · ${data.nextAppointment.mode}`}
               </div>
-              <p style={{ color: ONYX.inkSoft, fontSize: '0.89rem', lineHeight: 1.6, marginBottom: 6 }}>Contact your care team if you:</p>
-              <ul style={{ margin: '0 0 10px', paddingLeft: 20, color: ONYX.inkSoft, fontSize: '0.89rem', lineHeight: 1.6 }}>
-                <li>Have questions about your plan</li>
-                <li>Are struggling to follow a recommendation</li>
-                <li>Notice an unexpected change in how you feel</li>
-              </ul>
-              <p style={{ color: ONYX.inkSoft, fontSize: '0.89rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Seek immediate medical care.</p>
+              <p style={{ color: ONYX.inkSoft, fontSize: '0.89rem', lineHeight: 1.6, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
+              <p style={{ color: ONYX.inkSoft, fontSize: '0.89rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
             </div>
           ) : (
             <div style={{ marginTop: 16 }}>
-              <p style={{ color: ONYX.inkSoft, fontSize: '0.89rem', lineHeight: 1.6, marginBottom: 6 }}>Contact your care team if you:</p>
-              <ul style={{ margin: '0 0 10px', paddingLeft: 20, color: ONYX.inkSoft, fontSize: '0.89rem', lineHeight: 1.6 }}>
-                <li>Have questions about your plan</li>
-                <li>Are struggling to follow a recommendation</li>
-                <li>Notice an unexpected change in how you feel</li>
-              </ul>
-              <p style={{ color: ONYX.inkSoft, fontSize: '0.89rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Seek immediate medical care.</p>
+              <p style={{ color: ONYX.inkSoft, fontSize: '0.89rem', lineHeight: 1.6, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
+              <p style={{ color: ONYX.inkSoft, fontSize: '0.89rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
             </div>
           )}
           {data.coach?.email && (
