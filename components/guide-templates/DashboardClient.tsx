@@ -2313,6 +2313,10 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           {(data.coach || editable) && (
             <div id="coach" data-coach-trigger {...hiddenAttrs('coach')} onClick={() => !editable && coachQuote && setCoachOpen((v) => !v)}
               style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 16, scrollMarginTop: SECTION_SCROLL_MARGIN, cursor: !editable && coachQuote ? 'pointer' : 'default', ...hiddenStyle('coach') }}>
+              {/* Deliberately editable-excluded here (unlike Pulse/Onyx) —
+                  Classic shows the coach-quote textarea unconditionally in
+                  edit mode, not behind this click, so toggling coachOpen
+                  while editable would have no visible effect anyway. */}
               <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: data.coach?.photo_url ? `url(${data.coach.photo_url}) center/cover` : C.accentSoft, border: `1px solid ${C.rule}` }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 {editable && <SectionToggle hidden={isHidden('coach')} onToggle={() => toggleSection('coach')} />}

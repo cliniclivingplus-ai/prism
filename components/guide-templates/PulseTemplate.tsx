@@ -908,8 +908,8 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
             note above. */}
         {data.coach && (
           <Card id="coach" hidden={isHidden('coach')}>
-            <div data-coach-trigger onClick={() => !editable && coachQuote && setCoachOpen((v) => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 18, cursor: !editable && coachQuote ? 'pointer' : 'default' }}>
+            <div data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 18, cursor: coachQuote || editable ? 'pointer' : 'default' }}>
               <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PULSE.accentSoft, border: `1px solid ${PULSE.border}` }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Eyebrow>Your coach</Eyebrow>
