@@ -316,6 +316,27 @@ export default function WeekEarthTemplate({ shareToken, data, initialCheckins, e
   const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS))
   const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS))
   const [dailyScheduleText, setDailyScheduleText] = useState(data.dailySchedule)
+  const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date: string; time: string; mode: string }[]>(data.careTeam || [])
+  function saveCareTeam(next: typeof careTeam) {
+    setCareTeam(next)
+    patchRoadmap({ guide_overrides: { care_team: next } })
+  }
+  function addCareTeamMember() {
+    saveCareTeam([...careTeam, { name: '', role: '', intro: '', photo: '', date: '', time: '', mode: '' }])
+  }
+  function removeCareTeamMember(i: number) {
+    saveCareTeam(careTeam.filter((_, idx) => idx !== i))
+  }
+  const [coaches, setCoaches] = useState<{ id: string; full_name: string; department: string | null; designation: string | null; bio: string | null; photo_url: string | null }[]>([])
+  useEffect(() => {
+    if (!editable) return
+    fetch('/api/compass/nutritionists').then((r) => r.json()).then((j) => setCoaches(Array.isArray(j) ? j : []))
+  }, [editable])
+  function addCareTeamMemberFromDirectory(id: string) {
+    const person = coaches.find((c) => c.id === id)
+    if (!person) return
+    saveCareTeam([...careTeam, { name: person.full_name, role: person.designation || '', intro: person.bio || '', photo: person.photo_url || '', date: '', time: '', mode: '' }])
+  }
   function saveLifestyleItem(label: string, itemIndex: number, next: string) {
     setLifestyleByPeriod((prev) => {
       const items = parseBullets(prev[label] || '')
@@ -1062,29 +1083,77 @@ function clpToggleGroceryCat(head){
       )}
 
       {/* Care team */}
-      {data.careTeam.length > 0 && (
+      {(careTeam.length > 0 || editable) && (
         <section id="careteam" style={{ background: PALETTE.paper3, padding: '4rem 1.5rem', ...hiddenStyle('careteam') }}>
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <Eyebrow>Beyond your coach</Eyebrow>
             <SecTitle icon={<HeartPulse size={26} />} sectionId="careteam" open={isSectionOpen('careteam')} onToggle={() => toggleSection('careteam')}>Your care team</SecTitle>
             <div data-section-body="careteam" style={{ display: isSectionOpen('careteam') ? 'flex' : 'none', marginTop: 24, flexDirection: 'column', gap: 24 }}>
-              {data.careTeam.map((m, i) => (
+              {careTeam.map((m, i) => (
                 <div key={i} style={i > 0 ? { paddingTop: 24, borderTop: `1px solid ${PALETTE.line}` } : undefined}>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.1rem', fontWeight: 500 }}>{m.name}</div>
-                  {m.role && <div style={{ fontFamily: "'Karla', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry, marginTop: 4 }}>{m.role}</div>}
-                  {m.intro && <p style={{ fontSize: '0.95rem', lineHeight: 1.6, marginTop: 10, marginBottom: 0 }}>{renderMarkdownBold(m.intro)}</p>}
-                  {m.date && (
-                    <div style={{ fontSize: '0.85rem', color: PALETTE.berry, fontWeight: 600, marginTop: 10 }}>
-                      {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
+                  {editable ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {m.photo && <div style={{ width: 32, height: 32, borderRadius: 16, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PALETTE.line}` }} />}
+                        <InlineEditableText editable value={m.name} placeholder="Name" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, name: next } : x)))}
+                          style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.1rem', fontWeight: 500, flex: 1 }} />
+                        <button type="button" onClick={() => removeCareTeamMember(i)} title="Remove"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.berry, opacity: 0.6, flexShrink: 0 }}><X size={15} /></button>
+                      </div>
+                      <InlineEditableText editable value={m.role} placeholder="Role" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, role: next } : x)))}
+                        style={{ fontFamily: "'Karla', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }} />
+                      <InlineEditableText editable as="div" multiline value={m.intro} placeholder="Intro" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, intro: next } : x)))}
+                        style={{ fontSize: '0.95rem', lineHeight: 1.6 }} />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <InlineEditableText editable value={m.date} placeholder="Date (YYYY-MM-DD)" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, date: next } : x)))}
+                          style={{ fontSize: '0.85rem', color: PALETTE.berry, fontWeight: 600 }} />
+                        <InlineEditableText editable value={m.time} placeholder="Time (HH:MM)" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, time: next } : x)))}
+                          style={{ fontSize: '0.85rem', color: PALETTE.berry, fontWeight: 600 }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      {m.photo && <div style={{ width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PALETTE.line}` }} />}
+                      <div>
+                        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.1rem', fontWeight: 500 }}>{m.name}</div>
+                        {m.role && <div style={{ fontFamily: "'Karla', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry, marginTop: 4 }}>{m.role}</div>}
+                        {m.intro && <p style={{ fontSize: '0.95rem', lineHeight: 1.6, marginTop: 10, marginBottom: 0 }}>{renderMarkdownBold(m.intro)}</p>}
+                        {m.date && (
+                          <div style={{ fontSize: '0.85rem', color: PALETTE.berry, fontWeight: 600, marginTop: 10 }}>
+                            {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
               ))}
             </div>
+            {editable && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+                {coaches.length > 0 && (
+                  <select value="" onChange={(e) => { if (e.target.value) addCareTeamMemberFromDirectory(e.target.value) }}
+                    style={{ fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+                    <option value="">+ Add from staff directory…</option>
+                    {Array.from(new Set(coaches.map((c) => c.department || 'No department'))).sort().map((dept) => (
+                      <optgroup key={dept} label={dept}>
+                        {coaches.filter((c) => (c.department || 'No department') === dept).map((c) => (
+                          <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                )}
+                <button type="button" onClick={addCareTeamMember}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+                  + Add manually
+                </button>
+              </div>
+            )}
           </div>
         </section>
-      )}
+        )}
 
       {/* How to use this guide + Your why */}
       <section id="howto" style={{ background: PALETTE.gold1, padding: '4rem 1.5rem', ...hiddenStyle('howto') }}>

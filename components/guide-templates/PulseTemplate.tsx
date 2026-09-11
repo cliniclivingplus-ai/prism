@@ -277,7 +277,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
     setWhyReflection(next)
     patchRoadmap({ guide_overrides: { why_reflection: next } })
   }
-  const [careTeam, setCareTeam] = useState(data.careTeam || [])
+  const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date: string; time: string; mode: string }[]>(data.careTeam || [])
   function saveCareTeam(next: typeof careTeam) {
     setCareTeam(next)
     patchRoadmap({ guide_overrides: { care_team: next } })
@@ -286,6 +286,16 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
     setCareTeam((prev) => prev.map((m, idx) => (idx === i ? { ...m, [field]: value } : m)))
   }
   function blurCareTeam() { patchRoadmap({ guide_overrides: { care_team: careTeam } }) }
+  const [coaches, setCoaches] = useState<{ id: string; full_name: string; department: string | null; designation: string | null; bio: string | null; photo_url: string | null }[]>([])
+  useEffect(() => {
+    if (!editable) return
+    fetch('/api/compass/nutritionists').then((r) => r.json()).then((j) => setCoaches(Array.isArray(j) ? j : []))
+  }, [editable])
+  function addCareTeamMemberFromDirectory(id: string) {
+    const person = coaches.find((c) => c.id === id)
+    if (!person) return
+    saveCareTeam([...careTeam, { name: person.full_name, role: person.designation || '', intro: person.bio || '', photo: person.photo_url || '', date: '', time: '', mode: '' }])
+  }
   const [powerPoints, setPowerPoints] = useState(data.powerPoints || [])
   function savePowerPoints(next: typeof powerPoints) {
     setPowerPoints(next)
@@ -907,6 +917,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                     <>
                       <button type="button" onClick={() => saveCareTeam(careTeam.filter((_, idx) => idx !== i))} title="Remove"
                         style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: PULSE.muted }}><X size={14} /></button>
+                      {m.photo && <div style={{ width: 32, height: 32, borderRadius: 16, background: `url(${m.photo}) center/cover`, border: `1px solid ${PULSE.border}`, marginBottom: 6 }} />}
                       <input value={m.name} onChange={(e) => updateCareTeamField(i, 'name', e.target.value)} onBlur={blurCareTeam} placeholder="Name"
                         style={{ display: 'block', width: '100%', fontSize: '0.98rem', fontWeight: 700, color: PULSE.ink, background: 'transparent', border: `1px dashed ${PULSE.border}`, borderRadius: 6, padding: '2px 4px', marginBottom: 6, boxSizing: 'border-box' }} />
                       <input value={m.role} onChange={(e) => updateCareTeamField(i, 'role', e.target.value)} onBlur={blurCareTeam} placeholder="Role"
@@ -923,26 +934,44 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                       </div>
                     </>
                   ) : (
-                    <>
-                      <div style={{ fontSize: '0.98rem', fontWeight: 700 }}>{m.name}</div>
-                      {m.role && <div style={{ fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.muted, marginTop: 2 }}>{m.role}</div>}
-                      {m.intro && <p style={{ fontSize: '0.86rem', lineHeight: 1.5, marginTop: 8, color: PULSE.inkSoft }}>{renderMarkdownBold(m.intro)}</p>}
-                      {m.date && (
-                        <div style={{ fontSize: '0.78rem', color: PULSE.accentDeep, fontWeight: 700, marginTop: 8 }}>
-                          {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
-                          {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
-                        </div>
-                      )}
-                    </>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      {m.photo && <div style={{ width: 36, height: 36, borderRadius: 18, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PULSE.border}` }} />}
+                      <div>
+                        <div style={{ fontSize: '0.98rem', fontWeight: 700 }}>{m.name}</div>
+                        {m.role && <div style={{ fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.muted, marginTop: 2 }}>{m.role}</div>}
+                        {m.intro && <p style={{ fontSize: '0.86rem', lineHeight: 1.5, marginTop: 8, color: PULSE.inkSoft }}>{renderMarkdownBold(m.intro)}</p>}
+                        {m.date && (
+                          <div style={{ fontSize: '0.78rem', color: PULSE.accentDeep, fontWeight: 700, marginTop: 8 }}>
+                            {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               ))}
             </div>
             {editable && (
-              <button type="button" onClick={() => saveCareTeam([...careTeam, { name: '', role: '', intro: '', date: '', time: '', mode: '' }])}
-                style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, padding: '8px 14px', borderRadius: 9, border: `1px dashed ${PULSE.border}`, background: 'none', color: PULSE.accent, cursor: 'pointer' }}>
-                + Add care team member
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                {coaches.length > 0 && (
+                  <select value="" onChange={(e) => { if (e.target.value) addCareTeamMemberFromDirectory(e.target.value) }}
+                    style={{ fontSize: '0.78rem', fontWeight: 700, padding: '8px 14px', borderRadius: 9, border: `1px dashed ${PULSE.border}`, background: 'none', color: PULSE.accent, cursor: 'pointer' }}>
+                    <option value="">+ Add from staff directory…</option>
+                    {Array.from(new Set(coaches.map((c) => c.department || 'No department'))).sort().map((dept) => (
+                      <optgroup key={dept} label={dept}>
+                        {coaches.filter((c) => (c.department || 'No department') === dept).map((c) => (
+                          <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                )}
+                <button type="button" onClick={() => saveCareTeam([...careTeam, { name: '', role: '', intro: '', photo: '', date: '', time: '', mode: '' }])}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, padding: '8px 14px', borderRadius: 9, border: `1px dashed ${PULSE.border}`, background: 'none', color: PULSE.accent, cursor: 'pointer' }}>
+                  + Add manually
+                </button>
+              </div>
             )}
           </Card>
         )}

@@ -679,16 +679,29 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
 
   // Care team — guide_overrides.care_team, same shape as DashboardClient's
   // AiEditButton "care_team_member" editor, just field-by-field here.
-  const [careTeam, setCareTeam] = useState(data.careTeam || [])
+  const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date: string; time: string; mode: string }[]>(data.careTeam || [])
   function saveCareTeam(next: typeof careTeam) {
     setCareTeam(next)
     patchRoadmap({ guide_overrides: { care_team: next } })
   }
   function addCareTeamMember() {
-    saveCareTeam([...careTeam, { name: '', role: '', intro: '', date: '', time: '', mode: '' }])
+    saveCareTeam([...careTeam, { name: '', role: '', intro: '', photo: '', date: '', time: '', mode: '' }])
   }
   function removeCareTeamMember(i: number) {
     saveCareTeam(careTeam.filter((_, idx) => idx !== i))
+  }
+  // Same staff directory as the Coaches page / Classic editor's "Coach"
+  // picker — lets a coach pick a person instead of retyping their
+  // name/role/intro/photo by hand for every patient.
+  const [coaches, setCoaches] = useState<{ id: string; full_name: string; department: string | null; designation: string | null; bio: string | null; photo_url: string | null }[]>([])
+  useEffect(() => {
+    if (!editable) return
+    fetch('/api/compass/nutritionists').then((r) => r.json()).then((j) => setCoaches(Array.isArray(j) ? j : []))
+  }, [editable])
+  function addCareTeamMemberFromDirectory(id: string) {
+    const person = coaches.find((c) => c.id === id)
+    if (!person) return
+    saveCareTeam([...careTeam, { name: person.full_name, role: person.designation || '', intro: person.bio || '', photo: person.photo_url || '', date: '', time: '', mode: '' }])
   }
 
   // Power points — guide_overrides.power_points.
@@ -1022,6 +1035,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                   {editable ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {m.photo && <div style={{ width: 32, height: 32, borderRadius: 16, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PALETTE.line}` }} />}
                         <InlineEditableText editable value={m.name} placeholder="Name" onSave={(next) => saveCareTeam(careTeam.map((x, idx) => (idx === i ? { ...x, name: next } : x)))}
                           style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', fontWeight: 500, flex: 1 }} />
                         <button type="button" onClick={() => removeCareTeamMember(i)} title="Remove"
@@ -1039,25 +1053,43 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', fontWeight: 500 }}>{m.name}</div>
-                      {m.role && <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry, marginTop: 4 }}>{m.role}</div>}
-                      {m.intro && <p style={{ fontSize: '0.95rem', lineHeight: 1.6, marginTop: 10, marginBottom: 0 }}>{renderMarkdownBold(m.intro)}</p>}
-                      {m.date && (
-                        <div style={{ fontSize: '0.85rem', color: PALETTE.berry, fontWeight: 600, marginTop: 10 }}>
-                          {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
-                          {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
-                        </div>
-                      )}
-                    </>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      {m.photo && <div style={{ width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: `url(${m.photo}) center/cover`, border: `1px solid ${PALETTE.line}` }} />}
+                      <div>
+                        <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', fontWeight: 500 }}>{m.name}</div>
+                        {m.role && <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry, marginTop: 4 }}>{m.role}</div>}
+                        {m.intro && <p style={{ fontSize: '0.95rem', lineHeight: 1.6, marginTop: 10, marginBottom: 0 }}>{renderMarkdownBold(m.intro)}</p>}
+                        {m.date && (
+                          <div style={{ fontSize: '0.85rem', color: PALETTE.berry, fontWeight: 600, marginTop: 10 }}>
+                            {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            {m.time && ` · ${new Date(`2000-01-01T${m.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               ))}
               {editable && (
-                <button type="button" onClick={addCareTeamMember}
-                  style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
-                  + Add team member
-                </button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {coaches.length > 0 && (
+                    <select value="" onChange={(e) => { if (e.target.value) addCareTeamMemberFromDirectory(e.target.value) }}
+                      style={{ fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+                      <option value="">+ Add from staff directory…</option>
+                      {Array.from(new Set(coaches.map((c) => c.department || 'No department'))).sort().map((dept) => (
+                        <optgroup key={dept} label={dept}>
+                          {coaches.filter((c) => (c.department || 'No department') === dept).map((c) => (
+                            <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  )}
+                  <button type="button" onClick={addCareTeamMember}
+                    style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${PALETTE.line}`, background: 'none', color: PALETTE.berry, cursor: 'pointer' }}>
+                    + Add manually
+                  </button>
+                </div>
               )}
             </div>
           </div>

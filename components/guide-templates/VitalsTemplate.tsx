@@ -203,7 +203,7 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
   const [founderNote, setFounderNote] = useState(data.founderNote)
   const [coachQuote, setCoachQuote] = useState(data.coachQuote)
   const [whyReflection, setWhyReflection] = useState(data.whyReflection)
-  const [careTeam, setCareTeam] = useState(data.careTeam || [])
+  const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date?: string; time?: string; mode?: string }[]>(data.careTeam || [])
   function saveFounderNote(next: string) {
     setFounderNote(next)
     patchRoadmap({ guide_overrides: { founder_note: next } })
@@ -228,6 +228,16 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
   }
   function addCareTeamMember() {
     saveCareTeam([...careTeam, { name: 'New team member', role: '', intro: '', date: '', time: '', mode: '' }])
+  }
+  const [coaches, setCoaches] = useState<{ id: string; full_name: string; department: string | null; designation: string | null; bio: string | null; photo_url: string | null }[]>([])
+  useEffect(() => {
+    if (!editable) return
+    fetch('/api/compass/nutritionists').then((r) => r.json()).then((j) => setCoaches(Array.isArray(j) ? j : []))
+  }, [editable])
+  function addCareTeamMemberFromDirectory(id: string) {
+    const person = coaches.find((c) => c.id === id)
+    if (!person) return
+    saveCareTeam([...careTeam, { name: person.full_name, role: person.designation || '', intro: person.bio || '', photo: person.photo_url || '' }])
   }
 
   function saveScheduleAction(weekNumber: number, dayIndex: number, actionIndex: number, next: string) {
@@ -787,8 +797,8 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                     <button type="button" onClick={() => removeCareTeamMember(i)} title="Remove"
                       style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: V.accent, opacity: 0.6 }}><X size={14} /></button>
                   )}
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: V.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: V.accentDeep, marginBottom: 10 }}>
-                    {(m.name || '?').charAt(0)}
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: m.photo ? `url(${m.photo}) center/cover` : V.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: V.accentDeep, marginBottom: 10 }}>
+                    {!m.photo && (m.name || '?').charAt(0)}
                   </div>
                   {editable ? (
                     <>
@@ -810,10 +820,25 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
               ))}
             </div>
             {editable && (
-              <button type="button" onClick={addCareTeamMember}
-                style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${V.line}`, background: 'none', color: V.accent, cursor: 'pointer' }}>
-                + Add team member
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                {coaches.length > 0 && (
+                  <select value="" onChange={(e) => { if (e.target.value) addCareTeamMemberFromDirectory(e.target.value) }}
+                    style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${V.line}`, background: 'none', color: V.accent, cursor: 'pointer' }}>
+                    <option value="">+ Add from staff directory…</option>
+                    {Array.from(new Set(coaches.map((c) => c.department || 'No department'))).sort().map((dept) => (
+                      <optgroup key={dept} label={dept}>
+                        {coaches.filter((c) => (c.department || 'No department') === dept).map((c) => (
+                          <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                )}
+                <button type="button" onClick={addCareTeamMember}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${V.line}`, background: 'none', color: V.accent, cursor: 'pointer' }}>
+                  + Add manually
+                </button>
+              </div>
             )}
           </Card>
         )}
