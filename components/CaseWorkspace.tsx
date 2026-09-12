@@ -9,7 +9,7 @@ const C = {
   faint: '#8A9284', line: '#ECEBE3', card: '#FFFFFF',
 }
 type KbSource = { title: string; source_type: string }
-type Msg = { role: 'user' | 'assistant'; content: string; sources?: KbSource[]; generalAnswer?: boolean; kbMiss?: boolean; recipeAdded?: boolean; recipeName?: string }
+type Msg = { role: 'user' | 'assistant'; content: string; sources?: KbSource[]; generalAnswer?: boolean; kbMiss?: boolean; recipeAdded?: boolean; recipeName?: string; lifestyleAdded?: boolean; lifestyleCount?: number }
 // A step is a concrete, RAG-grounded action toward a milestone — validated
 // against this specific patient's known constraints (allergies, intolerances,
 // preferences) before being marked 'validated'. 'rejected' means the AI (or
@@ -33,6 +33,7 @@ export default function CaseWorkspace({
   const [opening, setOpening] = useState(false)
 
   const [messages, setMessages] = useState<Msg[]>([])
+  const [resolvedPatientId, setResolvedPatientId] = useState(patientId || '')
   const [input, setInput] = useState('')
   const [thinking, setThinking] = useState(false)
   const [chatError, setChatError] = useState('')
@@ -92,8 +93,9 @@ export default function CaseWorkspace({
             if (p.answer) existing.push({ role: 'assistant', content: p.answer })
           }
         }
+        const pid = patientId || s?.patient_id
+        if (pid) setResolvedPatientId(pid)
         if (!name || name === 'the patient') {
-          const pid = patientId || s?.patient_id
           if (pid) { try { name = (await (await fetch(`/api/patients/${pid}`)).json())?.full_name || name } catch {} }
         }
       } catch {}
@@ -136,7 +138,7 @@ export default function CaseWorkspace({
     try {
       const r = await fetch('/api/compass/qa-chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'chat', patientName, transcript, geminiSummary, checklist, messages: [] }),
+        body: JSON.stringify({ mode: 'chat', patientId: resolvedPatientId, patientName, transcript, geminiSummary, checklist, messages: [] }),
       })
       const j = await r.json()
       if (j.error || !j.reply) { setChatError(j.error || 'The clinical co-pilot could not open the discussion.'); return }
@@ -157,11 +159,11 @@ export default function CaseWorkspace({
     try {
       const r = await fetch('/api/compass/qa-chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'chat', patientName, transcript, geminiSummary, checklist, messages: next }),
+        body: JSON.stringify({ mode: 'chat', patientId: resolvedPatientId, patientName, transcript, geminiSummary, checklist, messages: next }),
       })
       const j = await r.json()
       if (j.error || !j.reply) { setChatError(j.error || 'The clinical co-pilot could not respond.'); return }
-      const withReply = [...next, { role: 'assistant' as const, content: j.reply, sources: Array.isArray(j.sources) ? j.sources : [], generalAnswer: !!j.generalAnswer, kbMiss: !!j.kbMiss, recipeAdded: !!j.recipeAdded, recipeName: j.recipeName || '' }]
+      const withReply = [...next, { role: 'assistant' as const, content: j.reply, sources: Array.isArray(j.sources) ? j.sources : [], generalAnswer: !!j.generalAnswer, kbMiss: !!j.kbMiss, recipeAdded: !!j.recipeAdded, recipeName: j.recipeName || '', lifestyleAdded: !!j.lifestyleAdded, lifestyleCount: j.lifestyleCount || 0 }]
       setMessages(withReply); persist(withReply)
       if (Array.isArray(j.checklist) && j.checklist.length) { setChecklist(j.checklist); persistChecklist(j.checklist) }
     } catch { setChatError('Connection issue — try again.') }
@@ -313,6 +315,11 @@ export default function CaseWorkspace({
                 {m.role === 'assistant' && m.recipeAdded && (
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 11, color: C.greenDeep, fontWeight: 600, background: C.greenSoft, border: `1px solid ${C.greenBorder}`, borderRadius: 20, padding: '3px 10px' }}>
                     <CheckCircle2 size={11} /> Saved to recipe bank
+                  </div>
+                )}
+                {m.role === 'assistant' && m.lifestyleAdded && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 11, color: C.greenDeep, fontWeight: 600, background: C.greenSoft, border: `1px solid ${C.greenBorder}`, borderRadius: 20, padding: '3px 10px' }}>
+                    <CheckCircle2 size={11} /> Added {m.lifestyleCount === 1 ? 'guideline' : `${m.lifestyleCount} guidelines`} to dashboard
                   </div>
                 )}
                 {m.role === 'assistant' && !!m.sources?.length && (

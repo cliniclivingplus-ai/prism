@@ -187,7 +187,7 @@ function friendlyError(err: any) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { mode, patientName = 'the patient', messages = [] } = body;
+    const { mode, patientId = '', patientName = 'the patient', messages = [] } = body;
     const transcript = trimToBudget(body.transcript || '', MAX_TRANSCRIPT_CHARS);
     const geminiSummary = trimToBudget(body.geminiSummary || '', MAX_GEMINI_SUMMARY_CHARS);
     // Gemini's summary is a secondary reference the model cross-checks against the
@@ -400,6 +400,13 @@ HOW TO LEAD:
         // not emitting) the marker correctly.
         const addRecipeRule = `\n\nADD-TO-RECIPES RULE: you cannot save, add, or store anything yourself — you have no database access. If the coach asks you to add/save a recipe to the recipe bank or the dashboard, and a full recipe (ingredients and steps, not just a dish name) was pasted or written out earlier in this conversation, your ENTIRE reply must be just the literal marker \`[ADD_RECIPE]\` and nothing else — no other text before or after it. Do not say "added", "got it", "done", or describe what you did — you don't know yet whether it will succeed, and the app will replace your reply with the real outcome. If the coach asks to add a recipe but no full recipe (ingredients + steps) appears anywhere earlier in this conversation, don't emit the marker — reply normally and ask them to paste the recipe first.`;
 
+        // Same real-write mechanism as [ADD_RECIPE], for a different target:
+        // ${patientName}'s roadmap's Daily Lifestyle Guidelines section
+        // instead of the shared recipe bank. Distinct trigger phrase ("this
+        // list of guidelines/habits", not "this recipe") so the model can't
+        // confuse the two when both have appeared in the same conversation.
+        const addLifestyleRule = `\n\nADD-TO-LIFESTYLE-GUIDELINES RULE: you cannot save, add, or store anything yourself. If the coach asks you to add lifestyle/habit guideline bullet points (things like water intake, sleep schedule, movement, screen time, oral hygiene — general daily-habit advice, NOT a recipe) to the dashboard/guide, and such a list was pasted or written out earlier in this conversation, your ENTIRE reply must be just the literal marker \`[ADD_LIFESTYLE]\` and nothing else. Do not say "added" or describe an outcome — the app replaces your reply with the real result. If no such list appears earlier in the conversation, don't emit the marker — ask them to paste the list first.`;
+
         const chatRequest = {
           model: MODEL_CHAT,
           temperature: 0.3, // was 0.6 — this now follows conditional grounding/marker
@@ -410,7 +417,7 @@ HOW TO LEAD:
           // reasoning before producing visible output, hitting finish_reason:'length'
           // with empty content.
           messages: [
-            { role: 'system' as const, content: `${baseIdentity(patientName)}\n\nConsultation transcript (may be trimmed):\n\n${transcript}${geminiSummaryBlock}${kbBlock}${groundingRule}${checklistRule}${addRecipeRule}` },
+            { role: 'system' as const, content: `${baseIdentity(patientName)}\n\nConsultation transcript (may be trimmed):\n\n${transcript}${geminiSummaryBlock}${kbBlock}${groundingRule}${checklistRule}${addRecipeRule}${addLifestyleRule}` },
             ...trimmedMessages,
             // No conversation yet — this nudges the model to open with the top
             // checklist item without ever appearing in the visible chat (only
@@ -550,6 +557,82 @@ Infer meal_type from context (a sandwich for lunch, oats for breakfast, etc.) �
           }
         }
 
+        let lifestyleAdded = false;
+        let lifestyleCount = 0;
+        if (/^\[ADD_LIFESTYLE\]/.test(reply)) {
+          const PERIODS = ['Morning', 'Afternoon', 'Evening'];
+          const looksLikeGuidelineList = (content: string) => {
+            if (content.length <= 30) return false;
+            const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
+            const listLines = lines.filter((l) => /^\s*[-•*•\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(l) || l.length < 100);
+            return listLines.length >= 3;
+          };
+          const sourceMsg = [...messages].reverse().find(
+            (m: any) => (m.role === 'user' || m.role === 'assistant') && looksLikeGuidelineList(String(m.content || ''))
+          );
+          if (!sourceMsg) {
+            reply = `I don't see a list of lifestyle guidelines earlier in this conversation to add — paste the list here and ask again.`;
+          } else if (!patientId) {
+            reply = `I can't tell which patient's dashboard to add these to — try opening this discussion from the patient's page.`;
+          } else {
+            try {
+              const { data: roadmap } = await supabaseAdmin
+                .from('roadmaps')
+                .select('id, guide_overrides, lifestyle_guidelines')
+                .eq('patient_id', patientId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (!roadmap) {
+                reply = `${patientName} doesn't have a generated dashboard yet, so there's nowhere to add these — generate the roadmap first, then I can add lifestyle guidelines to it.`;
+              } else {
+                const extraction = await withRetry(() => groq.chat.completions.create({
+                  model: MODEL_FAST,
+                  temperature: 0.2,
+                  max_tokens: 700,
+                  reasoning_effort: 'low',
+                  response_format: { type: 'json_object' as const },
+                  messages: [
+                    {
+                      role: 'system' as const,
+                      content: `Extract lifestyle/habit guideline bullet points from the coach's message into strict JSON, no markdown, no commentary:
+{"items": ["Period: short action", ...]}
+Each item must start with "Morning: ", "Afternoon: ", or "Evening: " followed by the action, plain instruction, under 10 words after the label, no emoji, no explanation. Infer the most sensible period for each item from its content (e.g. water/sleep-schedule/mindfulness could fit any period, use judgment; screen-avoidance-before-bed is Evening; protein breakfast is Morning). Drop the emoji and any commentary, keep only the core action. One item per line the coach wrote. Do not invent items that weren't in the source.`,
+                    },
+                    { role: 'user' as const, content: String(sourceMsg.content) },
+                  ],
+                }));
+                const raw = extraction.choices[0]?.message?.content || '{}';
+                const parsed = JSON.parse(raw) as { items?: unknown };
+                const items = Array.isArray(parsed.items)
+                  ? parsed.items
+                      .map((s) => String(s).trim())
+                      .filter((s) => PERIODS.some((p) => s.startsWith(`${p}: `)))
+                  : [];
+                if (!items.length) {
+                  reply = `I found a list above but couldn't pull out any clear lifestyle actions from it — could you paste it again?`;
+                } else {
+                  const existingText = String(roadmap.guide_overrides?.daily_lifestyle_guidelines ?? roadmap.lifestyle_guidelines ?? '').trim();
+                  const mergedText = [existingText, ...items].filter(Boolean).join('\n');
+                  const { error: updateError } = await supabaseAdmin
+                    .from('roadmaps')
+                    .update({ guide_overrides: { ...(roadmap.guide_overrides ?? {}), daily_lifestyle_guidelines: mergedText } })
+                    .eq('id', roadmap.id);
+                  if (updateError) {
+                    reply = `I tried to add those guidelines but the save failed (${updateError.message}) — nothing was stored.`;
+                  } else {
+                    lifestyleAdded = true;
+                    lifestyleCount = items.length;
+                    reply = `Added ${items.length} lifestyle guideline${items.length === 1 ? '' : 's'} to ${patientName}'s dashboard — you'll see ${items.length === 1 ? 'it' : 'them'} in the Daily Lifestyle Guidelines section.`;
+                  }
+                }
+              }
+            } catch {
+              reply = `I tried to add those guidelines but ran into an error — nothing was saved.`;
+            }
+          }
+        }
+
         // Parse and apply a checklist status update, if the model emitted one.
         let updatedChecklist = checklist;
         const checklistMatch = reply.match(/^\[CHECKLIST_UPDATE:(\{[^}]*\})\]\s*/);
@@ -565,7 +648,7 @@ Infer meal_type from context (a sandwich for lunch, oats for breakfast, etc.) �
         }
 
         const kbMiss = !effectiveSources.length && !generalAnswer;
-        return Response.json({ reply: stripDietLabels(reply), sources: effectiveSources, generalAnswer, kbMiss, checklist: updatedChecklist, recipeAdded, recipeName });
+        return Response.json({ reply: stripDietLabels(reply), sources: effectiveSources, generalAnswer, kbMiss, checklist: updatedChecklist, recipeAdded, recipeName, lifestyleAdded, lifestyleCount });
       } catch (err) { return friendlyError(err); }
     }
 
