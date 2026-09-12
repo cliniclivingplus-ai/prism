@@ -485,7 +485,15 @@ HOW TO LEAD:
               const extraction = await withRetry(() => groq.chat.completions.create({
                 model: MODEL_FAST,
                 temperature: 0.2,
-                max_tokens: 900,
+                max_tokens: 1200, // was 900 — a full recipe (ingredients + steps) plus
+                // JSON structure overhead can exceed that even without reasoning waste
+                reasoning_effort: 'low', // same fix as "summary" mode above: Groq's
+                // json_object mode hard-fails with 400 json_validate_failed if
+                // max_tokens runs out before the JSON closes, and gpt-oss models can
+                // burn the whole budget on internal reasoning before writing output —
+                // this was observed live (empty failed_generation, i.e. truncated
+                // before any JSON was written at all). Extraction is a well-defined
+                // task, not conditional-logic-following, so low effort costs nothing.
                 response_format: { type: 'json_object' as const },
                 messages: [
                   {
