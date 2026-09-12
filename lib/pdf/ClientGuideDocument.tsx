@@ -13,6 +13,7 @@ import { MARKDOWN_TOKEN, LINK_TOKEN, normalizeLinks } from '../renderMarkdownBol
 import type { ChecklistPageBlock } from '../blocks/types'
 import type { ChecklistItem } from '../dailyChecklist'
 import type { GroceryCategory } from '../groceryList'
+import type { PlateComposition } from '../dietRules'
 
 export type KbSource = { title: string; source_type: string; chunk_preview: string }
 
@@ -73,6 +74,13 @@ export type GuideData = {
   // colon optional — falling back to one flat list when no groups are found.
   dailyLifestyleGuidelines: string // defaults to the roadmap's own lifestyle_guidelines text (already real, coach-written/AI-generated content) until edited here specifically
   mealGuidelines: string // defaults to the "Diet protocol" bullets already parsed out of nutritionist_guidelines (real, patient-specific) until edited here specifically
+  // The veg/cereal/protein/fat plate ratio this patient's recipes should
+  // follow — clinic-wide default (see DEFAULT_PLATE_COMPOSITION) until a
+  // coach overrides it for a client who genuinely needs a different split.
+  // Edited right where the meals themselves are visible (the
+  // Breakfast/Lunch/Dinner section), and read by the case-discussion
+  // co-pilot when it proposes a recipe for this patient.
+  plateComposition: PlateComposition
   dailySchedule: string // a real time-blocked day ("7:30 AM — ..."), one per line — no existing source to default from, so this starts blank until the coach writes one or clicks Ask AI
   // The "Daily Health Check-in" checklist — see lib/dailyChecklist.ts. Real,
   // stable-ID'd items grounded in confirmedSupplements/lifestyle_guidelines,

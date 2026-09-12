@@ -5,6 +5,7 @@ import type { ChecklistPageBlock } from '../blocks/types'
 import { parseNutritionistGuidelines } from './parseNutritionistGuidelines'
 import { buildDeterministicChecklist, type ChecklistItem } from '../dailyChecklist'
 import type { GroceryCategory } from '../groceryList'
+import { DEFAULT_PLATE_COMPOSITION, type PlateComposition } from '../dietRules'
 
 // goalLabel is a complete, capitalized, period-terminated sentence — this
 // strips the trailing period so it reads correctly spliced mid-sentence.
@@ -80,7 +81,7 @@ export type RoadmapRow = {
   kb_sources: GuideData['roadmap']['kb_sources'] | null
   weekly_schedule: GuideData['roadmap']['weekly_schedule'] | null
   duration_months: number
-  guide_overrides: { goal_label?: string; why_reflection?: string; coach_quote?: string; founder_note?: string; manual_recipes?: Partial<Record<DayMealSlot, string[]>>; weekly_manual_recipes?: Record<number, Partial<Record<DayMealSlot, string[]>>>; theme?: string; template?: string; care_services?: GuideData['careServices']; next_appointment?: GuideData['nextAppointment']; reach_info?: GuideData['reachInfo']; care_team?: GuideData['careTeam']; hidden_sections?: string[]; daily_metrics?: GuideData['dailyMetrics']; power_points?: GuideData['powerPoints']; canvas_blocks?: ChecklistPageBlock[]; daily_lifestyle_guidelines?: string; meal_guidelines?: string; daily_schedule?: string; daily_checklist_items?: ChecklistItem[]; grocery_list_override?: GroceryCategory[] | null } | null
+  guide_overrides: { goal_label?: string; why_reflection?: string; coach_quote?: string; founder_note?: string; manual_recipes?: Partial<Record<DayMealSlot, string[]>>; weekly_manual_recipes?: Record<number, Partial<Record<DayMealSlot, string[]>>>; theme?: string; template?: string; care_services?: GuideData['careServices']; next_appointment?: GuideData['nextAppointment']; reach_info?: GuideData['reachInfo']; care_team?: GuideData['careTeam']; hidden_sections?: string[]; daily_metrics?: GuideData['dailyMetrics']; power_points?: GuideData['powerPoints']; canvas_blocks?: ChecklistPageBlock[]; daily_lifestyle_guidelines?: string; meal_guidelines?: string; daily_schedule?: string; daily_checklist_items?: ChecklistItem[]; grocery_list_override?: GroceryCategory[] | null; plate_composition?: PlateComposition } | null
   patients: (Omit<GuideData['patient'], never> & { nutritionists: Coach | null }) | null
   sessions: { case_summary: { goal?: string; coach_quote?: string } | null } | null
 }
@@ -155,5 +156,6 @@ export function buildGuideData(
       ?? roadmap.daily_checklist_items
       ?? buildDeterministicChecklist(confirmedSupplements, roadmap.lifestyle_guidelines ?? ''),
     groceryListOverride: overrides.grocery_list_override ?? null,
+    plateComposition: overrides.plate_composition ?? DEFAULT_PLATE_COMPOSITION,
   }
 }

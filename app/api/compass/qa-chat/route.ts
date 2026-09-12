@@ -17,7 +17,7 @@ export const maxDuration = 60;
 import Groq from 'groq-sdk';
 import { supabaseAdmin } from '@/lib/supabase';
 import { embedText } from '@/lib/embeddings';
-import { DIET_RULE, PLATE_RULE, findNonVegTerm, stripDietLabels } from '@/lib/dietRules';
+import { DIET_RULE, buildPlateRule, DEFAULT_PLATE_COMPOSITION, PlateComposition, findNonVegTerm, stripDietLabels } from '@/lib/dietRules';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -153,7 +153,7 @@ function trimToBudget(t: string, maxChars: number): string {
   return `${head}\n\n…[middle trimmed to fit free-tier limit]…\n\n${tail}`;
 }
 
-function baseIdentity(patientName: string) {
+function baseIdentity(patientName: string, plateComposition: PlateComposition = DEFAULT_PLATE_COMPOSITION) {
   return `You are a senior functional-medicine nutritionist at Living Plus (LP), talking through a patient case with a fellow coach — like two colleagues thinking out loud together.
 
 The patient is "${patientName}". Always speak ABOUT the patient in the third person ("${patientName} reports…", "her glucose…"). NEVER address the patient ("what is your…") — you are talking to a coach, not the patient.
@@ -171,7 +171,7 @@ HOW TO REPLY — this matters most:
 
 DIET RULE, no exceptions: ${DIET_RULE} If the coach describes or pastes a non-vegetarian dish, don't repeat or build on the non-veg ingredients — note it can't go in as-is and suggest a vegetarian swap instead.
 
-PLATE RULE, no exceptions: ${PLATE_RULE}`;
+PLATE RULE, no exceptions: ${buildPlateRule(plateComposition)}`;
 }
 
 function friendlyError(err: any) {
@@ -198,6 +198,38 @@ export async function POST(req: Request) {
       ? `\n\nGemini's own auto-generated meeting summary (secondary reference — may be incomplete or miss things; cross-check against the transcript above, don't just restate it):\n\n${geminiSummary}`
       : '';
 
+    // A coach can override the standard plate ratio per patient (some
+    // clients genuinely need a different split) — stored on that patient's
+    // own roadmap so it's edited right where the meals themselves are
+    // visible (DashboardClient's Breakfast/Lunch/Dinner section), not here.
+    // Falls back to the clinic-wide default when there's no roadmap yet or
+    // no override was ever set.
+    let plateComposition: PlateComposition = DEFAULT_PLATE_COMPOSITION;
+    if (patientId) {
+      try {
+        const { data: roadmapForPlate } = await supabaseAdmin
+          .from('roadmaps')
+          .select('guide_overrides')
+          .eq('patient_id', patientId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const override = roadmapForPlate?.guide_overrides?.plate_composition;
+        if (override && typeof override === 'object') {
+          plateComposition = {
+            vegMin: Number(override.vegMin) || DEFAULT_PLATE_COMPOSITION.vegMin,
+            vegMax: Number(override.vegMax) || DEFAULT_PLATE_COMPOSITION.vegMax,
+            cereal: Number(override.cereal) || DEFAULT_PLATE_COMPOSITION.cereal,
+            protein: Number(override.protein) || DEFAULT_PLATE_COMPOSITION.protein,
+            fat: Number(override.fat) || DEFAULT_PLATE_COMPOSITION.fat,
+          };
+        }
+      } catch {
+        // Lookup is a bonus, never block the chat reply on it — fall back
+        // to the default composition set above.
+      }
+    }
+
     if (mode === 'summary') {
       try {
         const summaryRequest = {
@@ -218,7 +250,7 @@ export async function POST(req: Request) {
           messages: [
             {
               role: 'system' as const,
-              content: `${baseIdentity(patientName)}
+              content: `${baseIdentity(patientName, plateComposition)}
 
 TASK: You have the full transcript (ground truth) and, if provided, Gemini's own
 auto-generated meeting summary (a secondary reference that may be incomplete or
@@ -419,7 +451,7 @@ HOW TO LEAD:
           // reasoning before producing visible output, hitting finish_reason:'length'
           // with empty content.
           messages: [
-            { role: 'system' as const, content: `${baseIdentity(patientName)}\n\nConsultation transcript (may be trimmed):\n\n${transcript}${geminiSummaryBlock}${kbBlock}${groundingRule}${checklistRule}${addRecipeRule}${addLifestyleRule}` },
+            { role: 'system' as const, content: `${baseIdentity(patientName, plateComposition)}\n\nConsultation transcript (may be trimmed):\n\n${transcript}${geminiSummaryBlock}${kbBlock}${groundingRule}${checklistRule}${addRecipeRule}${addLifestyleRule}` },
             ...trimmedMessages,
             // No conversation yet — this nudges the model to open with the top
             // checklist item without ever appearing in the visible chat (only
@@ -663,7 +695,7 @@ Each item must start with "Morning: ", "Afternoon: ", or "Evening: " followed by
           messages: [
             {
               role: 'system',
-              content: `${baseIdentity(patientName)}
+              content: `${baseIdentity(patientName, plateComposition)}
 
 TASK: Condense the discussion below into clear ROADMAP INSTRUCTIONS for ${patientName} — focus areas, priorities, constraints, and emphasis for the roadmap generator. Directive bullet points, no preamble.`,
             },

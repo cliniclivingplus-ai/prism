@@ -12,6 +12,7 @@ import { matchGuideImageDistinct } from '@/lib/pdf/matchGuideImage'
 import { selectRecipesForPatient, type RecipeMatch } from '@/lib/pdf/matchRecipes'
 import { curatedSlotIds as sharedCuratedSlotIds, getSlotRecipes as sharedGetSlotRecipes } from '@/lib/pdf/weekRecipes'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
+import { DEFAULT_PLATE_COMPOSITION, type PlateComposition } from '@/lib/dietRules'
 import { splitRecipeLines } from '@/lib/recipeText'
 import { renderMarkdownBold, splitTextAndImages, normalizeLinks } from '@/lib/renderMarkdownBold'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
@@ -905,6 +906,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // and the next save writes the fixed single-URL form.
   const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(normalizeLinks(data.dailyLifestyleGuidelines), LIFESTYLE_PERIODS))
   const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(normalizeLinks(data.mealGuidelines), MEAL_PERIODS))
+  // The veg/cereal/protein/fat plate ratio recipes for THIS patient should
+  // follow — auto-filled with the clinic-wide standard, editable per patient
+  // for the clients who genuinely need a different split. Lives right next
+  // to the meals themselves (not buried in settings), and is what the
+  // case-discussion co-pilot reads when it proposes a recipe for this patient.
+  const [plateComposition, setPlateComposition] = useState<PlateComposition>(data.plateComposition || DEFAULT_PLATE_COMPOSITION)
   // Textarea DOM refs, keyed by period — LinkInsertButton reads the coach's
   // current selection directly off these to know what phrase to wrap.
   const lifestyleTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
@@ -1250,7 +1257,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             lifestyle_guidelines: lifestyleText,
-            guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, reach_info: reachInfo, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText, daily_checklist_items: checklistItems },
+            guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, reach_info: reachInfo, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText, daily_checklist_items: checklistItems, plate_composition: plateComposition },
             weekly_schedule: editWeeks.map((w) => ({ ...w, actions: (w.actions || []).map((a) => a.trim()).filter(Boolean) })),
           }),
         }),
@@ -2586,7 +2593,26 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 ))}
               </div>
 
-              <div style={{ ...editLabelStyle, marginTop: 14 }}>Breakfast, lunch &amp; dinner</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
+                <div style={editLabelStyle}>Breakfast, lunch &amp; dinner</div>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                  <span style={{ fontSize: 11, color: C.muted }}>Plate ratio for this patient&apos;s recipes:</span>
+                  {([
+                    ['vegMin', 'Veg min %'], ['vegMax', 'Veg max %'], ['cereal', 'Cereal %'], ['protein', 'Protein %'], ['fat', 'Fat %'],
+                  ] as const).map(([key, label]) => (
+                    <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: C.muted }}>
+                      {label}
+                      <input type="number" min={0} max={100} value={plateComposition[key]}
+                        onChange={(e) => setPlateComposition((prev) => ({ ...prev, [key]: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }))}
+                        style={{ width: 48, fontSize: 12, padding: '3px 5px', borderRadius: 6, border: `1px solid ${C.rule}`, textAlign: 'center' }} />
+                    </label>
+                  ))}
+                  <button type="button" onClick={() => setPlateComposition(DEFAULT_PLATE_COMPOSITION)}
+                    style={{ fontSize: 11, fontWeight: 600, color: C.accent, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    Reset to standard
+                  </button>
+                </div>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 4 }}>
                 {MEAL_PERIODS.map((period) => (
                   <div key={period}>
