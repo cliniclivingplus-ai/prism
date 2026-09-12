@@ -12,6 +12,7 @@ import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplemen
 import { generateAIChecklist, type ChecklistItem } from '@/lib/dailyChecklist'
 import { buildDayProgression, hasValidDays } from '@/lib/pdf/reshapeRoadmap'
 import { generateDailyContent } from '@/lib/pdf/generateDailyContent'
+import { DIET_RULE, stripDietLabels } from '@/lib/dietRules'
 
 // A 12-month plan now runs up to 8 sequential weekly-schedule chunk calls
 // (on top of the 4 earlier steps) since each week's response got much bigger
@@ -298,7 +299,7 @@ Use "you" throughout. Reference their real details. No generic health advice.` }
       temperature: 0.5,
       max_tokens: 650,
     })
-    const overview = overviewRes.choices[0]?.message?.content?.trim() ?? ''
+    const overview = stripDietLabels(overviewRes.choices[0]?.message?.content?.trim() ?? '')
 
     // ── STEP 3/3B/3C: Lifestyle guidelines, meal guidelines, daily schedule ──
     // Shared with the coach-triggered "Regenerate" action on an existing
@@ -354,7 +355,7 @@ Each bullet under a section starts with •. Specific to this patient. No generi
       // max_tokens (mitigated with reasoning_effort:'low' below, but still
       // needs more headroom than the old non-reasoning llama model did).
     })
-    const nutritionist_guidelines = clinicalRes.choices[0]?.message?.content?.trim() ?? ''
+    const nutritionist_guidelines = stripDietLabels(clinicalRes.choices[0]?.message?.content?.trim() ?? '')
 
     // ── STEP 5: Weekly schedule ───────────────────────────────
     // Handle short durations: 0.25 = 1 week, 0.5 = 2 weeks
@@ -408,7 +409,7 @@ Each bullet under a section starts with •. Specific to this patient. No generi
         model: 'openai/gpt-oss-120b',
         reasoning_effort: 'low',
         messages: [
-          { role: 'system', content: 'Return only a valid JSON array. No markdown. Write cause and actions directly to the patient using their specific facts. Never write generic health advice. Never use an em dash (—) anywhere in the text; use a comma, period, or "and" instead.' },
+          { role: 'system', content: `Return only a valid JSON array. No markdown. Write cause and actions directly to the patient using their specific facts. Never write generic health advice. Never use an em dash (—) anywhere in the text; use a comma, period, or "and" instead. ${DIET_RULE}` },
           { role: 'user', content: `PATIENT FACTS (the only source of truth — use these specific details):
 ${patientFacts}
 
@@ -506,6 +507,12 @@ Exactly ${weeksInChunk} items, week_number ${startWeek} through ${endWeek}. Each
       // what the model wrote.
       return parsed.slice(0, weeksInChunk).map((week, i) => {
         const w: Record<string, unknown> = { ...(week as Record<string, unknown>), week_number: startWeek + i }
+        // Prompt instructions not to say "vegetarian"/"plant-based" aren't a
+        // guarantee — strip the labels out deterministically, same backstop
+        // used everywhere else this content gets generated.
+        if (typeof w.cause === 'string') w.cause = stripDietLabels(w.cause)
+        if (typeof w.focus_theme === 'string') w.focus_theme = stripDietLabels(w.focus_theme)
+        if (Array.isArray(w.actions)) w.actions = (w.actions as unknown[]).map((a) => (typeof a === 'string' ? stripDietLabels(a) : a))
         // Deterministic floor: if the model dropped `days` (or returned it
         // malformed) for this week, synthesize the same explicit
         // build-up-framed progression from that week's own real `actions`
@@ -514,6 +521,10 @@ Exactly ${weeksInChunk} items, week_number ${startWeek} through ${endWeek}. Each
         const actions = Array.isArray(w.actions) ? (w.actions as unknown[]).filter((a): a is string => typeof a === 'string') : []
         if (actions.length > 0 && !hasValidDays(w, actions.length)) {
           w.days = buildDayProgression(actions)
+        } else if (Array.isArray(w.days)) {
+          w.days = (w.days as unknown[]).map((day) =>
+            Array.isArray(day) ? day.map((a) => (typeof a === 'string' ? stripDietLabels(a) : a)) : day
+          )
         }
         return w
       })

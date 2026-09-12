@@ -17,6 +17,7 @@ export const maxDuration = 60;
 import Groq from 'groq-sdk';
 import { supabaseAdmin } from '@/lib/supabase';
 import { embedText } from '@/lib/embeddings';
+import { DIET_RULE, findNonVegTerm, stripDietLabels } from '@/lib/dietRules';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -166,7 +167,9 @@ HOW TO REPLY — this matters most:
 - NO tables. NO markdown tables ever. NO long numbered protocols. NO drug dosing charts unless the coach explicitly asks for specifics.
 - Plain language. If you use a mechanism, explain it in one short sentence.
 - Be a real thinking partner: if the coach's idea has a gap or risk, say so gently and why — then suggest how to adjust. Don't just agree.
-- Only go deep or give a full protocol when the coach directly asks for it. Otherwise, keep the conversation flowing one step at a time.`;
+- Only go deep or give a full protocol when the coach directly asks for it. Otherwise, keep the conversation flowing one step at a time.
+
+DIET RULE, no exceptions: ${DIET_RULE} If the coach describes or pastes a non-vegetarian dish, don't repeat or build on the non-veg ingredients — note it can't go in as-is and suggest a vegetarian swap instead.`;
 }
 
 function friendlyError(err: any) {
@@ -269,7 +272,12 @@ Never use an em dash (—) anywhere in any field; use a comma, period, or "and" 
         if (!summary && !checklist.length) {
           return Response.json({ error: 'The case summary could not be parsed. Tap retry to regenerate.' });
         }
-        return Response.json({ summary, checklist, goal, coachQuote });
+        return Response.json({
+          summary: stripDietLabels(summary),
+          checklist: checklist.map((c) => ({ ...c, text: stripDietLabels(c.text) })),
+          goal: stripDietLabels(goal),
+          coachQuote: stripDietLabels(coachQuote),
+        });
       } catch (err) { return friendlyError(err); }
     }
 
@@ -475,8 +483,17 @@ Infer meal_type from context (a sandwich for lunch, oats for breakfast, etc.) �
               const steps = String(parsed.steps || '').trim();
               const mealTypeRaw = String(parsed.meal_type || '').trim().toLowerCase();
               const mealType = RECIPE_MEAL_TYPES.has(mealTypeRaw) ? mealTypeRaw : 'lunch';
+              // Deterministic backstop, not just a prompt instruction — Living
+              // Plus is vegetarian-only, and a coach pasting a non-veg recipe
+              // shouldn't be able to get it into the bank just because the
+              // model followed the paste faithfully. Checks name+ingredients
+              // only (steps often reuse words like "meat thermometer" or
+              // "eggplant" that would false-positive).
+              const nonVegHit = findNonVegTerm(`${name} ${ingredients}`);
               if (!name || !ingredients || !steps) {
                 reply = `I found a recipe above but couldn't pull out enough detail (name, ingredients, and steps) to save it — could you paste it again in full?`;
+              } else if (nonVegHit) {
+                reply = `That recipe includes ${nonVegHit}, so it can't go into the recipe bank as-is — Living Plus only stocks vegetarian recipes. Swap it for a vegetarian version and paste that instead.`;
               } else {
                 const { error: insertError } = await supabaseAdmin.from('recipe_bank').insert({
                   name,
@@ -517,7 +534,7 @@ Infer meal_type from context (a sandwich for lunch, oats for breakfast, etc.) �
         }
 
         const kbMiss = !effectiveSources.length && !generalAnswer;
-        return Response.json({ reply, sources: effectiveSources, generalAnswer, kbMiss, checklist: updatedChecklist, recipeAdded, recipeName });
+        return Response.json({ reply: stripDietLabels(reply), sources: effectiveSources, generalAnswer, kbMiss, checklist: updatedChecklist, recipeAdded, recipeName });
       } catch (err) { return friendlyError(err); }
     }
 
@@ -537,7 +554,7 @@ TASK: Condense the discussion below into clear ROADMAP INSTRUCTIONS for ${patien
             { role: 'user', content: `Discussion:\n\n${messages.slice(-10).map((m: any) => `${m.role === 'user' ? 'Coach' : 'Co-pilot'}: ${m.content}`).join('\n\n')}` },
           ],
         }));
-        return Response.json({ instructions: completion.choices[0]?.message?.content || '' });
+        return Response.json({ instructions: stripDietLabels(completion.choices[0]?.message?.content || '') });
       } catch (err) { return friendlyError(err); }
     }
 

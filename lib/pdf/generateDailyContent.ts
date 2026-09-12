@@ -1,5 +1,6 @@
 import { groqChatCompletion } from '@/lib/groq'
 import { getGoodExample } from './generationExamples'
+import { DIET_RULE, stripDietLabels } from '@/lib/dietRules'
 
 // A real, coach-approved example gets shown to the model as a style
 // reference, never as content to copy — appended to the prompt only when
@@ -11,6 +12,7 @@ function exampleBlock(example: string | null): string {
     ? `\n\nEXAMPLE OF THE RIGHT LENGTH AND STYLE (a coach kept this as written for a different patient — match its brevity and tone, do not reuse its content):\n${example}`
     : ''
 }
+
 
 // Shared by roadmap generation (interpret/route.ts Steps 3/3B/3C) and the
 // coach-triggered "Regenerate" action on an existing roadmap's Daily
@@ -30,7 +32,7 @@ export async function generateDailyContent(patientFacts: string, kbContext: stri
     model: 'openai/gpt-oss-20b',
     reasoning_effort: 'low',
     messages: [
-      { role: 'system', content: 'Clinical nutritionist. Write 6 lifestyle instructions directly to the patient, each a single short action, like a to-do list, split evenly across Morning, Afternoon, and Evening. Never use an em dash (—); use a comma, period, or "and" instead.' },
+      { role: 'system', content: `Clinical nutritionist. Write 6 lifestyle instructions directly to the patient, each a single short action, like a to-do list, split evenly across Morning, Afternoon, and Evening. Never use an em dash (—); use a comma, period, or "and" instead. ${DIET_RULE}` },
       { role: 'user', content: `PATIENT FACTS:
 ${patientFacts}
 
@@ -51,13 +53,13 @@ Return only 6 lines, 2 per period, in the order Morning, Morning, Afternoon, Aft
     temperature: 0.3,
     max_tokens: 500,
   })
-  const lifestyle_guidelines = lifestyleRes.choices[0]?.message?.content?.trim() ?? ''
+  const lifestyle_guidelines = stripDietLabels(lifestyleRes.choices[0]?.message?.content?.trim() ?? '')
 
   const mealRes = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     reasoning_effort: 'low',
     messages: [
-      { role: 'system', content: 'Clinical nutritionist practicing functional nutrition. Write 6 meal instructions directly to the patient, each a single short action, split evenly across Breakfast, Lunch, and Dinner, grounded in each meal\'s functional role in the day. Never use an em dash (—); use a comma, period, or "and" instead.' },
+      { role: 'system', content: `Clinical nutritionist practicing functional nutrition. Write 6 meal instructions directly to the patient, each a single short action, split evenly across Breakfast, Lunch, and Dinner, grounded in each meal's functional role in the day. Never use an em dash (—); use a comma, period, or "and" instead. ${DIET_RULE}` },
       { role: 'user', content: `PATIENT FACTS:
 ${patientFacts}
 
@@ -81,13 +83,13 @@ Return only 6 lines, 2 per meal, in the order Breakfast, Breakfast, Lunch, Lunch
     temperature: 0.3,
     max_tokens: 500,
   })
-  const meal_guidelines = mealRes.choices[0]?.message?.content?.trim() ?? ''
+  const meal_guidelines = stripDietLabels(mealRes.choices[0]?.message?.content?.trim() ?? '')
 
   const scheduleRes = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     reasoning_effort: 'low',
     messages: [
-      { role: 'system', content: 'Clinical nutritionist writing a patient\'s full daily schedule, start of day to sleep, using ONLY the facts given. This is a visual timeline the patient scans in seconds, not a paragraph — every activity is a short label, never a run-on sentence. Never name a supplement, dose, or product that is not explicitly listed in the patient facts below. Output one line per time block, no other text. Never use an em dash (—) inside an activity description; use a comma instead — the em dash character is reserved as the separator between the time and the activity.' },
+      { role: 'system', content: `Clinical nutritionist writing a patient's full daily schedule, start of day to sleep, using ONLY the facts given. This is a visual timeline the patient scans in seconds, not a paragraph — every activity is a short label, never a run-on sentence. Never name a supplement, dose, or product that is not explicitly listed in the patient facts below. Output one line per time block, no other text. Never use an em dash (—) inside an activity description; use a comma instead — the em dash character is reserved as the separator between the time and the activity. ${DIET_RULE}` },
       { role: 'user', content: `PATIENT FACTS (use ONLY these — do not add any supplement, dose, or product not named here):
 ${patientFacts}
 
@@ -112,7 +114,7 @@ Return only the 12 time-block lines, one per line, nothing else.${exampleBlock(s
     temperature: 0.3,
     max_tokens: 500,
   })
-  const daily_schedule = scheduleRes.choices[0]?.message?.content?.trim() ?? ''
+  const daily_schedule = stripDietLabels(scheduleRes.choices[0]?.message?.content?.trim() ?? '')
 
   return { lifestyle_guidelines, meal_guidelines, daily_schedule }
 }
