@@ -37,6 +37,18 @@ export default function CaseWorkspace({
   const [thinking, setThinking] = useState(false)
   const [chatError, setChatError] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-grows the chat composer as a coach types a longer message, instead
+  // of the text scrolling sideways inside a fixed one-line box where only a
+  // few words are visible at a time — same idea as every chat app's input.
+  // Resets to a single line once the message is cleared after sending.
+  useEffect(() => {
+    const el = chatInputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [input])
 
   function persistChecklist(list: ChecklistItem[]) {
     fetch(`/api/compass/sessions/${sessionId}`, {
@@ -342,13 +354,14 @@ export default function CaseWorkspace({
           )}
         </div>
 
-        <div style={{ padding: '12px 18px', borderTop: `1px solid ${C.line}`, display: 'flex', gap: 8 }}>
-          <input value={input} onChange={e => setInput(e.target.value)}
+        <div style={{ padding: '12px 18px', borderTop: `1px solid ${C.line}`, display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          <textarea ref={chatInputRef} value={input} rows={1}
+            onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }}
             placeholder={`Discuss ${patientName}'s case, ask for a mechanism, propose an approach…`}
-            style={{ flex: 1, padding: '11px 14px', borderRadius: 11, border: `1px solid ${C.line}`, fontSize: 13.5, color: C.ink, fontFamily: 'inherit', outline: 'none' }} />
+            style={{ flex: 1, padding: '11px 14px', borderRadius: 11, border: `1px solid ${C.line}`, fontSize: 13.5, lineHeight: 1.5, color: C.ink, fontFamily: 'inherit', outline: 'none', resize: 'none', maxHeight: 220, overflowY: 'auto' }} />
           <button onClick={() => send(input)} disabled={thinking || !input.trim()}
-            style={{ padding: '0 16px', borderRadius: 11, border: 'none', background: input.trim() ? C.green : '#C9D4BE', color: '#fff', cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center' }}>
+            style={{ padding: '11px 16px', borderRadius: 11, border: 'none', background: input.trim() ? C.green : '#C9D4BE', color: '#fff', cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <Send size={16} />
           </button>
         </div>
