@@ -378,6 +378,18 @@ HOW TO LEAD:
 - Never mention "checklist", "guide-gap", or "index numbers" to the coach — just lead the conversation naturally, like a senior coach who has a mental list of what to cover.`;
         }
 
+        // You have no ability to actually save anything — no tool call, no
+        // database write, nothing. Without this rule the model happily
+        // replies "Got it, added!" to "add this to recipes" purely as
+        // conversational role-play, which is a real lie a coach has no way
+        // to catch (the recipe never appears anywhere). The marker below is
+        // the ONLY real path to an actual recipe_bank row — the server
+        // does the extraction and insert itself after seeing it, then
+        // overwrites this reply with the true outcome either way, so
+        // getting the wording right here matters less than emitting (or
+        // not emitting) the marker correctly.
+        const addRecipeRule = `\n\nADD-TO-RECIPES RULE: you cannot save, add, or store anything yourself — you have no database access. If the coach asks you to add/save a recipe to the recipe bank or the dashboard, and a full recipe (ingredients and steps, not just a dish name) was pasted or written out earlier in this conversation, your ENTIRE reply must be just the literal marker \`[ADD_RECIPE]\` and nothing else — no other text before or after it. Do not say "added", "got it", "done", or describe what you did — you don't know yet whether it will succeed, and the app will replace your reply with the real outcome. If the coach asks to add a recipe but no full recipe (ingredients + steps) appears anywhere earlier in this conversation, don't emit the marker — reply normally and ask them to paste the recipe first.`;
+
         const chatRequest = {
           model: MODEL_CHAT,
           temperature: 0.3, // was 0.6 — this now follows conditional grounding/marker
@@ -388,7 +400,7 @@ HOW TO LEAD:
           // reasoning before producing visible output, hitting finish_reason:'length'
           // with empty content.
           messages: [
-            { role: 'system' as const, content: `${baseIdentity(patientName)}\n\nConsultation transcript (may be trimmed):\n\n${transcript}${geminiSummaryBlock}${kbBlock}${groundingRule}${checklistRule}` },
+            { role: 'system' as const, content: `${baseIdentity(patientName)}\n\nConsultation transcript (may be trimmed):\n\n${transcript}${geminiSummaryBlock}${kbBlock}${groundingRule}${checklistRule}${addRecipeRule}` },
             ...trimmedMessages,
             // No conversation yet — this nudges the model to open with the top
             // checklist item without ever appearing in the visible chat (only
@@ -423,6 +435,73 @@ HOW TO LEAD:
           effectiveSources = [];
         }
 
+        // Handle [ADD_RECIPE] for real — this is the only marker in this
+        // route that triggers an actual database write, not just client-side
+        // state. Find the most recent user message with a real recipe (not
+        // just the current "add this" instruction) and extract+insert it,
+        // then overwrite `reply` with the true outcome regardless of
+        // whatever the model said, since it has no way to know if this
+        // succeeds.
+        let recipeAdded = false;
+        let recipeName = '';
+        if (/^\[ADD_RECIPE\]/.test(reply)) {
+          const RECIPE_MEAL_TYPES = new Set(['breakfast', 'lunch', 'dinner', 'snack', 'dessert']);
+          const recipeSourceMsg = [...messages].reverse().find(
+            (m: any) => m.role === 'user' && /ingredients?/i.test(m.content) && String(m.content).length > 150
+          );
+          if (!recipeSourceMsg) {
+            reply = `I don't see a full recipe (ingredients and steps) earlier in this conversation to add — paste the recipe here and ask again.`;
+          } else {
+            try {
+              const extraction = await withRetry(() => groq.chat.completions.create({
+                model: MODEL_FAST,
+                temperature: 0.2,
+                max_tokens: 900,
+                response_format: { type: 'json_object' as const },
+                messages: [
+                  {
+                    role: 'system' as const,
+                    content: `Extract the recipe from the coach's message into strict JSON, no markdown, no commentary:
+{"name": "recipe name", "meal_type": "breakfast|lunch|dinner|snack|dessert", "servings": "e.g. 2 servings", "prep_time": "e.g. 10 min", "cook_time": "e.g. 20 min", "ingredients": "one per line, as written", "steps": "one per line, as written", "tags": ["lowercase", "tags"]}
+Infer meal_type from context (a sandwich for lunch, oats for breakfast, etc.) — default to "lunch" only if genuinely ambiguous. Use the ingredients/steps exactly as the coach wrote them, don't invent or drop any. Omit a field (empty string) if it truly isn't present, don't fabricate a serving/time.`,
+                  },
+                  { role: 'user' as const, content: String(recipeSourceMsg.content) },
+                ],
+              }));
+              const raw = extraction.choices[0]?.message?.content || '{}';
+              const parsed = JSON.parse(raw) as Record<string, unknown>;
+              const name = String(parsed.name || '').trim();
+              const ingredients = String(parsed.ingredients || '').trim();
+              const steps = String(parsed.steps || '').trim();
+              const mealTypeRaw = String(parsed.meal_type || '').trim().toLowerCase();
+              const mealType = RECIPE_MEAL_TYPES.has(mealTypeRaw) ? mealTypeRaw : 'lunch';
+              if (!name || !ingredients || !steps) {
+                reply = `I found a recipe above but couldn't pull out enough detail (name, ingredients, and steps) to save it — could you paste it again in full?`;
+              } else {
+                const { error: insertError } = await supabaseAdmin.from('recipe_bank').insert({
+                  name,
+                  meal_type: mealType,
+                  ingredients,
+                  steps,
+                  servings: parsed.servings ? String(parsed.servings).trim() || null : null,
+                  prep_time: parsed.prep_time ? String(parsed.prep_time).trim() || null : null,
+                  cook_time: parsed.cook_time ? String(parsed.cook_time).trim() || null : null,
+                  tags: Array.isArray(parsed.tags) ? parsed.tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean) : [],
+                });
+                if (insertError) {
+                  reply = `I tried to add "${name}" to the recipe bank but the save failed (${insertError.message}) — nothing was stored. You can add it directly from the Recipe bank page instead.`;
+                } else {
+                  recipeAdded = true;
+                  recipeName = name;
+                  reply = `Added "${name}" to the recipe bank — you'll find it there now, and can pull it into ${patientName}'s meal plan from the roadmap editor.`;
+                }
+              }
+            } catch {
+              reply = `I tried to add that recipe but ran into an error — nothing was saved. You can add it directly from the Recipe bank page instead.`;
+            }
+          }
+        }
+
         // Parse and apply a checklist status update, if the model emitted one.
         let updatedChecklist = checklist;
         const checklistMatch = reply.match(/^\[CHECKLIST_UPDATE:(\{[^}]*\})\]\s*/);
@@ -438,7 +517,7 @@ HOW TO LEAD:
         }
 
         const kbMiss = !effectiveSources.length && !generalAnswer;
-        return Response.json({ reply, sources: effectiveSources, generalAnswer, kbMiss, checklist: updatedChecklist });
+        return Response.json({ reply, sources: effectiveSources, generalAnswer, kbMiss, checklist: updatedChecklist, recipeAdded, recipeName });
       } catch (err) { return friendlyError(err); }
     }
 

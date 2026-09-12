@@ -9,7 +9,7 @@ const C = {
   faint: '#8A9284', line: '#ECEBE3', card: '#FFFFFF',
 }
 type KbSource = { title: string; source_type: string }
-type Msg = { role: 'user' | 'assistant'; content: string; sources?: KbSource[]; generalAnswer?: boolean; kbMiss?: boolean }
+type Msg = { role: 'user' | 'assistant'; content: string; sources?: KbSource[]; generalAnswer?: boolean; kbMiss?: boolean; recipeAdded?: boolean; recipeName?: string }
 // A step is a concrete, RAG-grounded action toward a milestone — validated
 // against this specific patient's known constraints (allergies, intolerances,
 // preferences) before being marked 'validated'. 'rejected' means the AI (or
@@ -161,7 +161,7 @@ export default function CaseWorkspace({
       })
       const j = await r.json()
       if (j.error || !j.reply) { setChatError(j.error || 'The clinical co-pilot could not respond.'); return }
-      const withReply = [...next, { role: 'assistant' as const, content: j.reply, sources: Array.isArray(j.sources) ? j.sources : [], generalAnswer: !!j.generalAnswer, kbMiss: !!j.kbMiss }]
+      const withReply = [...next, { role: 'assistant' as const, content: j.reply, sources: Array.isArray(j.sources) ? j.sources : [], generalAnswer: !!j.generalAnswer, kbMiss: !!j.kbMiss, recipeAdded: !!j.recipeAdded, recipeName: j.recipeName || '' }]
       setMessages(withReply); persist(withReply)
       if (Array.isArray(j.checklist) && j.checklist.length) { setChecklist(j.checklist); persistChecklist(j.checklist) }
     } catch { setChatError('Connection issue — try again.') }
@@ -310,6 +310,11 @@ export default function CaseWorkspace({
                 <div style={{ background: m.role === 'user' ? C.green : C.greenSoft, color: m.role === 'user' ? '#fff' : C.ink, border: m.role === 'user' ? 'none' : `1px solid ${C.greenBorder}`, borderRadius: 14, padding: '11px 14px', fontSize: 13.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
                   {renderMarkdownBold(m.content)}
                 </div>
+                {m.role === 'assistant' && m.recipeAdded && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 11, color: C.greenDeep, fontWeight: 600, background: C.greenSoft, border: `1px solid ${C.greenBorder}`, borderRadius: 20, padding: '3px 10px' }}>
+                    <CheckCircle2 size={11} /> Saved to recipe bank
+                  </div>
+                )}
                 {m.role === 'assistant' && !!m.sources?.length && (
                   <details className="source-popover" style={{ marginTop: 5 }}>
                     <summary style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.greenDeep, fontWeight: 600, cursor: 'pointer', background: C.greenSoft, border: `1px solid ${C.greenBorder}`, borderRadius: 20, padding: '3px 10px' }}>
