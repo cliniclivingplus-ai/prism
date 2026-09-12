@@ -2891,7 +2891,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 {currentWeek != null && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                     {DAY_MEAL_SLOTS.map((slot) => {
-                      const allOptions = data.recipeBank.filter((r) => r.meal_type === slot)
+                      // Every slot offers the whole recipe bank, not just
+                      // recipes tagged with that slot's meal_type — a coach
+                      // may reasonably want a "lunch"-tagged recipe at
+                      // breakfast, and meal_type tagging (especially on
+                      // AI-extracted recipes) isn't always a reliable filter.
+                      const allOptions = data.recipeBank
                       const query = (recipeSearch[slot] || '').trim().toLowerCase()
                       const options = query ? allOptions.filter((r) => r.name.toLowerCase().includes(query)) : allOptions
                       const checkedIds = new Set(curatedSlotIds(slot, currentWeek))
@@ -2902,12 +2907,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                             <input
                               value={recipeSearch[slot] || ''}
                               onChange={(e) => setRecipeSearch((prev) => ({ ...prev, [slot]: e.target.value }))}
-                              placeholder={`Search ${SLOT_LABELS[slot].toLowerCase()} recipes…`}
+                              placeholder={`Search recipes…`}
                               style={{ ...editInputStyle, marginBottom: 6, fontSize: 12.5 }}
                             />
                           )}
                           <div style={{ maxHeight: 180, overflowY: 'auto', border: `1px solid ${C.rule}`, borderRadius: 8, padding: '4px 10px', background: C.paper }}>
-                            {allOptions.length === 0 && <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>No {SLOT_LABELS[slot].toLowerCase()} recipes in the bank yet.</div>}
+                            {allOptions.length === 0 && <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>No recipes in the bank yet.</div>}
                             {allOptions.length > 0 && options.length === 0 && <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>No matches for &quot;{recipeSearch[slot]}&quot;.</div>}
                             {options.map((r) => (
                               <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: 12.5, color: C.ink, cursor: 'pointer' }}>
