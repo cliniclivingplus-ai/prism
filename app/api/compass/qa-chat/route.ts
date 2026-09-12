@@ -17,7 +17,7 @@ export const maxDuration = 60;
 import Groq from 'groq-sdk';
 import { supabaseAdmin } from '@/lib/supabase';
 import { embedText } from '@/lib/embeddings';
-import { DIET_RULE, findNonVegTerm, stripDietLabels } from '@/lib/dietRules';
+import { DIET_RULE, PLATE_RULE, findNonVegTerm, stripDietLabels } from '@/lib/dietRules';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -169,7 +169,9 @@ HOW TO REPLY — this matters most:
 - Be a real thinking partner: if the coach's idea has a gap or risk, say so gently and why — then suggest how to adjust. Don't just agree.
 - Only go deep or give a full protocol when the coach directly asks for it. Otherwise, keep the conversation flowing one step at a time.
 
-DIET RULE, no exceptions: ${DIET_RULE} If the coach describes or pastes a non-vegetarian dish, don't repeat or build on the non-veg ingredients — note it can't go in as-is and suggest a vegetarian swap instead.`;
+DIET RULE, no exceptions: ${DIET_RULE} If the coach describes or pastes a non-vegetarian dish, don't repeat or build on the non-veg ingredients — note it can't go in as-is and suggest a vegetarian swap instead.
+
+PLATE RULE, no exceptions: ${PLATE_RULE}`;
 }
 
 function friendlyError(err: any) {

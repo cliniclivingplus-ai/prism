@@ -6,6 +6,14 @@
 // excluded ingredients.
 export const DIET_RULE = 'Every food or meal mentioned must be vegetarian: never suggest meat, poultry, fish, seafood, or eggs. Dairy (milk, yogurt, paneer, ghee, cheese) is fine. Never use the words "vegetarian", "plant-based", "plant based", or "vegan" anywhere in the output — just don\'t include the excluded ingredients, without naming or announcing the constraint.'
 
+// Living Plus house rule for the composition of any lunch/dinner recipe or
+// meal the co-pilot proposes — mandatory, not a suggestion. Applied as a
+// prompt rule only (see qa-chat/route.ts baseIdentity): there is no way to
+// compute a real plate composition from a coach-pasted recipe's ingredient
+// list without nutrition data, so this guides what the AI itself proposes
+// rather than gatekeeping what a coach saves.
+export const PLATE_RULE = 'Every lunch and dinner recipe or meal you propose, describe, or build must follow this plate composition, roughly by volume: 40-50% vegetables, 25% cereals/grains, 25% protein, 10% fat/oil. This is mandatory for every lunch and dinner recipe, no exceptions — choose ingredients and portions so the plate actually reflects that split, not just a plausible-sounding meal.'
+
 // Deterministic backstop for anywhere a recipe/food item gets written to the
 // database — a prompt instruction alone isn't a guarantee the model
 // followed it, especially when faithfully transcribing something a coach
