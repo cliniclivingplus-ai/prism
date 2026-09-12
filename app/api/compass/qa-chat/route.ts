@@ -445,17 +445,38 @@ HOW TO LEAD:
 
         // Handle [ADD_RECIPE] for real — this is the only marker in this
         // route that triggers an actual database write, not just client-side
-        // state. Find the most recent user message with a real recipe (not
-        // just the current "add this" instruction) and extract+insert it,
-        // then overwrite `reply` with the true outcome regardless of
-        // whatever the model said, since it has no way to know if this
-        // succeeds.
+        // state. Find the most recent message with a real recipe (not just
+        // the current "add this" instruction) and extract+insert it, then
+        // overwrite `reply` with the true outcome regardless of whatever
+        // the model said, since it has no way to know if this succeeds.
+        //
+        // The recipe being added is just as often the CO-PILOT'S OWN last
+        // suggestion ("here's a recipe idea... does that sound good?" /
+        // coach: "add this") as something the coach pasted — restricting
+        // this search to role:'user' meant "add this" right after the
+        // assistant proposed a recipe fell through to whatever the coach
+        // had pasted earlier in the conversation instead, silently adding
+        // the wrong recipe. Also, a conversational recipe reply rarely uses
+        // the literal word "ingredient" (it just lists them under a title),
+        // so detection can't require that word — it looks for a real
+        // ingredient/step-shaped list of lines instead.
         let recipeAdded = false;
         let recipeName = '';
         if (/^\[ADD_RECIPE\]/.test(reply)) {
           const RECIPE_MEAL_TYPES = new Set(['breakfast', 'lunch', 'dinner', 'snack', 'dessert']);
+          const COOKING_VERBS = /\b(sauté|saute|bake|slice|chop|mix|simmer|roast|grill|fry|whisk|stir|marinate|season|garnish|boil|sear|toast|blend|preheat|serve|drizzle|spoon|layer|assemble|combine|coat)\b/i;
+          const looksLikeRecipe = (content: string) => {
+            if (content.length <= 150) return false;
+            if (/ingredients?/i.test(content)) return true;
+            // Otherwise require a real list structure (several short
+            // bulleted/numbered/newline-separated lines) AND cooking verbs
+            // — a plain long paragraph of clinical discussion shouldn't count.
+            const lines = content.split('\n').filter((l) => l.trim().length > 0);
+            const listLines = lines.filter((l) => /^\s*[-•*]|\d+[.)]/.test(l) || l.trim().length < 120);
+            return listLines.length >= 3 && COOKING_VERBS.test(content);
+          };
           const recipeSourceMsg = [...messages].reverse().find(
-            (m: any) => m.role === 'user' && /ingredients?/i.test(m.content) && String(m.content).length > 150
+            (m: any) => (m.role === 'user' || m.role === 'assistant') && looksLikeRecipe(String(m.content || ''))
           );
           if (!recipeSourceMsg) {
             reply = `I don't see a full recipe (ingredients and steps) earlier in this conversation to add — paste the recipe here and ask again.`;
