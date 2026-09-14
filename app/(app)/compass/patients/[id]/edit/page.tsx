@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
@@ -59,6 +59,19 @@ export default function EditPatientPage() {
   const [fetching, setFetching] = useState(true)
   const [error, setError] = useState('')
   const [form, setForm] = useState<Form>(EMPTY_FORM)
+  const primaryConcernRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-grows as the coach types a longer concern, instead of a one-line
+  // <input> that scrolled sideways and (worse) implicitly submitted the
+  // whole form on Enter/Shift+Enter — a plain textarea neither submits on
+  // Enter nor Shift+Enter, both just insert a newline, matching how any
+  // multi-line note field is expected to behave.
+  useEffect(() => {
+    const el = primaryConcernRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [form.primary_concern])
 
   useEffect(() => {
     fetch('/api/compass/nutritionists')
@@ -169,8 +182,9 @@ export default function EditPatientPage() {
 
           <div style={{ gridColumn: '1 / -1', padding: 16, background: '#F2F9EC', borderRadius: 10, border: '1px solid #C8E9A8' }}>
             <label style={{ ...labelStyle, color: C.greenDeep, fontWeight: 700 }}>Primary concern</label>
-            <input value={form.primary_concern} onChange={set('primary_concern')}
-              placeholder="e.g. PCOS with insulin resistance, weight gain and irregular periods" style={inputStyle} />
+            <textarea ref={primaryConcernRef} value={form.primary_concern} onChange={set('primary_concern')} rows={1}
+              placeholder="e.g. PCOS with insulin resistance, weight gain and irregular periods"
+              style={{ ...inputStyle, resize: 'none', overflow: 'hidden', lineHeight: 1.5 }} />
           </div>
 
           <div style={{ gridColumn: '1 / -1' }}>
