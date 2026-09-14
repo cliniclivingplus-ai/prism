@@ -23,6 +23,17 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const STOP_WORDS = new Set(['the', 'patient', 'is', 'are', 'was', 'with', 'and', 'has', 'have', 'been', 'their', 'they', 'this', 'that', 'from', 'for', 'not', 'but', 'can', 'also', 'more', 'very', 'some', 'into', 'over', 'after', 'what', 'when', 'how', 'why', 'about', 'should', 'would', 'could']);
 
+// Deterministic backstop for the summary prompt's "GUT-HEALTH CHECK" rule
+// below — a prompt instruction not to add the low-FODMAP checklist item
+// unless a real gut complaint is present is a request, not a guarantee.
+// Observed live: gpt-oss-20b added it for patients with no digestive
+// complaint at all. Same pattern as findNonVegTerm — the model proposes,
+// this gates what actually reaches the coach.
+const GUT_SYMPTOM_TERMS = /\b(bloat(?:ing)?|gas(?:sy|siness)?|flatulen(?:ce|t)|ibs|ibd|sibo|constipat(?:ion|ed)|diarrh(?:o|e)a|dysbiosis|dyspepsia|indigestion|acidity|acid reflux|gerd|heartburn|irregular (?:bowel|stool|stools)|loose stool|loose motion|abdominal (?:pain|discomfort|cramp)|stomach (?:pain|ache|cramp)|gut (?:health|issue|problem)|digesti(?:ve|on) (?:issue|problem|complaint)|food sensitivit|leaky gut)\b/i;
+function hasGutSymptoms(text: string): boolean {
+  return GUT_SYMPTOM_TERMS.test(text || '');
+}
+
 type KbSource = { title: string; source_type: string };
 
 // Grounds each chat turn in the clinical knowledge base (kb_documents/kb_chunks).
@@ -298,8 +309,16 @@ Never use an em dash (—) anywhere in any field; use a comma, period, or "and" 
         let summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : '';
         const goal = typeof parsed.goal === 'string' ? parsed.goal.trim() : '';
         const coachQuote = typeof parsed.coach_quote === 'string' ? parsed.coach_quote.trim() : '';
+        // Strip a low-FODMAP checklist item the model added despite no real
+        // gut/digestive complaint in the transcript — see GUT_SYMPTOM_TERMS
+        // above. Checked against the transcript itself, not the model's own
+        // (possibly wrong) claim that a complaint exists.
+        const transcriptHasGutSymptoms = hasGutSymptoms(transcript);
         const checklistItems = Array.isArray(parsed.checklist)
-          ? parsed.checklist.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim())
+          ? parsed.checklist
+              .filter((s) => typeof s === 'string' && s.trim())
+              .map((s) => s.trim())
+              .filter((s) => transcriptHasGutSymptoms || !/fodmap/i.test(s))
           : [];
         // Priority order is the order the model returned them in — assign stable
         // indices now so status updates during the discussion can reference them.
