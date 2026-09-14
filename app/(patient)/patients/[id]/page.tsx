@@ -7,7 +7,7 @@ import { Ring, WeeklyBars, Donut, RangeBar, BarTrack } from '@/components/ui/cha
 import {
   IconCompass, IconMrx, IconBlood, IconArrowOut, IconUpload, IconLock,
 } from '@/components/ui/icons'
-import { CheckCircle2, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Pencil } from 'lucide-react'
 import { loadPatientWorkspace, rangePosition } from '@/lib/clinical/patient'
 import { ageFrom, formatDate, relativeDays } from '@/lib/clinical/derive'
 
@@ -172,9 +172,18 @@ export default async function PatientWorkspacePage({
                       MRN {patient.clinic_patient_id ?? '—'}
                     </span>
                   </div>
-                  <h1 className="font-display m-0 mb-1 text-[26px] font-medium" style={{ color: '#FBF8EF' }}>
-                    {patient.full_name ?? 'Unnamed patient'}
-                  </h1>
+                  <div className="flex flex-wrap items-baseline gap-3">
+                    <h1 className="font-display m-0 mb-1 text-[26px] font-medium" style={{ color: '#FBF8EF' }}>
+                      {patient.full_name ?? 'Unnamed patient'}
+                    </h1>
+                    <Link
+                      href={`/compass/patients/${patient.id}/edit?from=${encodeURIComponent(`/patients/${patient.id}`)}`}
+                      className="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-[6px] text-[12px] font-semibold"
+                      style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)', color: '#F2EEDF' }}
+                    >
+                      <Pencil size={12} /> Edit patient
+                    </Link>
+                  </div>
                   <div className="text-[13px]" style={{ color: '#A9C1BA' }}>
                     {patient.coachName ? (
                       <>Assigned to <b style={{ color: '#DCEAE5', fontWeight: 600 }}>{patient.coachName}</b></>

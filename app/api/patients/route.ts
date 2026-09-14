@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 import { supabaseAdmin } from '@/lib/supabase'
+import { cleanPatientFields } from '@/lib/patients/patientFields'
 
 export async function GET() {
   const { data, error } = await supabaseAdmin
@@ -12,48 +13,6 @@ export async function GET() {
   return NextResponse.json(data)
 }
 
-/**
- * Columns a client is allowed to set when creating a patient.
- *
- * This route previously did `.insert(body)` — whatever JSON arrived went
- * straight into the row, so any caller could set any column on the hub
- * patient record (including ids and columns added by later migrations).
- * Everything not on this list is now dropped.
- */
-const WRITABLE = [
-  'full_name',
-  'clinic_patient_id',
-  'gender',
-  'date_of_birth',
-  'age_years',
-  'program',
-  'primary_concern',
-  'allergies',
-  'medical_history',
-  'phone',
-  'email',
-  'nutritionist_id',
-] as const
-
-type Writable = (typeof WRITABLE)[number]
-
-function clean(body: Record<string, unknown>) {
-  const row: Record<string, unknown> = {}
-  for (const key of WRITABLE) {
-    const v = body[key as Writable]
-    if (v === undefined || v === null) continue
-    if (typeof v === 'string') {
-      const t = v.trim()
-      // An empty field means "not recorded" — store NULL, not ''. It keeps
-      // "unknown" and "recorded as blank" from looking identical later.
-      if (t) row[key] = t
-      continue
-    }
-    row[key] = v
-  }
-  return row
-}
-
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>
   try {
@@ -62,7 +21,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
 
-  const row = clean(body)
+  // cleanPatientFields nulls out an empty value rather than dropping the
+  // key — harmless on insert (an absent key and an explicit NULL land the
+  // same way), and it's the shared allowlist PATCH also uses.
+  const row = Object.fromEntries(Object.entries(cleanPatientFields(body)).filter(([, v]) => v !== null))
   // Not client-settable — this is the one insert path into public.patients,
   // so every row created here is by definition a deliberate hub patient,
   // not something a request body should be able to override.
