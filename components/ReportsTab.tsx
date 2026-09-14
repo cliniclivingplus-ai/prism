@@ -247,18 +247,31 @@ export default function ReportsTab({ patientId }: { patientId: string }) {
   }
 
   async function upload(file: File) {
-    setUploading(true); setUploadError('')
     try {
       const form = new FormData()
       form.append('file', file)
       form.append('report_type', reportType)
       const r = await fetch(`/api/patients/${patientId}/reports`, { method: 'POST', body: form })
       const j = await r.json()
-      if (!r.ok) { setUploadError(j.error || 'Upload failed'); if (j.report) setReports((prev) => [j.report, ...prev]); return }
+      if (!r.ok) { setUploadError(`${file.name}: ${j.error || 'Upload failed'}`); if (j.report) setReports((prev) => [j.report, ...prev]); return }
       setReports((prev) => [j, ...prev])
     } catch {
-      setUploadError('Network error, try again.')
-    } finally { setUploading(false) }
+      setUploadError(`${file.name}: Network error, try again.`)
+    }
+  }
+
+  // One at a time, not Promise.all — each report goes through its own AI
+  // extraction pass, and firing them all at once against Groq's shared
+  // per-minute token budget is exactly the kind of burst that has 429'd
+  // other multi-call flows in this app. Sequential also means each report
+  // appears in the list as soon as it's done, instead of the whole batch
+  // waiting on the slowest one.
+  async function uploadAll(files: FileList) {
+    setUploading(true); setUploadError('')
+    for (const file of Array.from(files)) {
+      await upload(file)
+    }
+    setUploading(false)
   }
 
   function removeReport(id: string) {
@@ -285,9 +298,9 @@ export default function ReportsTab({ patientId }: { patientId: string }) {
             {uploading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={14} />}
             {uploading ? 'Processing…' : 'Choose file'}
           </button>
-          <input ref={fileRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" style={{ display: 'none' }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f) }} />
-          <span style={{ fontSize: 11.5, color: C.muted }}>PDF (text-based) or a photo/screenshot, up to 15MB.</span>
+          <input ref={fileRef} type="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp" style={{ display: 'none' }}
+            onChange={(e) => { const files = e.target.files; if (files && files.length) uploadAll(files); e.target.value = '' }} />
+          <span style={{ fontSize: 11.5, color: C.muted }}>PDF (text-based) or a photo/screenshot, up to 15MB. Select multiple to upload them all as the same report type.</span>
         </div>
         {uploadError && <div style={{ marginTop: 8, fontSize: 12.5, color: C.danger }}>{uploadError}</div>}
       </div>

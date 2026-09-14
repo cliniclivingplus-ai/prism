@@ -81,7 +81,7 @@ export type RoadmapRow = {
   kb_sources: GuideData['roadmap']['kb_sources'] | null
   weekly_schedule: GuideData['roadmap']['weekly_schedule'] | null
   duration_months: number
-  guide_overrides: { goal_label?: string; why_reflection?: string; coach_quote?: string; founder_note?: string; manual_recipes?: Partial<Record<DayMealSlot, string[]>>; weekly_manual_recipes?: Record<number, Partial<Record<DayMealSlot, string[]>>>; theme?: string; template?: string; care_services?: GuideData['careServices']; next_appointment?: GuideData['nextAppointment']; reach_info?: GuideData['reachInfo']; care_team?: GuideData['careTeam']; hidden_sections?: string[]; daily_metrics?: GuideData['dailyMetrics']; power_points?: GuideData['powerPoints']; canvas_blocks?: ChecklistPageBlock[]; daily_lifestyle_guidelines?: string; meal_guidelines?: string; daily_schedule?: string; daily_checklist_items?: ChecklistItem[]; grocery_list_override?: GroceryCategory[] | null; plate_composition?: PlateComposition } | null
+  guide_overrides: { goal_label?: string; why_reflection?: string; coach_quote?: string; founder_note?: string; manual_recipes?: Partial<Record<DayMealSlot, string[]>>; weekly_manual_recipes?: Record<number, Partial<Record<DayMealSlot, string[]>>>; theme?: string; template?: string; care_services?: GuideData['careServices']; next_appointment?: GuideData['nextAppointment']; reach_info?: GuideData['reachInfo']; care_team?: GuideData['careTeam']; hidden_sections?: string[]; daily_metrics?: GuideData['dailyMetrics']; power_points?: GuideData['powerPoints']; canvas_blocks?: ChecklistPageBlock[]; daily_lifestyle_guidelines?: string; meal_guidelines?: string; daily_schedule?: string; daily_checklist_items?: ChecklistItem[]; grocery_list_override?: GroceryCategory[] | null; plate_composition?: PlateComposition; confirmed_supplements_override?: GuideData['confirmedSupplements'] | null } | null
   patients: (Omit<GuideData['patient'], never> & { nutritionists: Coach | null }) | null
   sessions: { case_summary: { goal?: string; coach_quote?: string } | null } | null
 }
@@ -127,7 +127,13 @@ export function buildGuideData(
     theme: overrides.theme || 'classic',
     template: overrides.template || 'classic',
     createdAt: roadmap.created_at,
-    confirmedSupplements,
+    // A coach can edit the supplement table directly on the roadmap
+    // (previously only editable per-report, back on the Reports tab) —
+    // once they do, that edit is the source of truth for this roadmap, the
+    // same "override wins over the computed default" rule as everything
+    // else here. Until then this is the real, confirmed-report-derived
+    // list resolveConfirmedSupplements() computed.
+    confirmedSupplements: overrides.confirmed_supplements_override ?? confirmedSupplements,
     careServices: overrides.care_services ?? [],
     nextAppointment: overrides.next_appointment ?? { date: '', time: '', mode: '' },
     reachInfo: overrides.reach_info ?? { phone: '', hours: '', frontDesk: '' },

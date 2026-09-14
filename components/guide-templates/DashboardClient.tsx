@@ -912,6 +912,14 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // to the meals themselves (not buried in settings), and is what the
   // case-discussion co-pilot reads when it proposes a recipe for this patient.
   const [plateComposition, setPlateComposition] = useState<PlateComposition>(data.plateComposition || DEFAULT_PLATE_COMPOSITION)
+  // Supplement table — previously only editable per-report on the Reports
+  // tab (ReportsTab.tsx's SupplementReview), with no way to fix a typo or
+  // add a note without leaving the roadmap editor. Editing here writes
+  // guide_overrides.confirmed_supplements_override, which then wins over
+  // the confirmed-reports-derived list for this roadmap (same
+  // override-wins pattern as every other field here) — it does not change
+  // the underlying report(s) the list was built from.
+  const [supplementRows, setSupplementRows] = useState<{ name: string; dose: string; timing: string; duration: string; notes: string }[]>(data.confirmedSupplements || [])
   // Textarea DOM refs, keyed by period — LinkInsertButton reads the coach's
   // current selection directly off these to know what phrase to wrap.
   const lifestyleTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
@@ -1257,7 +1265,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             lifestyle_guidelines: lifestyleText,
-            guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, reach_info: reachInfo, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText, daily_checklist_items: checklistItems, plate_composition: plateComposition },
+            guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, reach_info: reachInfo, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText, daily_checklist_items: checklistItems, plate_composition: plateComposition, confirmed_supplements_override: supplementRows },
             weekly_schedule: editWeeks.map((w) => ({ ...w, actions: (w.actions || []).map((a) => a.trim()).filter(Boolean) })),
           }),
         }),
@@ -3023,14 +3031,44 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             )}
           </div>
 
-          {/* Supplements — only the structured table from a coach-confirmed
-              extracted prescription list (see ReportsTab.tsx's review step).
-              Never shows unconfirmed/draft dosing data, and no free-text
-              fallback — a table or nothing. */}
+          {/* Supplements — the structured table from coach-confirmed
+              extracted prescription report(s) (see ReportsTab.tsx's review
+              step), editable directly here too now: a fix/addition made on
+              this page is saved as guide_overrides.confirmed_supplements_override,
+              which wins over the reports-derived list for this roadmap
+              (same override-wins pattern as every other field here) without
+              touching the underlying report(s). */}
           <div id="supplements" {...hiddenAttrs('supplements')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('supplements') }}>
             {editable && <SectionToggle hidden={isHidden('supplements')} onToggle={() => toggleSection('supplements')} />}
             <div style={sectionTitleStyle}><Pill size={18} color={C.accent} /> Your supplement plan</div>
-            {data.confirmedSupplements.length > 0 ? (
+            {editable ? (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+                  {supplementRows.map((s, i) => (
+                    <div key={i} style={{ borderBottom: i < supplementRows.length - 1 ? `1px solid ${C.rule}` : 'none', paddingBottom: 8 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1.2fr 1fr auto', gap: 6, alignItems: 'center' }}>
+                        <input style={editInputStyle} value={s.name} placeholder="Name"
+                          onChange={(e) => setSupplementRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, name: e.target.value } : r)))} />
+                        <input style={editInputStyle} value={s.dose} placeholder="Dose / frequency"
+                          onChange={(e) => setSupplementRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, dose: e.target.value } : r)))} />
+                        <input style={editInputStyle} value={s.timing} placeholder="When to take"
+                          onChange={(e) => setSupplementRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, timing: e.target.value } : r)))} />
+                        <input style={editInputStyle} value={s.duration} placeholder="Duration"
+                          onChange={(e) => setSupplementRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, duration: e.target.value } : r)))} />
+                        <button type="button" onClick={() => setSupplementRows((prev) => prev.filter((_, idx) => idx !== i))}
+                          style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', padding: 4 }}><X size={14} /></button>
+                      </div>
+                      <input style={{ ...editInputStyle, marginTop: 6 }} value={s.notes} placeholder="Safety note / contraindication (optional)"
+                        onChange={(e) => setSupplementRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, notes: e.target.value } : r)))} />
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setSupplementRows((prev) => [...prev, { name: '', dose: '', timing: '', duration: '', notes: '' }])}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', color: C.accent, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                  <Plus size={12} /> Add supplement
+                </button>
+              </>
+            ) : data.confirmedSupplements.length > 0 ? (
               <div style={{ overflowX: 'auto', marginBottom: 10 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>

@@ -9,22 +9,25 @@ import type { GuideData } from './ClientGuideDocument'
 // exactly how the MicrobiomeRX merge added to one of them silently never
 // reached the others. Two sources, both gated on an explicit human
 // confirmation step, merged and returned in that order:
-// 1. patient_reports rows a coach has explicitly reviewed & confirmed
-//    (see ReportsTab.tsx's review step) — most recent one wins.
+// 1. EVERY patient_reports row a coach has explicitly reviewed & confirmed
+//    (see ReportsTab.tsx's review step) — a patient can have more than one
+//    active prescription (e.g. one from their GP, one from a specialist),
+//    and confirming a second one used to silently drop the first's
+//    supplements from the dashboard (this only ever read the single most
+//    recent confirmed report). All confirmed reports are merged now, most
+//    recent first.
 // 2. A linked MicrobiomeRX patient's doctor-approved prescription
 //    (approved via that app's own "Approve RX" step) — same confirmed-only
 //    trust model, so it belongs here on equal footing, appended rather
 //    than replacing the patient_reports list.
 export async function resolveConfirmedSupplements(patientId: string): Promise<GuideData['confirmedSupplements']> {
-  const { data: supplementReport } = await supabaseAdmin
+  const { data: supplementReports } = await supabaseAdmin
     .from('patient_reports')
     .select('supplements')
     .eq('patient_id', patientId)
     .eq('supplements_confirmed', true)
     .not('supplements', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
 
   const mrxSupplements: GuideData['confirmedSupplements'] = []
   try {
@@ -84,5 +87,6 @@ export async function resolveConfirmedSupplements(patientId: string): Promise<Gu
     }
   } catch { /* linking is optional — never block on it */ }
 
-  return [...(supplementReport?.supplements ?? []), ...mrxSupplements]
+  const reportSupplements = (supplementReports ?? []).flatMap((r) => r.supplements ?? [])
+  return [...reportSupplements, ...mrxSupplements]
 }
