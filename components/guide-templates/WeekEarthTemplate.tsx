@@ -113,6 +113,7 @@ const TOC_ITEMS: { label: string; id: string }[] = [
   { label: 'Breakfast, Lunch & Dinner', id: 'meals' },
   { label: 'Daily schedule', id: 'schedule' },
   { label: 'Your roadmap', id: 'roadmap' },
+  { label: 'Recipes', id: 'recipes' },
   { label: 'Nutrition guidelines', id: 'nutrition' },
   { label: 'Grocery list', id: 'grocery' },
   { label: 'Supplements', id: 'supplements' },
@@ -1407,6 +1408,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
       {/* Your roadmap — one week only, straight to the day accordion, no
           month/week tabs since there's exactly one week to show. */}
       {week && (
+        <>
         <section id="roadmap" style={{ background: PALETTE.dusk1, padding: '4rem 1.5rem', ...hiddenStyle('roadmap') }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Eyebrow dark>Your one week</Eyebrow>
@@ -1467,11 +1469,22 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
               </div>
             )}
 
+          </div>
+          </div>
+        </section>
+
+        {/* Recipes — pulled out of "Your Roadmap" into its own section
+            (previously nested inside it, which read as if recipes were
+            part of the weekly goals rather than their own thing). */}
+        <section id="recipes" style={{ background: PALETTE.dusk1, padding: '4rem 1.5rem', ...hiddenStyle('recipes') }}>
+          <div style={{ maxWidth: 920, margin: '0 auto' }}>
+            <Eyebrow dark>Picked for your plan</Eyebrow>
+            <SecTitle dark icon={<ChefHat size={26} color={PALETTE.cream} />} sectionId="recipes" open={isSectionOpen('recipes')} onToggle={() => toggleSection('recipes')}>Recipes for the Week</SecTitle>
+            <div data-section-body="recipes" style={{ display: isSectionOpen('recipes') ? 'block' : 'none' }}>
             {(() => {
               const weekSlotRecipes = getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
               return (
                 <div>
-                  <span style={{ fontFamily: "'Karla', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1, opacity: 0.85 }}>Recipes for the week</span>
                   <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 10 }}>
                     {weekSlotRecipes.map(({ slot, matches }) => {
                       const slotId = `${week.week_number}-${slot}`
@@ -1566,6 +1579,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
           </div>
           </div>
         </section>
+        </>
       )}
 
       {/* Supplements -- editable inline now (previously only on the Classic

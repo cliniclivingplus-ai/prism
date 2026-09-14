@@ -112,6 +112,7 @@ const TOC_ITEMS: { label: string; id: string }[] = [
   { label: 'Breakfast, lunch & dinner', id: 'meals' },
   { label: 'Daily schedule', id: 'schedule' },
   { label: 'Your roadmap', id: 'roadmap' },
+  { label: 'Recipes', id: 'recipes' },
   { label: 'Nutrition guidelines', id: 'nutrition' },
   { label: 'Grocery list', id: 'grocery' },
   { label: 'Supplements', id: 'supplements' },
@@ -1285,108 +1286,127 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                       </div>
                     )}
 
-                    {(() => {
-                      const weekSlotRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
-                      return (
-                        <div>
-                          <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Recipes for the week</span>
-                          <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginTop: 10 }}>
-                            {weekSlotRecipes.map(({ slot, matches }) => {
-                              const slotId = `${w.week_number}-${slot}`
-                              return (
-                                <button key={slot} data-slot-trigger={slotId} onClick={() => setOpenSlot(slotId)}
-                                  style={{ textAlign: 'left', padding: '11px 13px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${PULSE.border}`, background: PULSE.bg }}>
-                                  <div style={{ fontSize: '0.83rem', fontWeight: 700, color: PULSE.ink }}>{SLOT_LABELS[slot]}</div>
-                                  <div style={{ fontSize: '0.75rem', color: matches.length ? PULSE.accent : PULSE.muted, marginTop: 4, fontWeight: 600 }}>
-                                    {matches.length ? `${matches.length} recipe${matches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
-                                  </div>
-                                </button>
-                              )
-                            })}
-                          </div>
-
-                          {weekSlotRecipes.map(({ slot, matches }) => {
-                            const slotId = `${w.week_number}-${slot}`
-                            return (
-                            <div key={slot} data-slot-body={slotId} style={{ display: openSlot === slotId ? 'block' : 'none', marginTop: 14 }}>
-                              <button data-slot-back onClick={() => setOpenSlot(null)}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: PULSE.accent, fontSize: '0.8rem', fontWeight: 700, padding: 0, marginBottom: 12 }}>
-                                ← Back to meal slots
-                              </button>
-                              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: PULSE.ink, marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</div>
-                              {matches.length > 0 ? (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-                                  {matches.map(({ recipe }) => {
-                                    const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
-                                    return (
-                                    <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
-                                      style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? PULSE.accentSoft : PULSE.bg, border: `1px solid ${openRecipeId === recipeKey ? PULSE.accent : PULSE.border}`, borderRadius: 14, overflow: 'hidden' }}>
-                                      {recipe.image_url ? (
-                                        <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', height: 96, objectFit: 'cover', display: 'block' }} />
-                                      ) : (
-                                        <div style={{ width: '100%', height: 96, background: PULSE.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                          <ChefHat size={20} color={PULSE.accent} />
-                                        </div>
-                                      )}
-                                      <div style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                                        <span style={{ color: PULSE.ink, fontSize: '0.83rem', fontWeight: 700 }}>{recipe.name}</span>
-                                        {openRecipeId === recipeKey ? <ChevronDown size={14} color={PULSE.accent} style={{ flexShrink: 0 }} /> : <ChevronRight size={14} color={PULSE.muted} style={{ flexShrink: 0 }} />}
-                                      </div>
-                                    </button>
-                                    )
-                                  })}
-                                </div>
-                              ) : (
-                                <div style={{ fontSize: '0.83rem', color: PULSE.muted }}>Nothing detected for {SLOT_LABELS[slot].toLowerCase()} yet, {coachFirst} will add some.</div>
-                              )}
-
-                              {matches.map(({ recipe }) => {
-                                const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
-                                return (
-                                <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: PULSE.bg, border: `1px solid ${PULSE.accent}`, borderRadius: 16, padding: '1.5rem', position: 'relative' }}>
-                                  <button onClick={() => setOpenRecipeId(null)} data-no-export style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: PULSE.muted }}><X size={18} /></button>
-                                  <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 22 }}>
-                                    {recipe.image_url && <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 12, objectFit: 'cover', maxHeight: 300 }} />}
-                                    <div>
-                                      {recipe.protein_label && <Eyebrow>{recipe.protein_label}</Eyebrow>}
-                                      <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: PULSE.ink, margin: '0 0 14px' }}>{recipe.name}</h3>
-                                      <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Ingredients</span>
-                                      <ul style={{ listStyle: 'none', margin: '8px 0 14px', padding: 0 }}>
-                                        {splitRecipeLines(recipe.ingredients).map((line, i) => (
-                                          <li key={i} style={{ color: PULSE.inkSoft, fontSize: '0.86rem', lineHeight: 1.6, marginBottom: 4 }}>{line}</li>
-                                        ))}
-                                      </ul>
-                                      <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Directions</span>
-                                      <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-                                        {splitRecipeLines(recipe.steps).map((line, i) => (
-                                          <li key={i} style={{ color: PULSE.inkSoft, fontSize: '0.86rem', lineHeight: 1.65, marginBottom: 6 }}>{line}</li>
-                                        ))}
-                                      </ol>
-                                      {recipe.benefits && recipe.benefits.length > 0 && (
-                                        <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${PULSE.border}` }}>
-                                          <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Why it works</span>
-                                          <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                                            {recipe.benefits.map((b, i) => <li key={i} style={{ color: PULSE.inkSoft, fontSize: '0.84rem', lineHeight: 1.55, marginBottom: 4 }}>{b}</li>)}
-                                          </ul>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                                )
-                              })}
-                            </div>
-                            )
-                          })}
-                        </div>
-                      )
-                    })()}
                   </div>
                 ))}
               </div>
             ))}
           </Card>
         )}
+
+        {/* Recipes — pulled out of "Your Roadmap" into its own section
+            (previously nested inside each week's body there). Still keyed
+            to the week picked under "Your Roadmap" (openMonth/openWeek are
+            shared state), since a recipe list only makes sense for one
+            week at a time — just visually and structurally its own
+            section now, not a sub-block of the roadmap. */}
+        {months.length > 0 && (() => {
+          const openWeekData = months.flatMap((m) => m.weeks).find((w) => w.week_number === openWeek)
+          return (
+            <Card id="recipes" hidden={isHidden('recipes')}>
+              <Eyebrow>Picked for your plan</Eyebrow>
+              <SecTitle icon={<ChefHat size={20} />}>Recipes for the week</SecTitle>
+              {!openWeekData ? (
+                <p style={{ fontSize: '0.86rem', color: PULSE.muted, marginTop: 12 }}>Pick a week under &quot;Your roadmap&quot; above to see its recipes.</p>
+              ) : (() => {
+                const w = openWeekData
+                const weekSlotRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
+                return (
+                  <div style={{ marginTop: 16 }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Week {w.week_number}</span>
+                    <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginTop: 10 }}>
+                      {weekSlotRecipes.map(({ slot, matches }) => {
+                        const slotId = `${w.week_number}-${slot}`
+                        return (
+                          <button key={slot} data-slot-trigger={slotId} onClick={() => setOpenSlot(slotId)}
+                            style={{ textAlign: 'left', padding: '11px 13px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${PULSE.border}`, background: PULSE.bg }}>
+                            <div style={{ fontSize: '0.83rem', fontWeight: 700, color: PULSE.ink }}>{SLOT_LABELS[slot]}</div>
+                            <div style={{ fontSize: '0.75rem', color: matches.length ? PULSE.accent : PULSE.muted, marginTop: 4, fontWeight: 600 }}>
+                              {matches.length ? `${matches.length} recipe${matches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {weekSlotRecipes.map(({ slot, matches }) => {
+                      const slotId = `${w.week_number}-${slot}`
+                      return (
+                      <div key={slot} data-slot-body={slotId} style={{ display: openSlot === slotId ? 'block' : 'none', marginTop: 14 }}>
+                        <button data-slot-back onClick={() => setOpenSlot(null)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: PULSE.accent, fontSize: '0.8rem', fontWeight: 700, padding: 0, marginBottom: 12 }}>
+                          ← Back to meal slots
+                        </button>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: PULSE.ink, marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</div>
+                        {matches.length > 0 ? (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                            {matches.map(({ recipe }) => {
+                              const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                              return (
+                              <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
+                                style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? PULSE.accentSoft : PULSE.bg, border: `1px solid ${openRecipeId === recipeKey ? PULSE.accent : PULSE.border}`, borderRadius: 14, overflow: 'hidden' }}>
+                                {recipe.image_url ? (
+                                  <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', height: 96, objectFit: 'cover', display: 'block' }} />
+                                ) : (
+                                  <div style={{ width: '100%', height: 96, background: PULSE.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <ChefHat size={20} color={PULSE.accent} />
+                                  </div>
+                                )}
+                                <div style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                                  <span style={{ color: PULSE.ink, fontSize: '0.83rem', fontWeight: 700 }}>{recipe.name}</span>
+                                  {openRecipeId === recipeKey ? <ChevronDown size={14} color={PULSE.accent} style={{ flexShrink: 0 }} /> : <ChevronRight size={14} color={PULSE.muted} style={{ flexShrink: 0 }} />}
+                                </div>
+                              </button>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.83rem', color: PULSE.muted }}>Nothing detected for {SLOT_LABELS[slot].toLowerCase()} yet, {coachFirst} will add some.</div>
+                        )}
+
+                        {matches.map(({ recipe }) => {
+                          const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                          return (
+                          <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: PULSE.bg, border: `1px solid ${PULSE.accent}`, borderRadius: 16, padding: '1.5rem', position: 'relative' }}>
+                            <button onClick={() => setOpenRecipeId(null)} data-no-export style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: PULSE.muted }}><X size={18} /></button>
+                            <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 22 }}>
+                              {recipe.image_url && <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 12, objectFit: 'cover', maxHeight: 300 }} />}
+                              <div>
+                                {recipe.protein_label && <Eyebrow>{recipe.protein_label}</Eyebrow>}
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: PULSE.ink, margin: '0 0 14px' }}>{recipe.name}</h3>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Ingredients</span>
+                                <ul style={{ listStyle: 'none', margin: '8px 0 14px', padding: 0 }}>
+                                  {splitRecipeLines(recipe.ingredients).map((line, i) => (
+                                    <li key={i} style={{ color: PULSE.inkSoft, fontSize: '0.86rem', lineHeight: 1.6, marginBottom: 4 }}>{line}</li>
+                                  ))}
+                                </ul>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Directions</span>
+                                <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+                                  {splitRecipeLines(recipe.steps).map((line, i) => (
+                                    <li key={i} style={{ color: PULSE.inkSoft, fontSize: '0.86rem', lineHeight: 1.65, marginBottom: 6 }}>{line}</li>
+                                  ))}
+                                </ol>
+                                {recipe.benefits && recipe.benefits.length > 0 && (
+                                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${PULSE.border}` }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Why it works</span>
+                                    <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
+                                      {recipe.benefits.map((b, i) => <li key={i} style={{ color: PULSE.inkSoft, fontSize: '0.84rem', lineHeight: 1.55, marginBottom: 4 }}>{b}</li>)}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          )
+                        })}
+                      </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </Card>
+          )
+        })()}
 
         {/* Power points — coach-pasted links each with a short note */}
         {(powerPoints.filter((pp) => pp.url).length > 0 || editable) && (

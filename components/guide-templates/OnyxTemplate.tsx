@@ -132,6 +132,7 @@ const TOC_ITEMS: { label: string; id: string }[] = [
   { label: 'Breakfast, lunch & dinner', id: 'meals' },
   { label: 'Daily schedule', id: 'schedule' },
   { label: 'Your roadmap', id: 'roadmap' },
+  { label: 'Recipes', id: 'recipes' },
   { label: 'Nutrition guidelines', id: 'nutrition' },
   { label: 'Grocery list', id: 'grocery' },
   { label: 'Supplements', id: 'supplements' },
@@ -1232,11 +1233,33 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                       </div>
                     )}
 
-                    {(() => {
+                  </div>
+                ))}
+              </div>
+            ))}
+          </Card>
+        )}
+
+        {/* Recipes — pulled out of "Your Roadmap" into its own section
+            (previously nested inside each week's body there). Still keyed
+            to the week picked under "Your Roadmap" (openWeek is shared
+            state), since a recipe list only makes sense for one week at a
+            time — just visually and structurally its own section now, not
+            a sub-block of the roadmap. */}
+        {months.length > 0 && (() => {
+          const openWeekData = months.flatMap((m) => m.weeks).find((w) => w.week_number === openWeek)
+          return (
+            <Card id="recipes" hidden={isHidden('recipes')}>
+              <Eyebrow>Picked for your plan</Eyebrow>
+              <SecTitle icon={<ChefHat size={18} />}>Recipes for the week</SecTitle>
+              {!openWeekData ? (
+                <p style={{ fontSize: '0.86rem', color: ONYX.muted, marginTop: 12 }}>Pick a week under &quot;Your roadmap&quot; above to see its recipes.</p>
+              ) : (() => {
+                const w = openWeekData
                       const weekSlotRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
                       return (
                         <div>
-                          <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Recipes for the week</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: ONYX.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Week {w.week_number}</span>
                           <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginTop: 10 }}>
                             {weekSlotRecipes.map(({ slot, matches }) => {
                               const slotId = `${w.week_number}-${slot}`
@@ -1327,13 +1350,10 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                           })}
                         </div>
                       )
-                    })()}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </Card>
-        )}
+              })()}
+            </Card>
+          )
+        })()}
 
         {/* Power points — coach-pasted links each with a short note */}
         {(powerPoints.filter((pp) => pp.url).length > 0 || editable) && (

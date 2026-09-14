@@ -137,6 +137,7 @@ const TOC_ITEMS: { label: string; id: string }[] = [
   { label: 'Breakfast, lunch & dinner', id: 'meals' },
   { label: 'Daily schedule', id: 'schedule' },
   { label: 'Your roadmap', id: 'roadmap' },
+  { label: 'Recipes', id: 'recipes' },
   { label: 'Nutrition guidelines', id: 'nutrition' },
   { label: 'Grocery list', id: 'grocery' },
   { label: 'Supplements', id: 'supplements' },
@@ -1352,6 +1353,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
           Everything expands inline, in place, as part of the page — no
           popup dialogs. */}
       {months.length > 0 && (
+        <Fragment>
         <section id="roadmap" style={{ background: PALETTE.dusk1, padding: '4rem 1.5rem', ...hiddenStyle('roadmap') }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Eyebrow dark>Month by month</Eyebrow>
@@ -1446,115 +1448,127 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                       </div>
                     )}
 
-                    {(() => {
-                      const weekSlotRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
-                      return (
-                        <div>
-                          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1, opacity: 0.85 }}>Recipes for the week</span>
-                          <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 10 }}>
-                            {weekSlotRecipes.map(({ slot, matches }) => {
-                              const slotId = `${w.week_number}-${slot}`
-                              return (
-                                <button key={slot} data-slot-trigger={slotId} onClick={() => setOpenSlot(slotId)}
-                                  style={{ textAlign: 'left', padding: '11px 13px', borderRadius: 12, cursor: 'pointer', border: '1px solid rgba(243,236,218,0.22)', background: 'rgba(243,236,218,0.08)' }}>
-                                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: '0.9rem', fontWeight: 500, color: PALETTE.cream }}>{SLOT_LABELS[slot]}</div>
-                                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.72rem', color: matches.length ? PALETTE.gold1 : PALETTE.cream, opacity: matches.length ? 1 : 0.5, marginTop: 4, fontWeight: 600 }}>
-                                    {matches.length ? `${matches.length} recipe${matches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
-                                  </div>
-                                </button>
-                              )
-                            })}
-                          </div>
-
-                          {weekSlotRecipes.map(({ slot, matches }) => {
-                            const slotId = `${w.week_number}-${slot}`
-                            return (
-                            <div key={slot} data-slot-body={slotId} style={{ display: openSlot === slotId ? 'block' : 'none', marginTop: 16 }}>
-                              <button data-slot-back onClick={() => setOpenSlot(null)}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.gold1, fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.78rem', fontWeight: 700, padding: 0, marginBottom: 12 }}>
-                                ← Back to meal slots
-                              </button>
-                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1, opacity: 0.85, display: 'block', marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</span>
-                              {matches.length > 0 ? (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
-                                  {matches.map(({ recipe }) => {
-                                    const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
-                                    return (
-                                    <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
-                                      style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? 'rgba(224,195,132,0.16)' : 'rgba(243,236,218,0.08)', border: `1px solid ${openRecipeId === recipeKey ? PALETTE.gold1 : 'rgba(243,236,218,0.22)'}`, borderRadius: 12, overflow: 'hidden' }}>
-                                      {recipe.image_url ? (
-                                        <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
-                                      ) : (
-                                        <div style={{ width: '100%', height: 100, background: 'rgba(243,236,218,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                          <ChefHat size={20} color={PALETTE.cream} opacity={0.5} />
-                                        </div>
-                                      )}
-                                      <div style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                                        <span style={{ color: PALETTE.cream, fontSize: '0.85rem', fontWeight: 600 }}>{recipe.name}</span>
-                                        {openRecipeId === recipeKey ? <ChevronDown size={14} color={PALETTE.gold1} style={{ flexShrink: 0 }} /> : <ChevronRight size={14} color={PALETTE.cream} opacity={0.5} style={{ flexShrink: 0 }} />}
-                                      </div>
-                                    </button>
-                                    )
-                                  })}
-                                </div>
-                              ) : (
-                                <div style={{ fontSize: '0.88rem', color: PALETTE.cream, opacity: 0.6 }}>Nothing detected for {SLOT_LABELS[slot].toLowerCase()} yet, {coachFirst} will add some.</div>
-                              )}
-
-                              {/* Recipe detail — expands inline, right under
-                                  the slot it belongs to, as part of the page
-                                  rather than a floating popup. Every match's
-                                  detail is always mounted (just hidden) so a
-                                  downloaded copy of this page has every
-                                  recipe available, not just whichever one
-                                  happened to be open. */}
-                              {matches.map(({ recipe }) => {
-                                const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
-                                return (
-                                <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: 'rgba(243,236,218,0.06)', border: `1px solid ${PALETTE.gold1}`, borderRadius: 14, padding: '1.75rem', position: 'relative' }}>
-                                  <button onClick={() => setOpenRecipeId(null)} data-no-export style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.cream, opacity: 0.6 }}><X size={18} /></button>
-                                  <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 24 }}>
-                                    {recipe.image_url && <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', maxHeight: 320 }} />}
-                                    <div>
-                                      {recipe.protein_label && <Eyebrow dark>{recipe.protein_label}</Eyebrow>}
-                                      <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: '1.4rem', color: PALETTE.cream, margin: '0 0 16px' }}>{recipe.name}</h3>
-                                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Ingredients</span>
-                                      <ul style={{ listStyle: 'none', margin: '8px 0 16px', padding: 0 }}>
-                                        {splitRecipeLines(recipe.ingredients).map((line, i) => (
-                                          <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: 4 }}>{line}</li>
-                                        ))}
-                                      </ul>
-                                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Directions</span>
-                                      <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-                                        {splitRecipeLines(recipe.steps).map((line, i) => (
-                                          <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.88rem', lineHeight: 1.65, marginBottom: 6 }}>{line}</li>
-                                        ))}
-                                      </ol>
-                                      {recipe.benefits && recipe.benefits.length > 0 && (
-                                        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(243,236,218,0.18)' }}>
-                                          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Why it works</span>
-                                          <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                                            {recipe.benefits.map((b, i) => <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.86rem', lineHeight: 1.55, marginBottom: 4 }}>{b}</li>)}
-                                          </ul>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                                )
-                              })}
-                            </div>
-                            )
-                          })}
-                        </div>
-                      )
-                    })()}
                   </div>
                 ))}
               </div>
             ))}
           </div>
         </section>
+
+        {/* Recipes — pulled out of "Your Roadmap" into its own section
+            (previously nested inside each week's body there). Still keyed
+            to the week picked under "Your Roadmap" (openWeek is shared
+            state), since a recipe list only makes sense for one week at a
+            time — just visually and structurally its own section now, not
+            a sub-block of the roadmap. */}
+        <section id="recipes" style={{ background: PALETTE.dusk1, padding: '4rem 1.5rem', ...hiddenStyle('recipes') }}>
+          <div style={{ maxWidth: 920, margin: '0 auto' }}>
+            <Eyebrow dark>Picked for your plan</Eyebrow>
+            <SecTitle dark icon={<ChefHat size={26} color={PALETTE.cream} />}>Recipes for the Week</SecTitle>
+            {(() => {
+              const openWeekData = months.flatMap((m) => m.weeks).find((w) => w.week_number === openWeek)
+              if (!openWeekData) {
+                return <p style={{ color: PALETTE.cream, opacity: 0.6, fontSize: '0.88rem', marginTop: 16 }}>Pick a week under &quot;Your Roadmap&quot; above to see its recipes.</p>
+              }
+              const w = openWeekData
+              const weekSlotRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
+              return (
+                <div style={{ marginTop: 16 }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1, opacity: 0.85 }}>Week {w.week_number}</span>
+                  <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 10 }}>
+                    {weekSlotRecipes.map(({ slot, matches }) => {
+                      const slotId = `${w.week_number}-${slot}`
+                      return (
+                        <button key={slot} data-slot-trigger={slotId} onClick={() => setOpenSlot(slotId)}
+                          style={{ textAlign: 'left', padding: '11px 13px', borderRadius: 12, cursor: 'pointer', border: '1px solid rgba(243,236,218,0.22)', background: 'rgba(243,236,218,0.08)' }}>
+                          <div style={{ fontFamily: "'Fraunces', serif", fontSize: '0.9rem', fontWeight: 500, color: PALETTE.cream }}>{SLOT_LABELS[slot]}</div>
+                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.72rem', color: matches.length ? PALETTE.gold1 : PALETTE.cream, opacity: matches.length ? 1 : 0.5, marginTop: 4, fontWeight: 600 }}>
+                            {matches.length ? `${matches.length} recipe${matches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {weekSlotRecipes.map(({ slot, matches }) => {
+                    const slotId = `${w.week_number}-${slot}`
+                    return (
+                    <div key={slot} data-slot-body={slotId} style={{ display: openSlot === slotId ? 'block' : 'none', marginTop: 16 }}>
+                      <button data-slot-back onClick={() => setOpenSlot(null)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.gold1, fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.78rem', fontWeight: 700, padding: 0, marginBottom: 12 }}>
+                        ← Back to meal slots
+                      </button>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1, opacity: 0.85, display: 'block', marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</span>
+                      {matches.length > 0 ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
+                          {matches.map(({ recipe }) => {
+                            const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                            return (
+                            <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
+                              style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? 'rgba(224,195,132,0.16)' : 'rgba(243,236,218,0.08)', border: `1px solid ${openRecipeId === recipeKey ? PALETTE.gold1 : 'rgba(243,236,218,0.22)'}`, borderRadius: 12, overflow: 'hidden' }}>
+                              {recipe.image_url ? (
+                                <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
+                              ) : (
+                                <div style={{ width: '100%', height: 100, background: 'rgba(243,236,218,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <ChefHat size={20} color={PALETTE.cream} opacity={0.5} />
+                                </div>
+                              )}
+                              <div style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                                <span style={{ color: PALETTE.cream, fontSize: '0.85rem', fontWeight: 600 }}>{recipe.name}</span>
+                                {openRecipeId === recipeKey ? <ChevronDown size={14} color={PALETTE.gold1} style={{ flexShrink: 0 }} /> : <ChevronRight size={14} color={PALETTE.cream} opacity={0.5} style={{ flexShrink: 0 }} />}
+                              </div>
+                            </button>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '0.88rem', color: PALETTE.cream, opacity: 0.6 }}>Nothing detected for {SLOT_LABELS[slot].toLowerCase()} yet, {coachFirst} will add some.</div>
+                      )}
+
+                      {matches.map(({ recipe }) => {
+                        const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                        return (
+                        <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: 'rgba(243,236,218,0.06)', border: `1px solid ${PALETTE.gold1}`, borderRadius: 14, padding: '1.75rem', position: 'relative' }}>
+                          <button onClick={() => setOpenRecipeId(null)} data-no-export style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.cream, opacity: 0.6 }}><X size={18} /></button>
+                          <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 24 }}>
+                            {recipe.image_url && <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', maxHeight: 320 }} />}
+                            <div>
+                              {recipe.protein_label && <Eyebrow dark>{recipe.protein_label}</Eyebrow>}
+                              <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: '1.4rem', color: PALETTE.cream, margin: '0 0 16px' }}>{recipe.name}</h3>
+                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Ingredients</span>
+                              <ul style={{ listStyle: 'none', margin: '8px 0 16px', padding: 0 }}>
+                                {splitRecipeLines(recipe.ingredients).map((line, i) => (
+                                  <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: 4 }}>{line}</li>
+                                ))}
+                              </ul>
+                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Directions</span>
+                              <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+                                {splitRecipeLines(recipe.steps).map((line, i) => (
+                                  <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.88rem', lineHeight: 1.65, marginBottom: 6 }}>{line}</li>
+                                ))}
+                              </ol>
+                              {recipe.benefits && recipe.benefits.length > 0 && (
+                                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(243,236,218,0.18)' }}>
+                                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Why it works</span>
+                                  <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
+                                    {recipe.benefits.map((b, i) => <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.86rem', lineHeight: 1.55, marginBottom: 4 }}>{b}</li>)}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        )
+                      })}
+                    </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+          </div>
+        </section>
+        </Fragment>
       )}
 
       {/* Supplements — editable inline now (previously only on the Classic
