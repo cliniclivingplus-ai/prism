@@ -17,7 +17,7 @@ import {
   HeartPulse, Utensils, Pill, Phone, Clock, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Flame, Target, TrendingUp,
   Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon,
-  type LucideIcon, AlertTriangle,
+  type LucideIcon, AlertTriangle, Plus,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
@@ -454,6 +454,30 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
 
   const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS))
   const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS))
+
+  // Supplement table — editable here now too (previously only editable on
+  // the Classic editor). Saved as guide_overrides.confirmed_supplements_override,
+  // which wins over the reports-derived list for this roadmap without
+  // touching the source report(s) — same override-wins pattern as every
+  // other field here.
+  const [supplementRows, setSupplementRows] = useState(data.confirmedSupplements)
+  function updateSupplementRow(i: number, patch: Partial<GuideData['confirmedSupplements'][number]>) {
+    setSupplementRows((prev) => {
+      const next = prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
+      patchRoadmap({ guide_overrides: { confirmed_supplements_override: next } })
+      return next
+    })
+  }
+  function removeSupplementRow(i: number) {
+    setSupplementRows((prev) => {
+      const next = prev.filter((_, idx) => idx !== i)
+      patchRoadmap({ guide_overrides: { confirmed_supplements_override: next } })
+      return next
+    })
+  }
+  function addSupplementRow() {
+    setSupplementRows((prev) => [...prev, { name: '', dose: '', timing: '', duration: '', notes: '' }])
+  }
   function saveLifestyleItem(label: string, itemIndex: number, next: string) {
     setLifestyleByPeriod((prev) => {
       const items = parseBullets(prev[label] || '')
@@ -1474,8 +1498,13 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
           )}
         </Card>
 
-        {/* Supplements */}
-        {data.confirmedSupplements.length > 0 && (
+        {/* Supplements — editable inline now (previously only on the Classic
+            editor): each cell is an InlineEditableText, same click-to-edit
+            primitive as every other coach-editable field on this template.
+            Saved as guide_overrides.confirmed_supplements_override, which
+            wins over the reports-derived list for this roadmap without
+            touching the source report(s). */}
+        {(editable || data.confirmedSupplements.length > 0) && (
           <Card id="supplements" hidden={isHidden('supplements')}>
             <Eyebrow>Confirmed by {coachFirst}</Eyebrow>
             <SecTitle icon={<Pill size={18} />}>Your supplement plan</SecTitle>
@@ -1487,20 +1516,22 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                     <th style={{ padding: '4px 10px 8px 0' }}>Dose</th>
                     <th style={{ padding: '4px 10px 8px 0' }}>When to take</th>
                     <th style={{ padding: '4px 0 8px 0' }}>Duration</th>
+                    {editable && <th style={{ padding: '4px 0 8px 0' }} />}
                   </tr>
                 </thead>
                 <tbody>
-                  {data.confirmedSupplements.map((s, i) => (
+                  {supplementRows.map((s, i) => (
                     <Fragment key={i}>
                       <tr style={{ borderTop: `1px solid ${ONYX.border}` }}>
-                        <td style={{ padding: '9px 10px 9px 0', fontWeight: 600, color: ONYX.ink }}>{s.name}</td>
-                        <td style={{ padding: '9px 10px 9px 0', color: ONYX.inkSoft }}>{s.dose}</td>
-                        <td style={{ padding: '9px 10px 9px 0', color: ONYX.inkSoft }}>{s.timing}</td>
-                        <td style={{ padding: '9px 0', color: ONYX.inkSoft }}>{s.duration}</td>
+                        <td style={{ padding: '9px 10px 9px 0', fontWeight: 600, color: ONYX.ink }}><InlineEditableText value={s.name} editable={!!editable} onSave={(v) => updateSupplementRow(i, { name: v })} placeholder="Name" /></td>
+                        <td style={{ padding: '9px 10px 9px 0', color: ONYX.inkSoft }}><InlineEditableText value={s.dose} editable={!!editable} onSave={(v) => updateSupplementRow(i, { dose: v })} placeholder="Dose" /></td>
+                        <td style={{ padding: '9px 10px 9px 0', color: ONYX.inkSoft }}><InlineEditableText value={s.timing} editable={!!editable} onSave={(v) => updateSupplementRow(i, { timing: v })} placeholder="When to take" /></td>
+                        <td style={{ padding: '9px 0', color: ONYX.inkSoft }}><InlineEditableText value={s.duration} editable={!!editable} onSave={(v) => updateSupplementRow(i, { duration: v })} placeholder="Duration" /></td>
+                        {editable && <td style={{ padding: '9px 0 9px 10px' }}><button type="button" onClick={() => removeSupplementRow(i)} style={{ background: 'none', border: 'none', color: ONYX.muted, cursor: 'pointer', padding: 0 }}><X size={14} /></button></td>}
                       </tr>
-                      {s.notes && (
+                      {(s.notes || editable) && (
                         <tr>
-                          <td colSpan={4} style={{ padding: '0 0 9px 0', color: ONYX.warn, fontSize: 11.5 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</td>
+                          <td colSpan={5} style={{ padding: '0 0 9px 0', color: ONYX.warn, fontSize: 11.5 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}<InlineEditableText value={s.notes} editable={!!editable} onSave={(v) => updateSupplementRow(i, { notes: v })} placeholder="Safety note / contraindication (optional)" style={{ color: ONYX.warn }} /></td>
                         </tr>
                       )}
                     </Fragment>
@@ -1508,6 +1539,11 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                 </tbody>
               </table>
             </div>
+            {editable && (
+              <button type="button" onClick={addSupplementRow} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, background: 'none', border: 'none', color: ONYX.ink, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                <Plus size={13} /> Add supplement
+              </button>
+            )}
             <div style={{ color: ONYX.muted, fontSize: '0.76rem', marginTop: 14 }}>Don&apos;t start, stop, or change a dose without confirming with {coachFirst} first.</div>
           </Card>
         )}

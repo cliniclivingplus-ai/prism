@@ -17,7 +17,7 @@ import {
   HeartPulse, Utensils, Pill, Phone, Clock, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
   Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon, Flame, Award,
-  type LucideIcon, AlertTriangle,
+  type LucideIcon, AlertTriangle, Plus,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
@@ -408,6 +408,30 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
   // sub-section only appears if it actually has content.
   const [lifestyleByPeriod, setLifestyleByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.dailyLifestyleGuidelines, LIFESTYLE_PERIODS))
   const [mealsByPeriod, setMealsByPeriod] = useState<Record<string, string>>(() => splitIntoPeriods(data.mealGuidelines, MEAL_PERIODS))
+
+  // Supplement table — editable here now too (previously only editable on
+  // the Classic editor). Saved as guide_overrides.confirmed_supplements_override,
+  // which wins over the reports-derived list for this roadmap without
+  // touching the source report(s) — same override-wins pattern as every
+  // other field here.
+  const [supplementRows, setSupplementRows] = useState(data.confirmedSupplements)
+  function updateSupplementRow(i: number, patch: Partial<GuideData['confirmedSupplements'][number]>) {
+    setSupplementRows((prev) => {
+      const next = prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
+      patchRoadmap({ guide_overrides: { confirmed_supplements_override: next } })
+      return next
+    })
+  }
+  function removeSupplementRow(i: number) {
+    setSupplementRows((prev) => {
+      const next = prev.filter((_, idx) => idx !== i)
+      patchRoadmap({ guide_overrides: { confirmed_supplements_override: next } })
+      return next
+    })
+  }
+  function addSupplementRow() {
+    setSupplementRows((prev) => [...prev, { name: '', dose: '', timing: '', duration: '', notes: '' }])
+  }
   function saveLifestyleItem(label: string, itemIndex: number, next: string) {
     setLifestyleByPeriod((prev) => {
       const items = parseBullets(prev[label] || '')
@@ -1225,8 +1249,15 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
 
         {/* Supplements — same table every other template uses, grouped by
             time-of-day sub-headers so "when to take" is still at-a-glance,
-            not just a column. */}
-        {data.confirmedSupplements.length > 0 && (
+            not just a column. Editable inline now (previously only on the
+            Classic editor) — each row keeps its real index into
+            supplementRows (not the per-bucket position) so an edit always
+            updates the right entry, including when retyping "when to take"
+            moves a row into a different bucket on the next render. Saved as
+            guide_overrides.confirmed_supplements_override, which wins over
+            the reports-derived list for this roadmap without touching the
+            source report(s). */}
+        {(editable || data.confirmedSupplements.length > 0) && (
           <Card id="supplements" hidden={isHidden('supplements')}>
             <Eyebrow>Confirmed by {coachFirst}</Eyebrow>
             <SecTitle icon={<Pill size={20} />}>Your supplement plan</SecTitle>
@@ -1238,28 +1269,30 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                     <th style={{ padding: '4px 10px 8px 0' }}>Dose</th>
                     <th style={{ padding: '4px 10px 8px 0' }}>When to take</th>
                     <th style={{ padding: '4px 0 8px 0' }}>Duration</th>
+                    {editable && <th style={{ padding: '4px 0 8px 0' }} />}
                   </tr>
                 </thead>
                 <tbody>
                   {['Morning', 'Afternoon', 'Evening', 'Bedtime', 'As directed'].map((bucket) => {
-                    const items = data.confirmedSupplements.filter((s) => bucketForTiming(s.timing) === bucket)
+                    const items = supplementRows.map((s, idx) => ({ ...s, idx })).filter((s) => bucketForTiming(s.timing) === bucket)
                     if (items.length === 0) return null
                     return (
                       <Fragment key={bucket}>
                         <tr>
-                          <td colSpan={4} style={{ padding: '12px 0 4px 0', fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{bucket}</td>
+                          <td colSpan={editable ? 5 : 4} style={{ padding: '12px 0 4px 0', fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{bucket}</td>
                         </tr>
-                        {items.map((s, i) => (
-                          <Fragment key={i}>
+                        {items.map((s) => (
+                          <Fragment key={s.idx}>
                             <tr style={{ borderTop: `1px solid ${V.line}` }}>
-                              <td style={{ padding: '9px 10px 9px 0', fontWeight: 700 }}>{s.name}</td>
-                              <td style={{ padding: '9px 10px 9px 0', color: V.muted }}>{s.dose}</td>
-                              <td style={{ padding: '9px 10px 9px 0', color: V.muted }}>{s.timing}</td>
-                              <td style={{ padding: '9px 0', color: V.muted }}>{s.duration}</td>
+                              <td style={{ padding: '9px 10px 9px 0', fontWeight: 700 }}><InlineEditableText value={s.name} editable={!!editable} onSave={(v) => updateSupplementRow(s.idx, { name: v })} placeholder="Name" /></td>
+                              <td style={{ padding: '9px 10px 9px 0', color: V.muted }}><InlineEditableText value={s.dose} editable={!!editable} onSave={(v) => updateSupplementRow(s.idx, { dose: v })} placeholder="Dose" /></td>
+                              <td style={{ padding: '9px 10px 9px 0', color: V.muted }}><InlineEditableText value={s.timing} editable={!!editable} onSave={(v) => updateSupplementRow(s.idx, { timing: v })} placeholder="When to take" /></td>
+                              <td style={{ padding: '9px 0', color: V.muted }}><InlineEditableText value={s.duration} editable={!!editable} onSave={(v) => updateSupplementRow(s.idx, { duration: v })} placeholder="Duration" /></td>
+                              {editable && <td style={{ padding: '9px 0 9px 10px' }}><button type="button" onClick={() => removeSupplementRow(s.idx)} style={{ background: 'none', border: 'none', color: V.muted, cursor: 'pointer', padding: 0 }}><X size={14} /></button></td>}
                             </tr>
-                            {s.notes && (
+                            {(s.notes || editable) && (
                               <tr>
-                                <td colSpan={4} style={{ padding: '0 0 9px 0', color: V.warn, fontSize: 11.5 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}{s.notes}</td>
+                                <td colSpan={editable ? 5 : 4} style={{ padding: '0 0 9px 0', color: V.warn, fontSize: 11.5 }}><AlertTriangle size={12} style={{ display: 'inline-block', verticalAlign: '-1px' }} />{' '}<InlineEditableText value={s.notes} editable={!!editable} onSave={(v) => updateSupplementRow(s.idx, { notes: v })} placeholder="Safety note / contraindication (optional)" style={{ color: V.warn }} /></td>
                               </tr>
                             )}
                           </Fragment>
@@ -1270,6 +1303,11 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                 </tbody>
               </table>
             </div>
+            {editable && (
+              <button type="button" onClick={addSupplementRow} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, background: 'none', border: 'none', color: V.accent, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                <Plus size={13} /> Add supplement
+              </button>
+            )}
             <div style={{ fontSize: 11.5, color: V.muted, marginTop: 16 }}>Don&apos;t start, stop, or change a dose without confirming with {coachFirst} first.</div>
           </Card>
         )}
