@@ -687,10 +687,15 @@ Each item must start with "Morning: ", "Afternoon: ", or "Evening: " followed by
         }
 
         // Parse and apply a checklist status update, if the model emitted one.
+        // The prompt tells it to lead with the marker, but gpt-oss-20b
+        // sometimes tacks it onto the END of the reply instead — observed
+        // live as a raw `[CHECKLIST_UPDATE:{...}]` visibly leaking into the
+        // coach's chat. Matching anywhere in the reply (not anchored to the
+        // start) strips it regardless of where the model put it.
         let updatedChecklist = checklist;
-        const checklistMatch = reply.match(/^\[CHECKLIST_UPDATE:(\{[^}]*\})\]\s*/);
+        const checklistMatch = reply.match(/\s*\[CHECKLIST_UPDATE:(\{[^}]*\})\]\s*/);
         if (checklistMatch) {
-          reply = reply.replace(checklistMatch[0], '');
+          reply = reply.replace(checklistMatch[0], '\n\n').trim();
           try {
             const update = JSON.parse(checklistMatch[1]) as { index: number; status: 'discussed' | 'deferred' };
             updatedChecklist = checklist.map((c) => (c.index === update.index ? { ...c, status: update.status } : c));
