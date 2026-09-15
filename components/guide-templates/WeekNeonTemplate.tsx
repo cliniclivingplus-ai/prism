@@ -953,9 +953,9 @@ function clpToggleGroceryCat(head){
         <FoodDoodle kind="bowl" size={50} style={{ position: 'absolute', bottom: 14, left: '11%', opacity: 0.45, transform: 'rotate(-6deg)', pointerEvents: 'none' }} />
         <div style={{ maxWidth: 920, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ width: 48, height: 48, borderRadius: 24, background: PALETTE.berry, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", fontSize: 13 }}>LP</div>
-          <Eyebrow>Living Plus · One week</Eyebrow>
+          <Eyebrow>Living Plus</Eyebrow>
           <h1 style={{ fontFamily: "'Orbitron', serif", fontWeight: 500, fontSize: 'clamp(2.2rem,6vw,3.6rem)', lineHeight: 1.05, letterSpacing: '-0.01em', margin: 0 }}>
-            Hi {firstName},<br />here&apos;s your week
+            Hi {firstName},<br />here&apos;s your plan
           </h1>
           <div style={{ marginTop: '1.1rem', fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.85rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.berry }}>{data.goalLabel}</div>
 
@@ -1415,7 +1415,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
         <>
         <section id="roadmap" style={{ background: PALETTE.dusk1, padding: '4rem 1.5rem', ...hiddenStyle('roadmap') }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
-            <Eyebrow dark>Your one week</Eyebrow>
+            <Eyebrow dark>Your plan</Eyebrow>
             <SecTitle dark icon={<MapPin size={26} color={PALETTE.cream} />} sectionId="roadmap" open={isSectionOpen('roadmap')} onToggle={() => toggleSection('roadmap')}>Your Roadmap</SecTitle>
             <div data-section-body="roadmap" style={{ display: isSectionOpen('roadmap') ? 'block' : 'none' }}>
             {editable ? (
