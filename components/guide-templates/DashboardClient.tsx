@@ -19,6 +19,7 @@ import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from '@/lib/periodBullets'
 import AiEditButton from '@/components/AiEditButton'
+import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
 import LinkInsertButton from '@/components/LinkInsertButton'
 import ProtocolPickerButton from '@/components/ProtocolPickerButton'
 import ImageInsertButton from '@/components/ImageInsertButton'
@@ -1053,6 +1054,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     else setTemplate((prev) => (WEEK_FAMILY_TEMPLATES.includes(prev) ? 'classic' : prev))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration])
+  const [recipeOverrides, setRecipeOverrides] = useState(data.recipeContentOverrides)
   const [powerPoints, setPowerPoints] = useState(data.powerPoints || [])
   const [careServices, setCareServices] = useState(data.careServices || [])
   const [openCareService, setOpenCareService] = useState<number | null>(null)
@@ -1594,6 +1596,14 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
       ...allWeekSlotRecipes.flatMap((s) => s.matches)]
     return combined.filter((m, i) => combined.findIndex((x) => x.recipe.id === m.recipe.id) === i)
   }, [mealMatches, allWeekSlotRecipes])
+  // Same "every distinct recipe used anywhere in the plan, deduped, grouped
+  // by meal type" the other 12 templates' standalone Recipes section shows
+  // — built from the same allWeekSlotRecipes this file already computes.
+  const recipesBySlot = useMemo(() => DAY_MEAL_SLOTS.map((slot) => {
+    const seen = new Set<string>()
+    const matches = allWeekSlotRecipes.filter((s) => s.slot === slot).flatMap((s) => s.matches).filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
+    return { slot, matches }
+  }), [allWeekSlotRecipes])
   // Real ingredients from this patient's own matched recipes, categorized —
   // falls back to the generic reference list only when no recipe has been
   // matched yet, so the list is never left empty. Used as the fallback for
@@ -1796,7 +1806,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={18} /></button>
             {allMatches.map((m) => (
               <div key={m.recipe.id} data-recipe-body={m.recipe.id} style={{ display: openRecipeId === m.recipe.id ? 'block' : 'none' }}>
-                <RecipeBody recipe={m.recipe} imageUrl={combinedImages.get(m.recipe.id) ?? null} override={data.recipeContentOverrides[m.recipe.id]} />
+                <RecipeBody recipe={m.recipe} imageUrl={combinedImages.get(m.recipe.id) ?? null} override={recipeOverrides[m.recipe.id]} />
               </div>
             ))}
           </div>
@@ -2921,10 +2931,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   </div>
                 )}
 
-                <div id="recipes" {...hiddenAttrs('recipes')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, ...hiddenStyle('recipes') }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.accent }}>Week {w?.week_number ?? ''} recipes</div>
-                  <SectionToggle hidden={isHidden('recipes')} onToggle={() => toggleSection('recipes')} />
-                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 10 }}>Week {w?.week_number ?? ''} recipes</div>
                 {currentWeek != null && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                     {DAY_MEAL_SLOTS.map((slot) => {
@@ -2972,10 +2979,72 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             })()}
           </div>
 
+          {/* Recipes — Breakfast / Lunch / Dinner / Snacks / Desserts, every
+              distinct recipe used anywhere in the plan, deduped, grouped by
+              meal type instead of by week (previously only browsable by
+              picking a month then a week under "Your roadmap" above).
+              Reuses the same recipe overlay modal (openRecipeId) that
+              modal already renders for every template's matched recipes. */}
+          <div id="recipes" {...hiddenAttrs('recipes')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('recipes') }}>
+            {editable && <SectionToggle hidden={isHidden('recipes')} onToggle={() => toggleSection('recipes')} />}
+            <div style={sectionTitleStyle}><ChefHat size={18} color={C.accent} /> Your recipes</div>
+            {editable && roadmapId && (
+              <div style={{ marginTop: 8 }}>
+                <AiBulkRecipeEditButton roadmapId={roadmapId} onApply={(o) => setRecipeOverrides((prev) => ({ ...prev, ...o }))} />
+              </div>
+            )}
+            {recipesBySlot.every((s) => s.matches.length === 0) ? (
+              <p style={{ fontSize: 13, color: C.muted, marginTop: 12 }}>Not planned yet, check back once your coach generates your roadmap.</p>
+            ) : (
+              <>
+                <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginTop: 16 }}>
+                  {recipesBySlot.map(({ slot, matches }) => (
+                    <button key={slot} data-slot-trigger={slot} onClick={() => setOpenSlot(slot)}
+                      style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.bg, cursor: 'pointer' }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>{SLOT_LABELS[slot]}</div>
+                      <div style={{ fontSize: 11.5, color: matches.length ? C.accent : C.muted, marginTop: 4, fontWeight: 600 }}>
+                        {matches.length ? `${matches.length} recipe${matches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {recipesBySlot.map(({ slot, matches }) => (
+                  <div key={slot} data-slot-body={slot} style={{ display: openSlot === slot ? 'block' : 'none', marginTop: 16 }}>
+                    <button data-slot-back onClick={() => setOpenSlot(null)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: C.accent, fontSize: 12.5, fontWeight: 700, padding: 0, marginBottom: 12 }}>
+                      ← Back to meal slots
+                    </button>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</div>
+                    {matches.length > 0 ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+                        {matches.map((m) => (
+                          <button key={m.recipe.id} data-recipe-trigger={m.recipe.id} onClick={() => setOpenRecipeId(m.recipe.id)}
+                            style={{ textAlign: 'left', padding: 0, borderRadius: 12, border: `1px solid ${C.rule}`, background: C.bg, overflow: 'hidden', cursor: 'pointer' }}>
+                            {combinedImages.get(m.recipe.id) ? (
+                              <img src={combinedImages.get(m.recipe.id) ?? undefined} alt={m.recipe.name} style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: 90, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChefHat size={20} color={C.accent} /></div>
+                            )}
+                            <div style={{ padding: '8px 10px' }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>{m.recipe.name}</div>
+                              {m.recipe.protein_label && <div style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{m.recipe.protein_label}</div>}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12.5, color: C.muted }}>Nothing detected for {SLOT_LABELS[slot].toLowerCase()} yet, {coachFirst} will add some.</div>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+
           {/* Power points — coach-pasted links (videos, articles, tools) each
               with a short note. Replaces the old static food-plate
-              breakdown; recipes are still browsable per-week inside "Your
-              roadmap" below, so nothing recipe-related is lost. */}
+              breakdown; recipes are browsable in their own "Your recipes"
+              section above, so nothing recipe-related is lost. */}
           <div id="nutrition" {...hiddenAttrs('nutrition')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('nutrition') }}>
             {editable && <SectionToggle hidden={isHidden('nutrition')} onToggle={() => toggleSection('nutrition')} />}
             <div style={sectionTitleStyle}><LinkIcon size={18} color={C.accent} /> Your power points</div>
