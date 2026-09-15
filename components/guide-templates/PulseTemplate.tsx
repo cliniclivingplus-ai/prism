@@ -1377,44 +1377,104 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                           return (
                           <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: PULSE.bg, border: `1px solid ${PULSE.border}`, borderRadius: 16, padding: '1.5rem', position: 'relative' }}>
                             <button onClick={() => setOpenRecipeId(null)} data-no-export style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: PULSE.muted }}><X size={18} /></button>
-                            <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 22 }}>
-                              {recipe.image_url && <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 12, objectFit: 'cover', maxHeight: 300 }} />}
-                              <div>
-                                {recipe.protein_label && <Eyebrow>{recipe.protein_label}</Eyebrow>}
-                                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: PULSE.ink, margin: '0 0 16px' }}>{recipe.name}</h3>
-                                <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Ingredients</span>
-                                <ul style={{ listStyle: 'none', margin: '10px 0 20px', padding: 0, display: 'grid', gap: 8 }}>
-                                  {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
-                                    <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PULSE.inkSoft, fontSize: '0.85rem', lineHeight: 1.5 }}>
-                                      <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PULSE.accent, marginTop: 7 }} />
-                                      <span>{line}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                                <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Directions</span>
-                                <ol style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 12 }}>
-                                  {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
-                                    <li key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                                      <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: PULSE.accentSoft, color: PULSE.accentDeep, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-                                      <span style={{ color: PULSE.inkSoft, fontSize: '0.85rem', lineHeight: 1.55, paddingTop: 1 }}>{line}</span>
-                                    </li>
-                                  ))}
-                                </ol>
-                                {recipe.benefits && recipe.benefits.length > 0 && (
-                                  <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${PULSE.border}` }}>
-                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Why it works</span>
-                                    <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 6 }}>
-                                      {recipe.benefits.map((b, i) => (
-                                        <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PULSE.inkSoft, fontSize: '0.83rem', lineHeight: 1.5 }}>
-                                          <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PULSE.accent, marginTop: 6 }} />
-                                          <span>{b}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
+                            {(() => {
+                              const facts: [string, string][] = [
+                                ...(recipe.prep_time ? [['Prep', recipe.prep_time] as [string, string]] : []),
+                                ...(recipe.cook_time ? [['Cook', recipe.cook_time] as [string, string]] : []),
+                                ...(recipe.eat_time ? [['Eat time', recipe.eat_time] as [string, string]] : []),
+                                ...(recipe.servings ? [['Servings', recipe.servings] as [string, string]] : []),
+                                ...(recipe.difficulty ? [['Difficulty', recipe.difficulty] as [string, string]] : []),
+                                ...(recipe.health_score ? [['Health score', recipe.health_score] as [string, string]] : []),
+                              ]
+                              const hasExtras = facts.length > 0 || !!(recipe.tools && recipe.tools.length) || !!(recipe.notes && recipe.notes.length) || !!(recipe.benefits && recipe.benefits.length)
+                              return (
+                              <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 22, alignItems: 'stretch' }}>
+                                {recipe.image_url && (
+                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 12, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
+                                    {facts.length > 0 && (
+                                      <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                        {facts.map(([label, value]) => (
+                                          <div key={label} style={{ border: `1px solid ${PULSE.border}`, borderRadius: 10, padding: '8px 10px' }}>
+                                            <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: PULSE.muted }}>{label}</div>
+                                            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: PULSE.ink, marginTop: 2 }}>{value}</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {recipe.tools && recipe.tools.length > 0 && (
+                                      <div style={{ marginTop: 14 }}>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Tools</span>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                                          {recipe.tools.map((t, i) => (
+                                            <span key={i} style={{ fontSize: '0.78rem', color: PULSE.inkSoft, background: PULSE.accentSoft, borderRadius: 20, padding: '4px 10px' }}>{t}</span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {recipe.notes && recipe.notes.length > 0 && (
+                                      <div style={{ marginTop: 14 }}>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Notes</span>
+                                        <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 5 }}>
+                                          {recipe.notes.map((n, i) => (
+                                            <li key={i} style={{ color: PULSE.inkSoft, fontSize: '0.8rem', lineHeight: 1.5 }}>{n}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {recipe.benefits && recipe.benefits.length > 0 && (
+                                      <div style={{ marginTop: 14 }}>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Why it works</span>
+                                        <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 6 }}>
+                                          {recipe.benefits.map((b, i) => (
+                                            <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PULSE.inkSoft, fontSize: '0.8rem', lineHeight: 1.5 }}>
+                                              <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PULSE.accent, marginTop: 6 }} />
+                                              <span>{b}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
+                                <div>
+                                  {recipe.protein_label && <Eyebrow>{recipe.protein_label}</Eyebrow>}
+                                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: PULSE.ink, margin: '0 0 16px' }}>{recipe.name}</h3>
+                                  <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Ingredients</span>
+                                  <ul style={{ listStyle: 'none', margin: '10px 0 20px', padding: 0, display: 'grid', gap: 8 }}>
+                                    {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
+                                      <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PULSE.inkSoft, fontSize: '0.85rem', lineHeight: 1.5 }}>
+                                        <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PULSE.accent, marginTop: 7 }} />
+                                        <span>{line}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Directions</span>
+                                  <ol style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 12 }}>
+                                    {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
+                                      <li key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+                                        <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: PULSE.accentSoft, color: PULSE.accentDeep, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+                                        <span style={{ color: PULSE.inkSoft, fontSize: '0.85rem', lineHeight: 1.55, paddingTop: 1 }}>{line}</span>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                  {!recipe.image_url && recipe.benefits && recipe.benefits.length > 0 && (
+                                    <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${PULSE.border}` }}>
+                                      <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Why it works</span>
+                                      <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 6 }}>
+                                        {recipe.benefits.map((b, i) => (
+                                          <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PULSE.inkSoft, fontSize: '0.83rem', lineHeight: 1.5 }}>
+                                            <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PULSE.accent, marginTop: 6 }} />
+                                            <span>{b}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
+                              )
+                            })()}
                           </div>
                           )
                         })}
