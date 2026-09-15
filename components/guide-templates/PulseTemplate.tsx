@@ -1295,31 +1295,33 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
           </Card>
         )}
 
-        {/* Recipes — pulled out of "Your Roadmap" into its own section
-            (previously nested inside each week's body there). Still keyed
-            to the week picked under "Your Roadmap" (openMonth/openWeek are
-            shared state), since a recipe list only makes sense for one
-            week at a time — just visually and structurally its own
-            section now, not a sub-block of the roadmap. */}
+        {/* Recipes — its own section now (previously nested inside each
+            week's body under "Your Roadmap", then briefly a per-week picker
+            with an "All weeks" tab). Simplified to just Breakfast / Lunch /
+            Dinner / Snacks / Desserts — every distinct recipe used anywhere
+            in the plan, deduped, grouped by meal type instead of by week.
+            No week has to be picked anywhere for this to show something. */}
         {months.length > 0 && (() => {
-          const openWeekData = months.flatMap((m) => m.weeks).find((w) => w.week_number === openWeek)
+          const allWeekNumbers = months.flatMap((m) => m.weeks).map((w) => w.week_number)
+          const weekSlotRecipes = DAY_MEAL_SLOTS.map((slot) => {
+            const bySlot = allWeekNumbers.map((wn) => getSlotRecipes(wn, [slot], data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')[0])
+            const seen = new Set<string>()
+            const matches = bySlot.flatMap((s) => s?.matches ?? []).filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
+            return { slot, matches }
+          })
           return (
             <Card id="recipes" hidden={isHidden('recipes')}>
               <Eyebrow>Picked for your plan</Eyebrow>
-              <SecTitle icon={<ChefHat size={20} />}>Recipes for the week</SecTitle>
+              <SecTitle icon={<ChefHat size={20} />}>Your recipes</SecTitle>
             {editable && roadmapId && (
               <div style={{ marginTop: 8 }}>
                 <AiBulkRecipeEditButton roadmapId={roadmapId} onApply={(o) => setRecipeOverrides((prev) => ({ ...prev, ...o }))} />
               </div>
             )}
-              {!openWeekData ? (
-                <p style={{ fontSize: '0.86rem', color: PULSE.muted, marginTop: 12 }}>Pick a week under &quot;Your roadmap&quot; above to see its recipes.</p>
-              ) : (() => {
-                const w = openWeekData
-                const weekSlotRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
+              {(() => {
+                const w = { week_number: 'all' as const }
                 return (
                   <div style={{ marginTop: 16 }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Week {w.week_number}</span>
                     <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginTop: 10 }}>
                       {weekSlotRecipes.map(({ slot, matches }) => {
                         const slotId = `${w.week_number}-${slot}`
