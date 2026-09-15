@@ -81,6 +81,12 @@ export type GuideData = {
   // Breakfast/Lunch/Dinner section), and read by the case-discussion
   // co-pilot when it proposes a recipe for this patient.
   plateComposition: PlateComposition
+  // Per-roadmap ingredient/step rewrite for a shared recipe_bank recipe —
+  // e.g. a coach asking AI to strip garlic from every recipe in this one
+  // patient's plan. Keyed by recipe id; only overrides ingredients/steps,
+  // never the recipe's name or the underlying recipe_bank row (which stays
+  // shared and unedited for every other patient using the same recipe).
+  recipeContentOverrides: Record<string, { ingredients: string; steps: string }>
   dailySchedule: string // a real time-blocked day ("7:30 AM — ..."), one per line — no existing source to default from, so this starts blank until the coach writes one or clicks Ask AI
   // The "Daily Health Check-in" checklist — see lib/dailyChecklist.ts. Real,
   // stable-ID'd items grounded in confirmedSupplements/lifestyle_guidelines,
@@ -636,9 +642,9 @@ function recipesPages(data: GuideData): ReactElement[] {
           <Text style={shared.boxLabel}>WHY THIS ONE</Text>
           <Text style={shared.p}>{m.why}</Text>
           <Text style={shared.boxLabel}>INGREDIENTS</Text>
-          {splitRecipeLines(m.recipe.ingredients).map((line, i) => <Text key={i} style={shared.p}>· {line}</Text>)}
+          {splitRecipeLines(data.recipeContentOverrides[m.recipe.id]?.ingredients ?? m.recipe.ingredients).map((line, i) => <Text key={i} style={shared.p}>· {line}</Text>)}
           <Text style={shared.boxLabel}>METHOD</Text>
-          {splitRecipeLines(m.recipe.steps).map((line, i) => <Text key={i} style={shared.p}>{i + 1}. {line}</Text>)}
+          {splitRecipeLines(data.recipeContentOverrides[m.recipe.id]?.steps ?? m.recipe.steps).map((line, i) => <Text key={i} style={shared.p}>{i + 1}. {line}</Text>)}
         </View>
       </View>
     )

@@ -35,6 +35,7 @@ import { PALETTES } from './palettes'
 import { splitIntoPeriods, parseScheduleLines, joinPeriods } from '@/lib/periodBullets'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import InlineEditableText from '@/components/InlineEditableText'
+import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -488,6 +489,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
   // touching the source report(s) — same override-wins pattern as every
   // other field here.
   const [supplementRows, setSupplementRows] = useState(data.confirmedSupplements)
+  const [recipeOverrides, setRecipeOverrides] = useState(data.recipeContentOverrides)
   function updateSupplementRow(i: number, patch: Partial<GuideData['confirmedSupplements'][number]>) {
     setSupplementRows((prev) => {
       const next = prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
@@ -1305,6 +1307,11 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
             <Card id="recipes" hidden={isHidden('recipes')}>
               <Eyebrow>Picked for your plan</Eyebrow>
               <SecTitle icon={<ChefHat size={20} />}>Recipes for the week</SecTitle>
+            {editable && roadmapId && (
+              <div style={{ marginTop: 8 }}>
+                <AiBulkRecipeEditButton roadmapId={roadmapId} onApply={(o) => setRecipeOverrides((prev) => ({ ...prev, ...o }))} />
+              </div>
+            )}
               {!openWeekData ? (
                 <p style={{ fontSize: '0.86rem', color: PULSE.muted, marginTop: 12 }}>Pick a week under &quot;Your roadmap&quot; above to see its recipes.</p>
               ) : (() => {
@@ -1375,13 +1382,13 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                                 <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: PULSE.ink, margin: '0 0 14px' }}>{recipe.name}</h3>
                                 <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Ingredients</span>
                                 <ul style={{ listStyle: 'none', margin: '8px 0 14px', padding: 0 }}>
-                                  {splitRecipeLines(recipe.ingredients).map((line, i) => (
+                                  {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
                                     <li key={i} style={{ color: PULSE.inkSoft, fontSize: '0.86rem', lineHeight: 1.6, marginBottom: 4 }}>{line}</li>
                                   ))}
                                 </ul>
                                 <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Directions</span>
                                 <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-                                  {splitRecipeLines(recipe.steps).map((line, i) => (
+                                  {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
                                     <li key={i} style={{ color: PULSE.inkSoft, fontSize: '0.86rem', lineHeight: 1.65, marginBottom: 6 }}>{line}</li>
                                   ))}
                                 </ol>

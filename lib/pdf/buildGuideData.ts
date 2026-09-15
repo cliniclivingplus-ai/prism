@@ -81,7 +81,7 @@ export type RoadmapRow = {
   kb_sources: GuideData['roadmap']['kb_sources'] | null
   weekly_schedule: GuideData['roadmap']['weekly_schedule'] | null
   duration_months: number
-  guide_overrides: { goal_label?: string; why_reflection?: string; coach_quote?: string; founder_note?: string; manual_recipes?: Partial<Record<DayMealSlot, string[]>>; weekly_manual_recipes?: Record<number, Partial<Record<DayMealSlot, string[]>>>; theme?: string; template?: string; care_services?: GuideData['careServices']; next_appointment?: GuideData['nextAppointment']; reach_info?: GuideData['reachInfo']; care_team?: GuideData['careTeam']; hidden_sections?: string[]; daily_metrics?: GuideData['dailyMetrics']; power_points?: GuideData['powerPoints']; canvas_blocks?: ChecklistPageBlock[]; daily_lifestyle_guidelines?: string; meal_guidelines?: string; daily_schedule?: string; daily_checklist_items?: ChecklistItem[]; grocery_list_override?: GroceryCategory[] | null; plate_composition?: PlateComposition; confirmed_supplements_override?: GuideData['confirmedSupplements'] | null } | null
+  guide_overrides: { goal_label?: string; why_reflection?: string; coach_quote?: string; founder_note?: string; manual_recipes?: Partial<Record<DayMealSlot, string[]>>; weekly_manual_recipes?: Record<number, Partial<Record<DayMealSlot, string[]>>>; theme?: string; template?: string; care_services?: GuideData['careServices']; next_appointment?: GuideData['nextAppointment']; reach_info?: GuideData['reachInfo']; care_team?: GuideData['careTeam']; hidden_sections?: string[]; daily_metrics?: GuideData['dailyMetrics']; power_points?: GuideData['powerPoints']; canvas_blocks?: ChecklistPageBlock[]; daily_lifestyle_guidelines?: string; meal_guidelines?: string; daily_schedule?: string; daily_checklist_items?: ChecklistItem[]; grocery_list_override?: GroceryCategory[] | null; plate_composition?: PlateComposition; confirmed_supplements_override?: GuideData['confirmedSupplements'] | null; recipe_content_overrides?: GuideData['recipeContentOverrides'] } | null
   patients: (Omit<GuideData['patient'], never> & { nutritionists: Coach | null }) | null
   sessions: { case_summary: { goal?: string; coach_quote?: string } | null } | null
 }
@@ -163,5 +163,13 @@ export function buildGuideData(
       ?? buildDeterministicChecklist(confirmedSupplements, roadmap.lifestyle_guidelines ?? ''),
     groceryListOverride: overrides.grocery_list_override ?? null,
     plateComposition: overrides.plate_composition ?? DEFAULT_PLATE_COMPOSITION,
+    // Per-roadmap ingredient/step edits (e.g. "remove all the garlic") for
+    // recipes shown in this patient's plan — recipe_bank is one shared
+    // table across every patient, so an edit here must never mutate the
+    // real recipe row (that would silently change it for every other
+    // patient using the same recipe). Keyed by recipe id; a template
+    // renders this in place of the bank recipe's own ingredients/steps
+    // when present, for this roadmap only.
+    recipeContentOverrides: overrides.recipe_content_overrides ?? {},
   }
 }

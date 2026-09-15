@@ -284,9 +284,9 @@ function parseServingsBase(servings: string | null | undefined): number {
 // when a coach actually entered them (e.g. from a Canva recipe card) — never
 // invented. The servings stepper scales the real numbers already written in
 // each ingredient line rather than showing a number with no real effect.
-function RecipeBody({ recipe, imageUrl }: { recipe: RecipeMatch['recipe']; imageUrl: string | null }) {
-  const ingredients = splitRecipeLines(recipe.ingredients)
-  const steps = splitRecipeLines(recipe.steps)
+function RecipeBody({ recipe, imageUrl, override }: { recipe: RecipeMatch['recipe']; imageUrl: string | null; override?: { ingredients: string; steps: string } }) {
+  const ingredients = splitRecipeLines(override?.ingredients ?? recipe.ingredients)
+  const steps = splitRecipeLines(override?.steps ?? recipe.steps)
   const tools = recipe.tools ?? []
   const notes = recipe.notes ?? []
   const benefits = recipe.benefits ?? []
@@ -1796,7 +1796,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={18} /></button>
             {allMatches.map((m) => (
               <div key={m.recipe.id} data-recipe-body={m.recipe.id} style={{ display: openRecipeId === m.recipe.id ? 'block' : 'none' }}>
-                <RecipeBody recipe={m.recipe} imageUrl={combinedImages.get(m.recipe.id) ?? null} />
+                <RecipeBody recipe={m.recipe} imageUrl={combinedImages.get(m.recipe.id) ?? null} override={data.recipeContentOverrides[m.recipe.id]} />
               </div>
             ))}
           </div>

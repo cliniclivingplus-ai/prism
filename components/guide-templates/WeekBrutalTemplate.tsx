@@ -22,6 +22,7 @@ import {
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { parseBullets, splitIntoPeriods, joinPeriods, parseScheduleLines } from '@/lib/periodBullets'
 import InlineEditableText from '@/components/InlineEditableText'
+import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
 import { CareServiceLinkButton, isVisibleCareService } from '@/components/CareServiceLink'
 import type { ChecklistItem } from '@/lib/dailyChecklist'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
@@ -326,6 +327,7 @@ export default function WeekBrutalTemplate({ shareToken, data, initialCheckins, 
   // touching the source report(s) -- same override-wins pattern as every
   // other field here.
   const [supplementRows, setSupplementRows] = useState(data.confirmedSupplements)
+  const [recipeOverrides, setRecipeOverrides] = useState(data.recipeContentOverrides)
   function updateSupplementRow(i: number, patch: Partial<GuideData['confirmedSupplements'][number]>) {
     setSupplementRows((prev) => {
       const next = prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
@@ -1481,6 +1483,11 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Eyebrow dark>Picked for your plan</Eyebrow>
             <SecTitle dark icon={<ChefHat size={26} color={PALETTE.cream} />} sectionId="recipes" open={isSectionOpen('recipes')} onToggle={() => toggleSection('recipes')}>Recipes for the Week</SecTitle>
+            {editable && roadmapId && (
+              <div style={{ marginTop: 8 }}>
+                <AiBulkRecipeEditButton roadmapId={roadmapId} onApply={(o) => setRecipeOverrides((prev) => ({ ...prev, ...o }))} />
+              </div>
+            )}
             <div data-section-body="recipes" style={{ display: isSectionOpen('recipes') ? 'block' : 'none' }}>
             {(() => {
               const weekSlotRecipes = getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
@@ -1548,13 +1555,13 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                               <h3 style={{ fontFamily: "'Space Grotesk', serif", fontWeight: 500, fontSize: '1.4rem', color: PALETTE.cream, margin: '0 0 16px' }}>{recipe.name}</h3>
                               <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Ingredients</span>
                               <ul style={{ listStyle: 'none', margin: '8px 0 16px', padding: 0 }}>
-                                {splitRecipeLines(recipe.ingredients).map((line, i) => (
+                                {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
                                   <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: 4 }}>{line}</li>
                                 ))}
                               </ul>
                               <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Directions</span>
                               <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-                                {splitRecipeLines(recipe.steps).map((line, i) => (
+                                {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
                                   <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.88rem', lineHeight: 1.65, marginBottom: 6 }}>{line}</li>
                                 ))}
                               </ol>
