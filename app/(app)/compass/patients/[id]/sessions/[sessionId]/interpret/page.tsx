@@ -34,12 +34,14 @@ function durationLabel(months: number): string {
   return found?.label ?? `${months} months`
 }
 
-// Two distinct program shapes, not one flat list: a single-week plan renders
-// like a checklist (see the auto-suggested "week" template in
-// DashboardClient, the only template built for a single week), while the
+// Two distinct program shapes, not one flat list: a weekly-protocol plan
+// renders like a checklist (see the auto-suggested "week" template in
+// DashboardClient, the only template built for this shape) and is meant to
+// be handed to a patient as a repeatable routine — followed for as many
+// weeks as it's working, not a plan that expires after 7 days — while the
 // monthly options are the full multi-month roadmap.
 const DURATION_GROUPS: { category: string; options: { label: string; months: number }[] }[] = [
-  { category: 'Single-Week Plan', options: [{ label: 'Week 1', months: 0.25 }] },
+  { category: 'Weekly Protocol', options: [{ label: 'Weekly Plan', months: 0.25 }] },
   {
     category: 'Monthly Program',
     options: [
@@ -253,8 +255,9 @@ export default function InterpretPage() {
         </div>
 
         {/* The duration picker alone changes nothing — it's silent otherwise,
-            which read as "I clicked Week 1 and nothing happened." This makes
-            the pending, not-yet-applied selection and its next step explicit. */}
+            which read as "I clicked Weekly Plan and nothing happened." This
+            makes the pending, not-yet-applied selection and its next step
+            explicit. */}
         {roadmap && duration !== roadmap.duration_months && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '10px 14px', marginBottom: 24, fontSize: 12.5, color: '#92400E' }}>
             <span>

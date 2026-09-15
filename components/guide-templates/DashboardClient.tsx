@@ -2064,7 +2064,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   {template === 'onyx' ? 'Onyx' : template === 'almanac' ? 'Almanac' : 'This Week template'} has its own fixed look, not affected by Plan look.
                 </div>
               )}
-              <div style={{ ...editLabelStyle, marginTop: 14 }}>Template {isWeekDuration ? <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(Single-Week Plan)</span> : <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(Monthly Program)</span>}</div>
+              <div style={{ ...editLabelStyle, marginTop: 14 }}>Template {isWeekDuration ? <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(Weekly Protocol)</span> : <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(Monthly Program)</span>}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {(isWeekDuration
                   ? [
