@@ -1180,31 +1180,31 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
           </Card>
         )}
 
-        {/* Recipes — pulled out of "Your Roadmap" into its own section
-            (previously nested inside each week's body there). Still keyed
-            to the week picked under "Your Roadmap" (openWeek is shared
-            state), since a recipe list only makes sense for one week at a
-            time — just visually and structurally its own section now, not
-            a sub-block of the roadmap. */}
+        {/* Recipes — Breakfast / Lunch / Dinner / Snacks / Desserts, every
+            distinct recipe used anywhere in the plan, deduped, grouped by
+            meal type instead of by week. Nothing has to be picked under
+            "Your Roadmap" for this to show something. */}
         {months.length > 0 && (() => {
-          const openWeekData = months.flatMap((m) => m.weeks).find((w) => w.week_number === openWeek)
+          const allWeekNumbers = months.flatMap((m) => m.weeks).map((w) => w.week_number)
           return (
             <Card id="recipes" hidden={isHidden('recipes')}>
               <Eyebrow>Picked for your plan</Eyebrow>
-              <SecTitle icon={<ChefHat size={20} />}>Recipes for the week</SecTitle>
+              <SecTitle icon={<ChefHat size={20} />}>Your recipes</SecTitle>
             {editable && roadmapId && (
               <div style={{ marginTop: 8 }}>
                 <AiBulkRecipeEditButton roadmapId={roadmapId} onApply={(o) => setRecipeOverrides((prev) => ({ ...prev, ...o }))} />
               </div>
             )}
-              {!openWeekData ? (
-                <p style={{ fontSize: '0.86rem', color: V.muted, marginTop: 12 }}>Pick a week under &quot;Your roadmap&quot; above to see its recipes.</p>
-              ) : (() => {
-                const w = openWeekData
-                      const weekSlotRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
+              {(() => {
+                const w = { week_number: 'all' as const }
+                const weekSlotRecipes = DAY_MEAL_SLOTS.map((slot) => {
+                  const bySlot = allWeekNumbers.map((wn) => getSlotRecipes(wn, [slot], data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')[0])
+                  const seen = new Set<string>()
+                  const matches = bySlot.flatMap((s) => s?.matches ?? []).filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
+                  return { slot, matches }
+                })
                       return (
                         <div>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: V.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Week {w.week_number}</span>
                           <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginTop: 10 }}>
                             {weekSlotRecipes.map(({ slot, matches }) => {
                               const slotId = `${w.week_number}-${slot}`
@@ -1249,18 +1249,102 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                                 )}
                                 {matches.map(({ recipe }) => {
                                   const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                                  const facts: [string, string][] = [
+                                    ...(recipe.prep_time ? [['Prep', recipe.prep_time] as [string, string]] : []),
+                                    ...(recipe.cook_time ? [['Cook', recipe.cook_time] as [string, string]] : []),
+                                    ...(recipe.eat_time ? [['Eat time', recipe.eat_time] as [string, string]] : []),
+                                    ...(recipe.servings ? [['Servings', recipe.servings] as [string, string]] : []),
+                                    ...(recipe.difficulty ? [['Difficulty', recipe.difficulty] as [string, string]] : []),
+                                    ...(recipe.health_score ? [['Health score', recipe.health_score] as [string, string]] : []),
+                                  ]
+                                  const hasExtras = facts.length > 0 || !!(recipe.tools && recipe.tools.length) || !!(recipe.notes && recipe.notes.length) || !!(recipe.benefits && recipe.benefits.length)
                                   return (
-                                    <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 12, background: V.accentSoft, border: `1px solid ${V.accent}`, borderRadius: 14, padding: '1.25rem', position: 'relative' }}>
+                                    <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 12, background: '#fff', border: `1px solid ${V.line}`, borderRadius: 14, padding: '1.25rem', position: 'relative' }}>
                                       <button onClick={() => setOpenRecipeId(null)} data-no-export style={{ position: 'absolute', top: 14, right: 14, background: 'none', border: 'none', cursor: 'pointer', color: V.muted }}><X size={16} /></button>
-                                      <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 10px' }}>{recipe.name}</h3>
-                                      <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Ingredients</span>
-                                      <ul style={{ listStyle: 'none', margin: '6px 0 12px', padding: 0 }}>
-                                        {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => <li key={i} style={{ fontSize: 12.5, color: V.inkSoft, lineHeight: 1.55 }}>{line}</li>)}
-                                      </ul>
-                                      <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Directions</span>
-                                      <ol style={{ margin: '6px 0 0', paddingLeft: 18 }}>
-                                        {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => <li key={i} style={{ fontSize: 12.5, color: V.inkSoft, lineHeight: 1.6 }}>{line}</li>)}
-                                      </ol>
+                                      <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 18 }}>
+                                        {recipe.image_url && (
+                                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 180 } : { flex: 1, minHeight: 220 }) }} />
+                                            {facts.length > 0 && (
+                                              <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                                                {facts.map(([label, value]) => (
+                                                  <div key={label} style={{ border: `1px solid ${V.line}`, borderRadius: 10, padding: '7px 9px' }}>
+                                                    <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: V.muted }}>{label}</div>
+                                                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: V.ink, marginTop: 2 }}>{value}</div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                            {recipe.tools && recipe.tools.length > 0 && (
+                                              <div style={{ marginTop: 12 }}>
+                                                <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Tools</span>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+                                                  {recipe.tools.map((t, i) => (
+                                                    <span key={i} style={{ fontSize: 11.5, color: V.inkSoft, background: V.accentSoft, borderRadius: 20, padding: '3px 9px' }}>{t}</span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {recipe.notes && recipe.notes.length > 0 && (
+                                              <div style={{ marginTop: 12 }}>
+                                                <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Notes</span>
+                                                <ul style={{ listStyle: 'none', margin: '6px 0 0', padding: 0, display: 'grid', gap: 4 }}>
+                                                  {recipe.notes.map((n, i) => (
+                                                    <li key={i} style={{ fontSize: 11.5, color: V.inkSoft, lineHeight: 1.5 }}>{n}</li>
+                                                  ))}
+                                                </ul>
+                                              </div>
+                                            )}
+                                            {recipe.benefits && recipe.benefits.length > 0 && (
+                                              <div style={{ marginTop: 12 }}>
+                                                <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Why it works</span>
+                                                <ul style={{ listStyle: 'none', margin: '6px 0 0', padding: 0, display: 'grid', gap: 5 }}>
+                                                  {recipe.benefits.map((b, i) => (
+                                                    <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11.5, color: V.inkSoft, lineHeight: 1.5 }}>
+                                                      <span style={{ flexShrink: 0, width: 4, height: 4, borderRadius: '50%', background: V.accent, marginTop: 6 }} />
+                                                      <span>{b}</span>
+                                                    </li>
+                                                  ))}
+                                                </ul>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                        <div>
+                                          <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 10px' }}>{recipe.name}</h3>
+                                          <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Ingredients</span>
+                                          <ul style={{ listStyle: 'none', margin: '8px 0 14px', padding: 0, display: 'grid', gap: 7 }}>
+                                            {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
+                                              <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: V.inkSoft, lineHeight: 1.45 }}>
+                                                <span style={{ flexShrink: 0, width: 4, height: 4, borderRadius: '50%', background: V.accent, marginTop: 7 }} />
+                                                <span>{line}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                          <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Directions</span>
+                                          <ol style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 10 }}>
+                                            {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
+                                              <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                                <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: '50%', background: V.accentSoft, color: V.accent, fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+                                                <span style={{ fontSize: 12.5, color: V.inkSoft, lineHeight: 1.5, paddingTop: 1 }}>{line}</span>
+                                              </li>
+                                            ))}
+                                          </ol>
+                                          {!recipe.image_url && recipe.benefits && recipe.benefits.length > 0 && (
+                                            <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${V.line}` }}>
+                                              <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Why it works</span>
+                                              <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 5 }}>
+                                                {recipe.benefits.map((b, i) => (
+                                                  <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: V.inkSoft, lineHeight: 1.5 }}>
+                                                    <span style={{ flexShrink: 0, width: 4, height: 4, borderRadius: '50%', background: V.accent, marginTop: 6 }} />
+                                                    <span>{b}</span>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
                                     </div>
                                   )
                                 })}

@@ -1605,31 +1605,98 @@ function clpToggleGroceryCat(head){
 
                       {matches.map(({ recipe }) => {
                         const recipeKey = `${week.week_number}-${slot}-${recipe.id}`
+                        const facts: [string, string][] = [
+                          ...(recipe.prep_time ? [['Prep', recipe.prep_time] as [string, string]] : []),
+                          ...(recipe.cook_time ? [['Cook', recipe.cook_time] as [string, string]] : []),
+                          ...(recipe.eat_time ? [['Eat time', recipe.eat_time] as [string, string]] : []),
+                          ...(recipe.servings ? [['Servings', recipe.servings] as [string, string]] : []),
+                          ...(recipe.difficulty ? [['Difficulty', recipe.difficulty] as [string, string]] : []),
+                          ...(recipe.health_score ? [['Health score', recipe.health_score] as [string, string]] : []),
+                        ]
+                        const hasExtras = facts.length > 0 || !!(recipe.tools && recipe.tools.length) || !!(recipe.notes && recipe.notes.length) || !!(recipe.benefits && recipe.benefits.length)
                         return (
                         <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: 'rgba(243,236,218,0.06)', border: `1px solid ${PALETTE.gold1}`, borderRadius: 14, padding: '1.75rem', position: 'relative' }}>
                           <button onClick={() => setOpenRecipeId(null)} data-no-export style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.cream, opacity: 0.6 }}><X size={18} /></button>
                           <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 24 }}>
-                            {recipe.image_url && <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', maxHeight: 320 }} />}
+                            {recipe.image_url && (
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
+                                {facts.length > 0 && (
+                                  <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                    {facts.map(([label, value]) => (
+                                      <div key={label} style={{ border: '1px solid rgba(243,236,218,0.22)', borderRadius: 10, padding: '8px 10px' }}>
+                                        <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: PALETTE.cream, opacity: 0.55 }}>{label}</div>
+                                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: PALETTE.cream, marginTop: 2 }}>{value}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {recipe.tools && recipe.tools.length > 0 && (
+                                  <div style={{ marginTop: 14 }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Tools</span>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                                      {recipe.tools.map((t, i) => (
+                                        <span key={i} style={{ fontSize: '0.78rem', color: PALETTE.cream, opacity: 0.9, background: 'rgba(243,236,218,0.12)', borderRadius: 20, padding: '4px 10px' }}>{t}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {recipe.notes && recipe.notes.length > 0 && (
+                                  <div style={{ marginTop: 14 }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Notes</span>
+                                    <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 5 }}>
+                                      {recipe.notes.map((n, i) => (
+                                        <li key={i} style={{ color: PALETTE.cream, opacity: 0.85, fontSize: '0.8rem', lineHeight: 1.5 }}>{n}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {recipe.benefits && recipe.benefits.length > 0 && (
+                                  <div style={{ marginTop: 14 }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Why it works</span>
+                                    <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 6 }}>
+                                      {recipe.benefits.map((b, i) => (
+                                        <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PALETTE.cream, opacity: 0.9, fontSize: '0.8rem', lineHeight: 1.5 }}>
+                                          <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PALETTE.gold1, marginTop: 6 }} />
+                                          <span>{b}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <div>
                               {recipe.protein_label && <Eyebrow dark>{recipe.protein_label}</Eyebrow>}
                               <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: '1.4rem', color: PALETTE.cream, margin: '0 0 16px' }}>{recipe.name}</h3>
                               <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Ingredients</span>
-                              <ul style={{ listStyle: 'none', margin: '8px 0 16px', padding: 0 }}>
+                              <ul style={{ listStyle: 'none', margin: '10px 0 20px', padding: 0, display: 'grid', gap: 8 }}>
                                 {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
-                                  <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: 4 }}>{line}</li>
+                                  <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PALETTE.cream, opacity: 0.9, fontSize: '0.86rem', lineHeight: 1.5 }}>
+                                    <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PALETTE.gold1, marginTop: 7 }} />
+                                    <span>{line}</span>
+                                  </li>
                                 ))}
                               </ul>
                               <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Directions</span>
-                              <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+                              <ol style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 12 }}>
                                 {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
-                                  <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.88rem', lineHeight: 1.65, marginBottom: 6 }}>{line}</li>
+                                  <li key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+                                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: 'rgba(243,236,218,0.18)', color: PALETTE.gold1, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+                                    <span style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.86rem', lineHeight: 1.55, paddingTop: 1 }}>{line}</span>
+                                  </li>
                                 ))}
                               </ol>
-                              {recipe.benefits && recipe.benefits.length > 0 && (
+                              {!recipe.image_url && recipe.benefits && recipe.benefits.length > 0 && (
                                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(243,236,218,0.18)' }}>
                                   <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Why it works</span>
-                                  <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                                    {recipe.benefits.map((b, i) => <li key={i} style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.86rem', lineHeight: 1.55, marginBottom: 4 }}>{b}</li>)}
+                                  <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 6 }}>
+                                    {recipe.benefits.map((b, i) => (
+                                      <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PALETTE.cream, opacity: 0.9, fontSize: '0.84rem', lineHeight: 1.5 }}>
+                                        <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PALETTE.gold1, marginTop: 6 }} />
+                                        <span>{b}</span>
+                                      </li>
+                                    ))}
                                   </ul>
                                 </div>
                               )}

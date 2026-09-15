@@ -1242,31 +1242,31 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
           </Card>
         )}
 
-        {/* Recipes — pulled out of "Your Roadmap" into its own section
-            (previously nested inside each week's body there). Still keyed
-            to the week picked under "Your Roadmap" (openWeek is shared
-            state), since a recipe list only makes sense for one week at a
-            time — just visually and structurally its own section now, not
-            a sub-block of the roadmap. */}
+        {/* Recipes — Breakfast / Lunch / Dinner / Snacks / Desserts, every
+            distinct recipe used anywhere in the plan, deduped, grouped by
+            meal type instead of by week. Nothing has to be picked under
+            "Your Roadmap" for this to show something. */}
         {months.length > 0 && (() => {
-          const openWeekData = months.flatMap((m) => m.weeks).find((w) => w.week_number === openWeek)
+          const allWeekNumbers = months.flatMap((m) => m.weeks).map((w) => w.week_number)
           return (
             <Card id="recipes" hidden={isHidden('recipes')}>
               <Eyebrow>Picked for your plan</Eyebrow>
-              <SecTitle icon={<ChefHat size={18} />}>Recipes for the week</SecTitle>
+              <SecTitle icon={<ChefHat size={18} />}>Your recipes</SecTitle>
             {editable && roadmapId && (
               <div style={{ marginTop: 8 }}>
                 <AiBulkRecipeEditButton roadmapId={roadmapId} onApply={(o) => setRecipeOverrides((prev) => ({ ...prev, ...o }))} />
               </div>
             )}
-              {!openWeekData ? (
-                <p style={{ fontSize: '0.86rem', color: ONYX.muted, marginTop: 12 }}>Pick a week under &quot;Your roadmap&quot; above to see its recipes.</p>
-              ) : (() => {
-                const w = openWeekData
-                      const weekSlotRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
+              {(() => {
+                const w = { week_number: 'all' as const }
+                const weekSlotRecipes = DAY_MEAL_SLOTS.map((slot) => {
+                  const bySlot = allWeekNumbers.map((wn) => getSlotRecipes(wn, [slot], data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')[0])
+                  const seen = new Set<string>()
+                  const matches = bySlot.flatMap((s) => s?.matches ?? []).filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
+                  return { slot, matches }
+                })
                       return (
                         <div>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: ONYX.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Week {w.week_number}</span>
                           <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginTop: 10 }}>
                             {weekSlotRecipes.map(({ slot, matches }) => {
                               const slotId = `${w.week_number}-${slot}`
@@ -1319,31 +1319,98 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
 
                               {matches.map(({ recipe }) => {
                                 const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                                const facts: [string, string][] = [
+                                  ...(recipe.prep_time ? [['Prep', recipe.prep_time] as [string, string]] : []),
+                                  ...(recipe.cook_time ? [['Cook', recipe.cook_time] as [string, string]] : []),
+                                  ...(recipe.eat_time ? [['Eat time', recipe.eat_time] as [string, string]] : []),
+                                  ...(recipe.servings ? [['Servings', recipe.servings] as [string, string]] : []),
+                                  ...(recipe.difficulty ? [['Difficulty', recipe.difficulty] as [string, string]] : []),
+                                  ...(recipe.health_score ? [['Health score', recipe.health_score] as [string, string]] : []),
+                                ]
+                                const hasExtras = facts.length > 0 || !!(recipe.tools && recipe.tools.length) || !!(recipe.notes && recipe.notes.length) || !!(recipe.benefits && recipe.benefits.length)
                                 return (
-                                <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: ONYX.bg, border: `1px solid ${ONYX.accent}`, borderRadius: 2, padding: '1.5rem', position: 'relative' }}>
+                                <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '1.5rem', position: 'relative' }}>
                                   <button onClick={() => setOpenRecipeId(null)} data-no-export style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: ONYX.muted }}><X size={18} /></button>
                                   <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 22 }}>
-                                    {recipe.image_url && <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 2, objectFit: 'cover', maxHeight: 300 }} />}
+                                    {recipe.image_url && (
+                                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 2, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
+                                        {facts.length > 0 && (
+                                          <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                            {facts.map(([label, value]) => (
+                                              <div key={label} style={{ border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '8px 10px' }}>
+                                                <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: ONYX.muted }}>{label}</div>
+                                                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: ONYX.ink, marginTop: 2 }}>{value}</div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {recipe.tools && recipe.tools.length > 0 && (
+                                          <div style={{ marginTop: 14 }}>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Tools</span>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                                              {recipe.tools.map((t, i) => (
+                                                <span key={i} style={{ fontSize: '0.78rem', color: ONYX.inkSoft, background: ONYX.accentSoft, borderRadius: 2, padding: '4px 10px' }}>{t}</span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {recipe.notes && recipe.notes.length > 0 && (
+                                          <div style={{ marginTop: 14 }}>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Notes</span>
+                                            <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 5 }}>
+                                              {recipe.notes.map((n, i) => (
+                                                <li key={i} style={{ color: ONYX.inkSoft, fontSize: '0.8rem', lineHeight: 1.5 }}>{n}</li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                        {recipe.benefits && recipe.benefits.length > 0 && (
+                                          <div style={{ marginTop: 14 }}>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Why it works</span>
+                                            <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 6 }}>
+                                              {recipe.benefits.map((b, i) => (
+                                                <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: ONYX.inkSoft, fontSize: '0.8rem', lineHeight: 1.5 }}>
+                                                  <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: ONYX.accent, marginTop: 6 }} />
+                                                  <span>{b}</span>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                     <div>
                                       {recipe.protein_label && <Eyebrow>{recipe.protein_label}</Eyebrow>}
                                       <h3 style={{ fontFamily: SERIF, fontSize: '1.3rem', fontWeight: 500, color: ONYX.ink, margin: '0 0 14px' }}>{recipe.name}</h3>
                                       <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Ingredients</span>
-                                      <ul style={{ listStyle: 'none', margin: '8px 0 14px', padding: 0 }}>
+                                      <ul style={{ listStyle: 'none', margin: '10px 0 20px', padding: 0, display: 'grid', gap: 8 }}>
                                         {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
-                                          <li key={i} style={{ color: ONYX.inkSoft, fontSize: '0.86rem', lineHeight: 1.6, marginBottom: 4 }}>{line}</li>
+                                          <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: ONYX.inkSoft, fontSize: '0.85rem', lineHeight: 1.5 }}>
+                                            <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: ONYX.accent, marginTop: 7 }} />
+                                            <span>{line}</span>
+                                          </li>
                                         ))}
                                       </ul>
                                       <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Directions</span>
-                                      <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+                                      <ol style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 12 }}>
                                         {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
-                                          <li key={i} style={{ color: ONYX.inkSoft, fontSize: '0.86rem', lineHeight: 1.65, marginBottom: 6 }}>{line}</li>
+                                          <li key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+                                            <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: ONYX.accentSoft, color: ONYX.accent, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+                                            <span style={{ color: ONYX.inkSoft, fontSize: '0.85rem', lineHeight: 1.55, paddingTop: 1 }}>{line}</span>
+                                          </li>
                                         ))}
                                       </ol>
-                                      {recipe.benefits && recipe.benefits.length > 0 && (
-                                        <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${ONYX.border}` }}>
+                                      {!recipe.image_url && recipe.benefits && recipe.benefits.length > 0 && (
+                                        <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${ONYX.border}` }}>
                                           <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Why it works</span>
-                                          <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                                            {recipe.benefits.map((b, i) => <li key={i} style={{ color: ONYX.inkSoft, fontSize: '0.84rem', lineHeight: 1.55, marginBottom: 4 }}>{b}</li>)}
+                                          <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 6 }}>
+                                            {recipe.benefits.map((b, i) => (
+                                              <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: ONYX.inkSoft, fontSize: '0.83rem', lineHeight: 1.5 }}>
+                                                <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: ONYX.accent, marginTop: 6 }} />
+                                                <span>{b}</span>
+                                              </li>
+                                            ))}
                                           </ul>
                                         </div>
                                       )}
