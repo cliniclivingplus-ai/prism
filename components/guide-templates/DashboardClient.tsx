@@ -210,8 +210,8 @@ const TOC_ITEMS: { label: string; id: string }[] = [
   { label: 'Breakfast, Lunch & Dinner', id: 'meals' },
   { label: 'Daily schedule', id: 'schedule' },
   { label: 'Your roadmap', id: 'roadmap' },
+  { label: 'Recipes', id: 'recipes' },
   { label: 'Nutrition guidelines', id: 'nutrition' },
-  { label: 'This week’s recipes', id: 'nutrition' },
   { label: 'Grocery list', id: 'grocery' },
   { label: 'Supplements', id: 'supplements' },
   { label: 'Services', id: 'services' },
@@ -2921,7 +2921,10 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   </div>
                 )}
 
-                <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 10 }}>Week {w?.week_number ?? ''} recipes</div>
+                <div id="recipes" {...hiddenAttrs('recipes')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, ...hiddenStyle('recipes') }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.accent }}>Week {w?.week_number ?? ''} recipes</div>
+                  <SectionToggle hidden={isHidden('recipes')} onToggle={() => toggleSection('recipes')} />
+                </div>
                 {currentWeek != null && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                     {DAY_MEAL_SLOTS.map((slot) => {
