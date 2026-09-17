@@ -761,8 +761,8 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
   }
 
   const [openFaq, setOpenFaq] = useState<number | null>(null)
-  const [founderOpen, setFounderOpen] = useState(false)
-  const [coachOpen, setCoachOpen] = useState(false)
+  const [activeOrientationModal, setActiveOrientationModal] = useState<'founder' | 'coach' | 'howto' | null>(null)
+
 
   // Founder's note / coach's quote / your why — same
   // guide_overrides.founder_note / coach_quote / why_reflection keys
@@ -1074,63 +1074,174 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
         </div>
       </section>
 
-      {/* Founder's note — same left-aligned avatar-row layout as the coach
-          section right below it, so the two sit on the exact same left
-          edge and avatar size instead of one being centered and one not. */}
-      <section id="founder" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('founder') }}>
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <Eyebrow>A note from the founder</Eyebrow>
-          <SecTitle icon={<HeartPulse size={26} />}>Founder&apos;s Note</SecTitle>
-          <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 20, marginTop: 20, cursor: 'pointer' }}>
-            <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover` }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 500, marginTop: -8 }}>Roshni Sanghvi</div>
-              <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>Founder, Living Plus</div>
-              <div style={{ fontSize: '0.78rem', opacity: 0.7, marginTop: 6 }}>{FOUNDER_INTRO}</div>
-              <div style={{ fontSize: '0.72rem', opacity: 0.55, marginTop: 8 }}>Tap the photo to read the note</div>
-            </div>
-          </div>
-          <div data-founder-body style={{ display: founderOpen ? 'block' : 'none', marginTop: 20, fontSize: '0.95rem', lineHeight: 1.75 }}>
-            {editable ? (
-              <InlineEditableText editable as="div" multiline value={founderNote} onSave={saveFounderNote}
-                style={{ fontSize: '0.95rem', lineHeight: 1.75, whiteSpace: 'pre-wrap' }} />
-            ) : (
-              founderNote.split('\n\n').map((para, i) => <p key={i}>{para}</p>)
-            )}
-          </div>
-        </div>
-      </section>
+      {/* Orientation & Notes Grid Row: Founder's Note, Coach's Note, How to Use Your Plan */}
+      {(() => {
+        const coachBio = data.coach?.bio || ''
+        const rawQuote = coachQuote || ''
+        const isPlaceholder = !rawQuote || rawQuote.includes('[First name]') || rawQuote.includes('remember what you said about')
+        const displayQuote = isPlaceholder ? coachBio : rawQuote
+        const coachName = data.coach?.full_name || 'Your Coach'
+        const coachDesignation = data.coach?.designation || 'Integrative Health Coach'
+        const coachPhoto = data.coach?.photo_url || ''
 
-      {/* Coach — photo, name, and designation stay visible; a personal
-          quote (when the coach has entered one) sits behind a tap on the
-          photo instead of always showing, same pattern as the founder's
-          note above. */}
-      {data.coach && (
-        <section id="coach" style={{ background: PALETTE.paper2, borderTop: `1px solid ${PALETTE.line}`, borderBottom: `1px solid ${PALETTE.line}`, padding: '3rem 1.5rem', ...hiddenStyle('coach') }}>
-          <div data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
-            style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'flex-start', gap: 20, cursor: (coachQuote || editable) ? 'pointer' : 'default' }}>
-            <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}` }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <Eyebrow>Your coach</Eyebrow>
-              <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 500, marginTop: -8 }}>{data.coach.full_name}</div>
-              <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>{data.coach.designation}</div>
-              {(coachQuote || editable) && (
-                <>
-                  <div style={{ fontSize: '0.72rem', opacity: 0.55, marginTop: 8 }}>Tap the photo for a note from {coachFirst}</div>
-                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: PALETTE.berry, fontSize: '0.92rem', maxWidth: 560 }}>
-                    {editable ? (
-                      <InlineEditableText editable multiline value={coachQuote || ''} onSave={saveCoachQuote} placeholder="Add a note from your coach…"
-                        style={{ fontStyle: 'italic', color: PALETTE.berry, fontSize: '0.92rem' }} />
-                    ) : (
-                      <>&ldquo;{renderMarkdownBold(coachQuote)}&rdquo;</>
-                    )}
+        return (
+          <>
+            <section style={{ background: PALETTE.paper2, padding: '3rem 1.5rem' }}>
+              <div style={{ maxWidth: 960, margin: '0 auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                  {/* 1. Founder's Note Card */}
+                  <div id="founder" style={{ background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '22px 18px', ...hiddenStyle('founder') }}
+                    onClick={() => setActiveOrientationModal('founder')}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, marginBottom: 12 }}>Founder&apos;s Note</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `2px solid ${PALETTE.line}`, marginBottom: 10 }} />
+                    <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 500 }}>Roshni Sanghvi</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.65, marginBottom: 14 }}>Founder, Living Plus</div>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('founder') }}
+                      style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 20, background: PALETTE.paper2, color: PALETTE.berry, fontSize: '0.78rem', fontWeight: 700, border: `1px solid ${PALETTE.line}`, cursor: 'pointer' }}>
+                      Read Intro &amp; Founder Note →
+                    </button>
                   </div>
-                </>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
+
+                  {/* 2. Coach's Note Card */}
+                  {data.coach && (
+                    <div id="coach" style={{ background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '22px 18px', ...hiddenStyle('coach') }}
+                      onClick={() => setActiveOrientationModal('coach')}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, marginBottom: 12 }}>Coach&apos;s Note</div>
+                      <div style={{ width: 64, height: 64, borderRadius: 32, background: coachPhoto ? `url(${coachPhoto}) center/cover` : PALETTE.gold1, border: `2px solid ${PALETTE.line}`, marginBottom: 10 }} />
+                      <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 500 }}>{coachName}</div>
+                      <div style={{ fontSize: '0.8rem', opacity: 0.65, marginBottom: 14 }}>{coachDesignation}</div>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('coach') }}
+                        style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 20, background: PALETTE.paper2, color: PALETTE.berry, fontSize: '0.78rem', fontWeight: 700, border: `1px solid ${PALETTE.line}`, cursor: 'pointer' }}>
+                        Read Intro &amp; Coach Note →
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 3. How to Use Your Plan Card */}
+                  <div id="howto" style={{ background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '22px 18px', ...hiddenStyle('howto') }}
+                    onClick={() => setActiveOrientationModal('howto')}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: PALETTE.berry, marginBottom: 12 }}>Guide &amp; Your Why</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: PALETTE.paper2, border: `2px solid ${PALETTE.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10, color: PALETTE.berry }}>
+                      <HelpCircle size={30} />
+                    </div>
+                    <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 500 }}>How to Use Your Plan</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.65, marginBottom: 14 }}>Follow → Track → Adjust</div>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('howto') }}
+                      style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 20, background: PALETTE.paper2, color: PALETTE.berry, fontSize: '0.78rem', fontWeight: 700, border: `1px solid ${PALETTE.line}`, cursor: 'pointer' }}>
+                      View Guide &amp; Your Why →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* MODAL OVERLAY */}
+            {activeOrientationModal && (
+              <div onClick={() => setActiveOrientationModal(null)}
+                style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                <div onClick={(e) => e.stopPropagation()}
+                  style={{ background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 20, width: '100%', maxWidth: 580, maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', padding: 24, position: 'relative' }}>
+                  
+                  <button onClick={() => setActiveOrientationModal(null)}
+                    style={{ position: 'absolute', top: 16, right: 16, width: 32, height: 32, borderRadius: 16, border: `1px solid ${PALETTE.line}`, background: PALETTE.paper2, color: PALETTE.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <X size={16} />
+                  </button>
+
+                  {/* Founder Modal */}
+                  {activeOrientationModal === 'founder' && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${PALETTE.line}` }}>
+                        <div style={{ width: 64, height: 64, borderRadius: 32, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${PALETTE.line}`, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.25rem', fontWeight: 500 }}>Roshni Sanghvi</div>
+                          <div style={{ fontSize: '0.85rem', opacity: 0.65 }}>Founder, Living Plus</div>
+                          <div style={{ fontSize: '0.78rem', opacity: 0.75, marginTop: 4, lineHeight: 1.4 }}>{FOUNDER_INTRO}</div>
+                        </div>
+                      </div>
+                      
+                      <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', fontWeight: 500, marginBottom: 10 }}>Founder&apos;s note</div>
+                      {editable ? (
+                        <InlineEditableText editable as="div" multiline value={founderNote} onSave={saveFounderNote}
+                          style={{ fontSize: '0.95rem', lineHeight: 1.65, whiteSpace: 'pre-wrap' }} />
+                      ) : (
+                        founderNote.split('\n\n').map((para, i) => (
+                          <p key={i} style={{ fontSize: '0.92rem', lineHeight: 1.65, marginBottom: 10 }}>{para}</p>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Coach Modal */}
+                  {activeOrientationModal === 'coach' && data.coach && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${PALETTE.line}` }}>
+                        <div style={{ width: 64, height: 64, borderRadius: 32, background: coachPhoto ? `url(${coachPhoto}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}`, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.25rem', fontWeight: 500 }}>{coachName}</div>
+                          <div style={{ fontSize: '0.85rem', opacity: 0.65 }}>{coachDesignation}</div>
+                          {coachBio && <div style={{ fontSize: '0.78rem', opacity: 0.75, marginTop: 4, lineHeight: 1.4 }}>{coachBio}</div>}
+                        </div>
+                      </div>
+
+                      <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', fontWeight: 500, marginBottom: 10 }}>Coach&apos;s note</div>
+                      {editable ? (
+                        <InlineEditableText editable multiline value={coachQuote || ''} onSave={saveCoachQuote} placeholder="Add a note from your coach…"
+                          style={{ fontStyle: 'italic', color: PALETTE.berry, fontSize: '0.92rem' }} />
+                      ) : displayQuote ? (
+                        displayQuote.split('\n\n').map((para, i) => (
+                          <p key={i} style={{ fontSize: '0.92rem', fontStyle: 'italic', color: PALETTE.berry, lineHeight: 1.65, marginBottom: 10 }}>&ldquo;{renderMarkdownBold(para)}&rdquo;</p>
+                        ))
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* How to use Modal */}
+                  {activeOrientationModal === 'howto' && (
+                    <div>
+                      <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: `1px solid ${PALETTE.line}` }}>
+                        <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.25rem', fontWeight: 500 }}>How to use your plan</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: PALETTE.berry, marginTop: 4 }}>Follow → Track → Adjust</div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 18 }}>
+                        {[
+                          { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
+                          { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
+                          { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
+                          { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
+                          { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
+                          { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
+                        ].map(({ icon: Icon, title, text }) => (
+                          <div key={title} style={{ background: PALETTE.paper2, border: `1px solid ${PALETTE.line}`, borderRadius: 12, padding: 12 }}>
+                            <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(122,51,70,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                              <Icon size={15} color={PALETTE.berry} />
+                            </div>
+                            <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: 2 }}>{title}</div>
+                            <div style={{ fontSize: '0.82rem', opacity: 0.75, lineHeight: 1.45 }}>{text}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ paddingTop: 14, borderTop: `1px solid ${PALETTE.line}` }}>
+                        <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', fontWeight: 500, marginBottom: 8 }}>Your why</div>
+                        {whyImage && <img src={whyImage.image_url} alt={whyImage.label} style={{ display: 'block', width: '100%', maxWidth: 340, height: 'auto', borderRadius: 12, margin: '12px auto 16px' }} />}
+                        {editable ? (
+                          <InlineEditableText editable as="div" multiline value={whyReflection || ''} onSave={saveWhyReflection} placeholder="Not filled in yet."
+                            style={{ fontSize: '0.95rem', lineHeight: 1.65 }} />
+                        ) : whyReflection ? (
+                          <p style={{ fontSize: '0.95rem', lineHeight: 1.65 }}>{renderMarkdownBold(whyReflection)}</p>
+                        ) : (
+                          <p style={{ fontSize: '0.9rem', opacity: 0.6 }}>Not filled in yet.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )
+      })()}
 
       {/* Care team — open, no card border, floating typographic treatment
           rather than a boxed tile. */}
@@ -1205,45 +1316,6 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
           </div>
         </section>
       )}
-
-      {/* How to use this guide + Your why — same real walkthrough + reflection as Classic */}
-      <section id="howto" style={{ background: PALETTE.gold1, padding: '4rem 1.5rem', ...hiddenStyle('howto') }}>
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <Eyebrow>Getting oriented</Eyebrow>
-          <SecTitle icon={<HelpCircle size={26} />}>How To Use Your Plan</SecTitle>
-          <p style={{ marginTop: 16, marginBottom: 20, fontSize: '0.95rem', fontWeight: 600, color: PALETTE.berry }}>Follow → Track → Adjust</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20 }}>
-            {[
-              { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
-              { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
-              { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
-              { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
-              { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
-              { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
-            ].map(({ icon: Icon, title, text }) => (
-              <div key={title}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(122,51,70,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                  <Icon size={18} color={PALETTE.berry} />
-                </div>
-                <div style={{ fontWeight: 600, fontSize: '0.92rem', marginBottom: 3 }}>{title}</div>
-                <div style={{ fontSize: '0.88rem', opacity: 0.75, lineHeight: 1.55 }}>{text}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid ${PALETTE.line}` }}>
-            <Eyebrow>Your why</Eyebrow>
-            {whyImage && <img src={whyImage.image_url} alt={whyImage.label} style={{ display: 'block', width: '100%', maxWidth: 340, height: 'auto', borderRadius: 12, margin: '12px auto 16px' }} />}
-            {editable ? (
-              <InlineEditableText editable as="div" multiline value={whyReflection || ''} onSave={saveWhyReflection} placeholder="Not filled in yet."
-                style={{ fontSize: '0.95rem', lineHeight: 1.65 }} />
-            ) : whyReflection ? (
-              <p style={{ fontSize: '0.95rem', lineHeight: 1.65 }}>{renderMarkdownBold(whyReflection)}</p>
-            ) : (
-              <p style={{ fontSize: '0.9rem', opacity: 0.6 }}>Not filled in yet.</p>
-            )}
-          </div>
-        </div>
-      </section>
 
       {LIFESTYLE_PERIODS.some((label) => parseBullets(lifestyleByPeriod[label] || '').length > 0) && (
         <section id="lifestyle" style={{ background: PALETTE.paper1, padding: '4rem 1.5rem', ...hiddenStyle('lifestyle') }}>

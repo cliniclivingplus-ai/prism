@@ -251,6 +251,9 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
     setWhyReflection(next)
     patchRoadmap({ guide_overrides: { why_reflection: next } })
   }
+
+  const [activeOrientationModal, setActiveOrientationModal] = useState<'founder' | 'coach' | 'howto' | null>(null)
+
   function saveCareTeam(next: typeof careTeam) {
     setCareTeam(next)
     patchRoadmap({ guide_overrides: { care_team: next } })
@@ -866,50 +869,175 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
           </div>
         </Card>
 
-        {/* Founder's note */}
-        <Card id="founder" hidden={isHidden('founder')}>
-          <Eyebrow>A note from the founder</Eyebrow>
-          {editable ? (
-            <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <div style={{ width: 84, height: 84, borderRadius: 22, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover` }} />
-              <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-                <InlineEditableText editable as="div" multiline value={founderNote} onSave={saveFounderNote}
-                  style={{ fontSize: '1.05rem', lineHeight: 1.5, color: V.ink, fontWeight: 500 }} />
-                <div style={{ fontSize: 14, fontWeight: 700, color: V.ink, marginTop: 8 }}>Roshni Sanghvi</div>
-                <div style={{ fontSize: 12.5, color: V.muted, marginTop: 1 }}>Founder, Living Plus</div>
-                <div style={{ fontSize: 12, color: V.muted, marginTop: 4 }}>{FOUNDER_INTRO}</div>
-              </div>
-            </div>
-          ) : (
-            <PullQuote photo={FOUNDER_PHOTO_URL} initials="RS" name="Roshni Sanghvi" role="Founder, Living Plus"
-              accentColor={V.accent} accentSoft={V.accentSoft} borderColor={V.line}
-              quote={founderNote.split('\n\n').join(' ')} />
-          )}
-        </Card>
+        {/* Orientation & Notes Grid Row: Founder's Note, Coach's Note, How to Use Your Plan */}
+        {(() => {
+          const coachBio = data.coach?.bio || ''
+          const rawQuote = coachQuote || ''
+          const isPlaceholder = !rawQuote || rawQuote.includes('[First name]') || rawQuote.includes('remember what you said about')
+          const displayQuote = isPlaceholder ? coachBio : rawQuote
+          const coachName = data.coach?.full_name || 'Your Coach'
+          const coachDesignation = data.coach?.designation || 'Integrative Health Coach'
+          const coachPhoto = data.coach?.photo_url || ''
 
-        {/* Coach's note */}
-        {data.coach && (
-          <Card id="coach" hidden={isHidden('coach')}>
-            <Eyebrow>Your coach</Eyebrow>
-            {editable ? (
-              <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ width: 84, height: 84, borderRadius: 22, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : V.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 26, fontWeight: 800 }}>
-                  {!data.coach.photo_url && (data.coach.full_name || '?').charAt(0)}
-                </div>
-                <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-                  <InlineEditableText editable as="div" multiline value={coachQuote} placeholder={`${coachFirst} is your dedicated coach for this plan.`} onSave={saveCoachQuote}
-                    style={{ fontSize: '1.05rem', lineHeight: 1.5, color: V.ink, fontWeight: 500, fontStyle: 'italic' }} />
-                  <div style={{ fontSize: 14, fontWeight: 700, color: V.ink, marginTop: 8 }}>{data.coach.full_name}</div>
-                  <div style={{ fontSize: 12.5, color: V.muted, marginTop: 1 }}>{data.coach.designation || 'Nutritional coach'}</div>
-                </div>
+          return (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 16 }}>
+                {/* 1. Founder's Note Card */}
+                <Card id="founder" hidden={isHidden('founder')}>
+                  <div onClick={() => setActiveOrientationModal('founder')}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '12px 6px' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: V.accent, marginBottom: 12 }}>Founder&apos;s Note</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${V.line}`, marginBottom: 10 }} />
+                    <div style={{ fontSize: '1.15rem', fontWeight: 700, color: V.ink }}>Roshni Sanghvi</div>
+                    <div style={{ fontSize: '0.8rem', color: V.muted, marginBottom: 14 }}>Founder, Living Plus</div>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('founder') }}
+                      style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 20, background: V.bg, color: V.accent, fontSize: '0.78rem', fontWeight: 700, border: `1px solid ${V.line}`, cursor: 'pointer' }}>
+                      Read Intro &amp; Founder Note →
+                    </button>
+                  </div>
+                </Card>
+
+                {/* 2. Coach's Note Card */}
+                {data.coach && (
+                  <Card id="coach" hidden={isHidden('coach')}>
+                    <div onClick={() => setActiveOrientationModal('coach')}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '12px 6px' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: V.accent, marginBottom: 12 }}>Coach&apos;s Note</div>
+                      <div style={{ width: 64, height: 64, borderRadius: 32, background: coachPhoto ? `url(${coachPhoto}) center/cover` : V.accentSoft, border: `1px solid ${V.line}`, marginBottom: 10 }} />
+                      <div style={{ fontSize: '1.15rem', fontWeight: 700, color: V.ink }}>{coachName}</div>
+                      <div style={{ fontSize: '0.8rem', color: V.muted, marginBottom: 14 }}>{coachDesignation}</div>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('coach') }}
+                        style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 20, background: V.bg, color: V.accent, fontSize: '0.78rem', fontWeight: 700, border: `1px solid ${V.line}`, cursor: 'pointer' }}>
+                        Read Intro &amp; Coach Note →
+                      </button>
+                    </div>
+                  </Card>
+                )}
+
+                {/* 3. How to Use Your Plan Card */}
+                <Card id="howto" hidden={isHidden('howto')}>
+                  <div onClick={() => setActiveOrientationModal('howto')}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '12px 6px' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: V.accent, marginBottom: 12 }}>Guide &amp; Your Why</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: V.bg, border: `1px solid ${V.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10, color: V.accent }}>
+                      <HelpCircle size={30} />
+                    </div>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 700, color: V.ink }}>How to Use Your Plan</div>
+                    <div style={{ fontSize: '0.8rem', color: V.muted, marginBottom: 14 }}>Follow → Track → Adjust</div>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('howto') }}
+                      style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 20, background: V.bg, color: V.accent, fontSize: '0.78rem', fontWeight: 700, border: `1px solid ${V.line}`, cursor: 'pointer' }}>
+                      View Guide &amp; Your Why →
+                    </button>
+                  </div>
+                </Card>
               </div>
-            ) : (
-              <PullQuote photo={data.coach.photo_url} initials={(data.coach.full_name || '?').charAt(0)} name={data.coach.full_name} role={data.coach.designation || 'Nutritional coach'}
-                accentColor={V.accent} accentSoft={V.accentSoft} borderColor={V.line}
-                quote={coachQuote || `${coachFirst} is your dedicated coach for this plan.`} quoteIsItalic={!!coachQuote} />
-            )}
-          </Card>
-        )}
+
+              {/* MODAL OVERLAY */}
+              {activeOrientationModal && (
+                <div onClick={() => setActiveOrientationModal(null)}
+                  style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                  <div onClick={(e) => e.stopPropagation()}
+                    style={{ background: V.card, border: `1px solid ${V.line}`, borderRadius: 20, width: '100%', maxWidth: 580, maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', padding: 24, position: 'relative', color: V.ink }}>
+                    
+                    <button onClick={() => setActiveOrientationModal(null)}
+                      style={{ position: 'absolute', top: 16, right: 16, width: 32, height: 32, borderRadius: 16, border: `1px solid ${V.line}`, background: V.bg, color: V.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      <X size={16} />
+                    </button>
+
+                    {/* Founder Modal */}
+                    {activeOrientationModal === 'founder' && (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${V.line}` }}>
+                          <div style={{ width: 64, height: 64, borderRadius: 32, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${V.line}`, flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: V.ink }}>Roshni Sanghvi</div>
+                            <div style={{ fontSize: '0.85rem', color: V.muted }}>Founder, Living Plus</div>
+                            <div style={{ fontSize: '0.78rem', color: V.muted, marginTop: 4, lineHeight: 1.4 }}>{FOUNDER_INTRO}</div>
+                          </div>
+                        </div>
+                        
+                        <div style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: 10, color: V.ink }}>Founder&apos;s note</div>
+                        {editable ? (
+                          <InlineEditableText editable multiline value={founderNote} onSave={saveFounderNote}
+                            style={{ fontSize: '0.92rem', lineHeight: 1.7, color: V.ink }} />
+                        ) : (
+                          founderNote.split('\n\n').map((para, i) => (
+                            <p key={i} style={{ fontSize: '0.92rem', lineHeight: 1.7, marginBottom: 10, color: V.ink }}>{para}</p>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {/* Coach Modal */}
+                    {activeOrientationModal === 'coach' && data.coach && (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${V.line}` }}>
+                          <div style={{ width: 64, height: 64, borderRadius: 32, background: coachPhoto ? `url(${coachPhoto}) center/cover` : V.accentSoft, border: `1px solid ${V.line}`, flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: V.ink }}>{coachName}</div>
+                            <div style={{ fontSize: '0.85rem', color: V.muted }}>{coachDesignation}</div>
+                            {coachBio && <div style={{ fontSize: '0.78rem', color: V.muted, marginTop: 4, lineHeight: 1.4 }}>{coachBio}</div>}
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: 10, color: V.ink }}>Coach&apos;s note</div>
+                        {editable ? (
+                          <InlineEditableText editable multiline value={coachQuote || ''} onSave={saveCoachQuote} placeholder="Add a note from your coach…"
+                            style={{ fontStyle: 'italic', color: V.accent, fontSize: '0.92rem' }} />
+                        ) : displayQuote ? (
+                          displayQuote.split('\n\n').map((para, i) => (
+                            <p key={i} style={{ fontSize: '0.92rem', fontStyle: 'italic', color: V.accent, lineHeight: 1.65, marginBottom: 10 }}>&ldquo;{renderMarkdownBold(para)}&rdquo;</p>
+                          ))
+                        ) : null}
+                      </div>
+                    )}
+
+                    {/* How to use Modal */}
+                    {activeOrientationModal === 'howto' && (
+                      <div>
+                        <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: `1px solid ${V.line}` }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: V.ink }}>How to use your plan</div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: V.accent, marginTop: 4 }}>Follow → Track → Adjust</div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 18 }}>
+                          {[
+                            { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
+                            { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
+                            { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
+                            { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
+                            { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
+                            { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
+                          ].map(({ icon: Icon, title, text }) => (
+                            <div key={title} style={{ background: V.bg, border: `1px solid ${V.line}`, borderRadius: 12, padding: 12 }}>
+                              <div style={{ width: 30, height: 30, borderRadius: 8, background: V.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                                <Icon size={15} color={V.accent} />
+                              </div>
+                              <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: 2, color: V.ink }}>{title}</div>
+                              <div style={{ fontSize: '0.82rem', color: V.muted, lineHeight: 1.45 }}>{text}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div style={{ paddingTop: 14, borderTop: `1px solid ${V.line}` }}>
+                          <div style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: 8, color: V.ink }}>Your why</div>
+                          {editable ? (
+                            <InlineEditableText editable as="div" multiline value={whyReflection || ''} onSave={saveWhyReflection} placeholder="Not filled in yet."
+                              style={{ fontSize: '0.95rem', lineHeight: 1.65 }} />
+                          ) : whyReflection ? (
+                            <p style={{ fontSize: '0.95rem', lineHeight: 1.65, color: V.ink }}>{renderMarkdownBold(whyReflection)}</p>
+                          ) : (
+                            <p style={{ fontSize: '0.9rem', color: V.muted }}>Not filled in yet.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        })()}
 
         {/* Care team */}
         {(careTeam.length > 0 || editable) && (

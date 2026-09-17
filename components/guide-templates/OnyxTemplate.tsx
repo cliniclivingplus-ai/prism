@@ -315,6 +315,9 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
     setWhyReflection(next)
     patchRoadmap({ guide_overrides: { why_reflection: next } })
   }
+
+  const [activeOrientationModal, setActiveOrientationModal] = useState<'founder' | 'coach' | 'howto' | null>(null)
+
   const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date: string; time: string; mode: string }[]>(data.careTeam || [])
   const [reachInfo, setReachInfo] = useState(data.reachInfo)
   function saveReachInfo(next: typeof reachInfo) {
@@ -926,58 +929,175 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
           </div>
         </Card>
 
-        {/* Founder's note — round photo, tap to reveal the note */}
-        <Card id="founder" hidden={isHidden('founder')}>
-          <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 18, cursor: 'pointer' }}>
-            <div style={{ width: 54, height: 54, borderRadius: '50%', flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${ONYX.border}` }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <Eyebrow>Founder&apos;s note</Eyebrow>
-              <div style={{ fontFamily: SERIF, fontSize: '1.2rem', fontWeight: 500, marginTop: -6, color: ONYX.ink }}>Roshni Sanghvi</div>
-              <div style={{ fontSize: '0.8rem', color: ONYX.muted, marginTop: 2 }}>Founder, Living Plus</div>
-              <div style={{ fontSize: '0.74rem', color: ONYX.muted, marginTop: 6 }}>{FOUNDER_INTRO}</div>
-              <div style={{ fontSize: '0.7rem', color: ONYX.muted, marginTop: 6 }}>Tap the photo to read the note</div>
-            </div>
-          </div>
-          <div data-founder-body style={{ display: founderOpen ? 'block' : 'none', marginTop: 16, fontSize: '0.92rem', lineHeight: 1.7, color: ONYX.inkSoft }}>
-            {editable ? (
-              <InlineEditableText editable multiline value={founderNote} onSave={saveFounderNote}
-                style={{ display: 'block', fontSize: '0.92rem', lineHeight: 1.7, color: ONYX.inkSoft, minHeight: 120 }} />
-            ) : (
-              founderNote.split('\n\n').map((para, i) => <p key={i}>{para}</p>)
-            )}
-          </div>
-        </Card>
+        {/* Orientation & Notes Grid Row: Founder's Note, Coach's Note, How to Use Your Plan */}
+        {(() => {
+          const coachBio = data.coach?.bio || ''
+          const rawQuote = coachQuote || ''
+          const isPlaceholder = !rawQuote || rawQuote.includes('[First name]') || rawQuote.includes('remember what you said about')
+          const displayQuote = isPlaceholder ? coachBio : rawQuote
+          const coachName = data.coach?.full_name || 'Your Coach'
+          const coachDesignation = data.coach?.designation || 'Integrative Health Coach'
+          const coachPhoto = data.coach?.photo_url || ''
 
-        {/* Coach — photo, name, and designation stay visible; a personal
-            quote sits behind a tap on the photo, same as the founder's
-            note above. */}
-        {data.coach && (
-          <Card id="coach" hidden={isHidden('coach')}>
-            <div data-coach-trigger onClick={() => (coachQuote || editable) && setCoachOpen((v) => !v)}
-              style={{ display: 'flex', alignItems: 'flex-start', gap: 18, cursor: coachQuote || editable ? 'pointer' : 'default' }}>
-              <div style={{ width: 54, height: 54, borderRadius: '50%', flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : ONYX.accentSoft, border: `1px solid ${ONYX.border}` }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Eyebrow>Your coach</Eyebrow>
-              <div style={{ fontFamily: SERIF, fontSize: '1.2rem', fontWeight: 500, marginTop: -6, color: ONYX.ink }}>{data.coach.full_name}</div>
-              <div style={{ fontSize: '0.8rem', color: ONYX.muted, marginTop: 2 }}>{data.coach.designation}</div>
-              {editable ? (
-                <>
-                  <div style={{ fontSize: '0.7rem', color: ONYX.muted, marginTop: 6 }}>A note from {coachFirst} (shown to the patient below the photo)</div>
-                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, maxWidth: 560 }}>
-                    <InlineEditableText editable multiline value={coachQuote} onSave={saveCoachQuote} placeholder="Add a personal note…"
-                      style={{ display: 'block', fontStyle: 'italic', color: ONYX.accentDeep, fontSize: '0.88rem' }} />
+          return (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 16 }}>
+                {/* 1. Founder's Note Card */}
+                <Card id="founder" hidden={isHidden('founder')}>
+                  <div onClick={() => setActiveOrientationModal('founder')}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '12px 6px' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent, marginBottom: 12 }}>Founder&apos;s Note</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${ONYX.border}`, marginBottom: 10 }} />
+                    <div style={{ fontFamily: SERIF, fontSize: '1.2rem', fontWeight: 500, color: ONYX.ink }}>Roshni Sanghvi</div>
+                    <div style={{ fontSize: '0.8rem', color: ONYX.muted, marginBottom: 14 }}>Founder, Living Plus</div>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('founder') }}
+                      style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 4, background: ONYX.bg, color: ONYX.accent, fontSize: '0.78rem', fontWeight: 700, border: `1px solid ${ONYX.border}`, cursor: 'pointer' }}>
+                      Read Intro &amp; Founder Note →
+                    </button>
                   </div>
-                </>
-              ) : coachQuote && (
-                <>
-                  <div style={{ fontSize: '0.7rem', color: ONYX.muted, marginTop: 6 }}>Tap the photo for a note from {coachFirst}</div>
-                  <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: ONYX.accentDeep, fontSize: '0.88rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(coachQuote)}&rdquo;</div>
-                </>
-              )}
+                </Card>
+
+                {/* 2. Coach's Note Card */}
+                {data.coach && (
+                  <Card id="coach" hidden={isHidden('coach')}>
+                    <div onClick={() => setActiveOrientationModal('coach')}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '12px 6px' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent, marginBottom: 12 }}>Coach&apos;s Note</div>
+                      <div style={{ width: 64, height: 64, borderRadius: 32, background: coachPhoto ? `url(${coachPhoto}) center/cover` : ONYX.accentSoft, border: `1px solid ${ONYX.border}`, marginBottom: 10 }} />
+                      <div style={{ fontFamily: SERIF, fontSize: '1.2rem', fontWeight: 500, color: ONYX.ink }}>{coachName}</div>
+                      <div style={{ fontSize: '0.8rem', color: ONYX.muted, marginBottom: 14 }}>{coachDesignation}</div>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('coach') }}
+                        style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 4, background: ONYX.bg, color: ONYX.accent, fontSize: '0.78rem', fontWeight: 700, border: `1px solid ${ONYX.border}`, cursor: 'pointer' }}>
+                        Read Intro &amp; Coach Note →
+                      </button>
+                    </div>
+                  </Card>
+                )}
+
+                {/* 3. How to Use Your Plan Card */}
+                <Card id="howto" hidden={isHidden('howto')}>
+                  <div onClick={() => setActiveOrientationModal('howto')}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '12px 6px' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent, marginBottom: 12 }}>Guide &amp; Your Why</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: ONYX.bg, border: `1px solid ${ONYX.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10, color: ONYX.accent }}>
+                      <HelpCircle size={30} />
+                    </div>
+                    <div style={{ fontFamily: SERIF, fontSize: '1.2rem', fontWeight: 500, color: ONYX.ink }}>How to Use Your Plan</div>
+                    <div style={{ fontSize: '0.8rem', color: ONYX.muted, marginBottom: 14 }}>Follow → Track → Adjust</div>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('howto') }}
+                      style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 4, background: ONYX.bg, color: ONYX.accent, fontSize: '0.78rem', fontWeight: 700, border: `1px solid ${ONYX.border}`, cursor: 'pointer' }}>
+                      View Guide &amp; Your Why →
+                    </button>
+                  </div>
+                </Card>
               </div>
-            </div>
-          </Card>
-        )}
+
+              {/* MODAL OVERLAY */}
+              {activeOrientationModal && (
+                <div onClick={() => setActiveOrientationModal(null)}
+                  style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                  <div onClick={(e) => e.stopPropagation()}
+                    style={{ background: ONYX.card, border: `1px solid ${ONYX.border}`, borderRadius: 8, width: '100%', maxWidth: 580, maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', padding: 24, position: 'relative', color: ONYX.ink }}>
+                    
+                    <button onClick={() => setActiveOrientationModal(null)}
+                      style={{ position: 'absolute', top: 16, right: 16, width: 32, height: 32, borderRadius: 16, border: `1px solid ${ONYX.border}`, background: ONYX.bg, color: ONYX.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      <X size={16} />
+                    </button>
+
+                    {/* Founder Modal */}
+                    {activeOrientationModal === 'founder' && (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${ONYX.border}` }}>
+                          <div style={{ width: 64, height: 64, borderRadius: 32, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${ONYX.border}`, flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontFamily: SERIF, fontSize: '1.25rem', fontWeight: 500, color: ONYX.ink }}>Roshni Sanghvi</div>
+                            <div style={{ fontSize: '0.85rem', color: ONYX.muted }}>Founder, Living Plus</div>
+                            <div style={{ fontSize: '0.78rem', color: ONYX.muted, marginTop: 4, lineHeight: 1.4 }}>{FOUNDER_INTRO}</div>
+                          </div>
+                        </div>
+                        
+                        <div style={{ fontFamily: SERIF, fontSize: '1.1rem', fontWeight: 500, marginBottom: 10, color: ONYX.ink }}>Founder&apos;s note</div>
+                        {editable ? (
+                          <InlineEditableText editable multiline value={founderNote} onSave={saveFounderNote}
+                            style={{ fontSize: '0.92rem', lineHeight: 1.7, color: ONYX.inkSoft }} />
+                        ) : (
+                          founderNote.split('\n\n').map((para, i) => (
+                            <p key={i} style={{ fontSize: '0.92rem', lineHeight: 1.7, marginBottom: 10, color: ONYX.inkSoft }}>{para}</p>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {/* Coach Modal */}
+                    {activeOrientationModal === 'coach' && data.coach && (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${ONYX.border}` }}>
+                          <div style={{ width: 64, height: 64, borderRadius: 32, background: coachPhoto ? `url(${coachPhoto}) center/cover` : ONYX.accentSoft, border: `1px solid ${ONYX.border}`, flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontFamily: SERIF, fontSize: '1.25rem', fontWeight: 500, color: ONYX.ink }}>{coachName}</div>
+                            <div style={{ fontSize: '0.85rem', color: ONYX.muted }}>{coachDesignation}</div>
+                            {coachBio && <div style={{ fontSize: '0.78rem', color: ONYX.muted, marginTop: 4, lineHeight: 1.4 }}>{coachBio}</div>}
+                          </div>
+                        </div>
+
+                        <div style={{ fontFamily: SERIF, fontSize: '1.1rem', fontWeight: 500, marginBottom: 10, color: ONYX.ink }}>Coach&apos;s note</div>
+                        {editable ? (
+                          <InlineEditableText editable multiline value={coachQuote || ''} onSave={saveCoachQuote} placeholder="Add a note from your coach…"
+                            style={{ fontStyle: 'italic', color: ONYX.accentDeep, fontSize: '0.92rem' }} />
+                        ) : displayQuote ? (
+                          displayQuote.split('\n\n').map((para, i) => (
+                            <p key={i} style={{ fontSize: '0.92rem', fontStyle: 'italic', color: ONYX.accentDeep, lineHeight: 1.65, marginBottom: 10 }}>&ldquo;{renderMarkdownBold(para)}&rdquo;</p>
+                          ))
+                        ) : null}
+                      </div>
+                    )}
+
+                    {/* How to use Modal */}
+                    {activeOrientationModal === 'howto' && (
+                      <div>
+                        <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: `1px solid ${ONYX.border}` }}>
+                          <div style={{ fontFamily: SERIF, fontSize: '1.25rem', fontWeight: 500, color: ONYX.ink }}>How to use your plan</div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: ONYX.accent, marginTop: 4 }}>Follow → Track → Adjust</div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 18 }}>
+                          {[
+                            { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
+                            { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
+                            { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
+                            { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
+                            { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
+                            { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
+                          ].map(({ icon: Icon, title, text }) => (
+                            <div key={title} style={{ background: ONYX.bg, border: `1px solid ${ONYX.border}`, borderRadius: 4, padding: 12 }}>
+                              <div style={{ width: 30, height: 30, borderRadius: 4, background: ONYX.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                                <Icon size={15} color={ONYX.accent} />
+                              </div>
+                              <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: 2, color: ONYX.ink }}>{title}</div>
+                              <div style={{ fontSize: '0.82rem', color: ONYX.muted, lineHeight: 1.45 }}>{text}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div style={{ paddingTop: 14, borderTop: `1px solid ${ONYX.border}` }}>
+                          <div style={{ fontFamily: SERIF, fontSize: '1.1rem', fontWeight: 500, marginBottom: 8, color: ONYX.ink }}>Your why</div>
+                          {editable ? (
+                            <InlineEditableText editable as="div" multiline value={whyReflection || ''} onSave={saveWhyReflection} placeholder="Not filled in yet."
+                              style={{ fontSize: '0.95rem', lineHeight: 1.65 }} />
+                          ) : whyReflection ? (
+                            <p style={{ fontSize: '0.95rem', lineHeight: 1.65, color: ONYX.inkSoft }}>{renderMarkdownBold(whyReflection)}</p>
+                          ) : (
+                            <p style={{ fontSize: '0.9rem', color: ONYX.muted }}>Not filled in yet.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        })()}
 
         {/* Care team */}
         {(careTeam.length > 0 || editable) && (
