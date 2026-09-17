@@ -2664,290 +2664,165 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             </div>
           </div>
 
-          {/* Founder's note — coach-editable text, personalized with name +
-              goal only until a coach actually edits it (see
-              defaultFounderNote in buildGuideData.ts) */}
-          <div id="founder" {...hiddenAttrs('founder')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('founder') }}>
-            {editable && <SectionToggle hidden={isHidden('founder')} onToggle={() => toggleSection('founder')} />}
-            <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
-              <span>Founder&apos;s note</span>
-              {editable && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <ImageInsertButton value={founderNote} onChange={setFounderNote} />
-                  <AiEditButton roadmapId={rid} kind="text" value={founderNote} context={aiContext} onApply={setFounderNote} />
-                </div>
-              )}
-            </div>
-            <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginTop: 8, cursor: 'pointer' }}>
-              <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${C.rule}` }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Roshni Sanghvi</div>
-                <div style={{ fontSize: 12, color: C.muted }}>Founder, Clinic Living Plus</div>
-                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 6 }}>{FOUNDER_INTRO}</div>
-                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 4 }}>Tap here to read the note</div>
-              </div>
-            </div>
-            <div data-founder-body style={{ display: (editable || founderOpen) ? 'block' : 'none', marginTop: 16 }}>
-              {editable ? (
-                <>
-                  <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6 }} rows={7}
-                    value={founderNote} onChange={(e) => setFounderNote(e.target.value)}
-                    placeholder="One paragraph per blank line" />
-                  <ImagePreviewStrip value={founderNote} onChange={setFounderNote} />
-                </>
-              ) : (
-                founderNote.split('\n\n').map((para, i) => <p key={i} style={bulletStyle}>{para}</p>)
-              )}
-            </div>
-          </div>
-
-          {/* Coach's note */}
-          {(data.coach || editable) && (() => {
-            const activeCoach = coaches.find((c) => c.id === nutritionistId) || data.coach;
-            const careTeamCoachMatch = careTeam.find((m) => m.name && activeCoach?.full_name && m.name.trim().toLowerCase() === activeCoach.full_name.trim().toLowerCase());
-            const coachBio = activeCoach?.bio || careTeamCoachMatch?.intro || '';
-            const coachName = activeCoach?.full_name || 'Your Coach';
-            const coachDesignation = activeCoach?.designation || 'Integrative Health Coach';
-            const coachPhoto = activeCoach?.photo_url || careTeamCoachMatch?.photo || '';
-            const coachFirst = coachName.split(' ')[0] ?? 'Coach';
-
-            const isPlaceholder = !coachQuote || coachQuote.includes('[First name]') || coachQuote.includes('remember what you said about');
-            const cleanQuote = isPlaceholder ? coachBio : coachQuote;
-
-            return (
-              <div id="coach" {...hiddenAttrs('coach')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('coach') }}>
-                {editable && <SectionToggle hidden={isHidden('coach')} onToggle={() => toggleSection('coach')} />}
-                <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
-                  <span>Coach&apos;s note</span>
-                  {editable && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <ImageInsertButton value={coachQuote} onChange={setCoachQuote} />
-                      <AiEditButton roadmapId={rid} kind="text" value={coachQuote} context={aiContext} onApply={setCoachQuote} />
-                    </div>
-                  )}
-                </div>
-
-                {editable ? (
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={editLabelStyle}>Coach</div>
-                    <select style={editInputStyle} value={nutritionistId} onChange={(e) => {
-                      const nextId = e.target.value;
-                      setNutritionistId(nextId);
-                      const selected = coaches.find(c => c.id === nextId);
-                      if (selected && selected.bio && (isPlaceholder || !coachQuote)) {
-                        setCoachQuote(selected.bio);
-                      }
-                    }}>
-                      <option value="">Select a coach</option>
-                      {coaches.map((c) => (
-                        <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
-                      ))}
-                    </select>
-                    <div style={{ fontSize: 11, color: C.muted, margin: '5px 0 10px' }}>Photo, designation and bio come from the coach&apos;s profile.</div>
-                  </div>
-                ) : null}
-
-                <div data-coach-trigger onClick={() => setCoachOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginTop: 8, cursor: 'pointer' }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: coachPhoto ? `url(${coachPhoto}) center/cover` : C.accentSoft, border: `1px solid ${C.rule}` }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{coachName}</div>
-                    <div style={{ fontSize: 12, color: C.muted }}>{coachDesignation}</div>
-                    {coachBio && <div style={{ fontSize: 11.5, color: C.muted, marginTop: 6, lineHeight: 1.4 }}>{coachBio}</div>}
-                    <div style={{ fontSize: 11.5, color: C.muted, marginTop: 4 }}>Tap here to read the note</div>
-                  </div>
-                </div>
-
-                <div data-coach-body style={{ display: (editable || coachOpen) ? 'block' : 'none', marginTop: 16 }}>
-                  {editable ? (
-                    <>
-                      <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6 }} rows={4}
-                        value={isPlaceholder ? coachBio : coachQuote} onChange={(e) => setCoachQuote(e.target.value)}
-                        placeholder={`Note from ${coachFirst}...`} />
-                      <ImagePreviewStrip value={coachQuote} onChange={setCoachQuote} />
-                    </>
-                  ) : (
-                    cleanQuote ? (
-                      cleanQuote.split('\n\n').map((para, i) => (
-                        <p key={i} style={{ ...bulletStyle, fontStyle: 'italic', color: C.accent }}>{renderMarkdownBold(para)}</p>
-                      ))
-                    ) : null
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Your care team — other providers beyond the primary coach
-              (doctor, therapist, naturopath, etc.), each with their own
-              intro and appointment. Coach-entered, empty by default; the
-              whole section stays out of the DOM for a patient when there's
-              nothing in it, same as the coach block above. */}
-          {(careTeam.length > 0 || editable) && (
-            <div id="careteam" {...hiddenAttrs('careteam')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('careteam') }}>
-              {editable && <SectionToggle hidden={isHidden('careteam')} onToggle={() => toggleSection('careteam')} />}
-              <div style={sectionTitleStyle}><Stethoscope size={18} color={C.accent} /> Your care team</div>
-              {editable ? (
-                <>
-                  <p style={{ ...bulletStyle, color: C.muted, marginBottom: 14 }}>
-                    Add anyone else on this patient&apos;s care team, a doctor, therapist, naturopath, or other specialist, with a short intro and their appointment.
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 14 }}>
-                    {careTeam.map((member, i) => (
-                      <div key={i} style={{ border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', background: C.bg }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                          {member.photo ? (
-                            <div style={{ width: 44, height: 44, borderRadius: 22, background: `url(${member.photo}) center/cover`, border: `1px solid ${C.rule}` }} />
-                          ) : <div />}
-                          <AiEditButton roadmapId={rid} kind="care_team_member" value={member} context={aiContext}
-                            onApply={(v) => { const next = [...careTeam]; next[i] = v; setCareTeam(next) }} />
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 8 }}>
-                          <div>
-                            <div style={editLabelStyle}>Name</div>
-                            <input style={editInputStyle} value={member.name} placeholder="e.g. Dr. Anita Rao" onChange={(e) => {
-                              const next = [...careTeam]; next[i] = { ...member, name: e.target.value }; setCareTeam(next)
-                            }} />
-                          </div>
-                          <div>
-                            <div style={editLabelStyle}>Role</div>
-                            <input style={editInputStyle} value={member.role} placeholder="e.g. Doctor, Therapist, Naturopath" onChange={(e) => {
-                              const next = [...careTeam]; next[i] = { ...member, role: e.target.value }; setCareTeam(next)
-                            }} />
-                          </div>
-                        </div>
-                        <div style={{ marginBottom: 8 }}>
-                          <div style={editLabelStyle}>Intro</div>
-                          <textarea style={{ ...editInputStyle, resize: 'vertical' as const }} rows={2} value={member.intro}
-                            placeholder="A short intro the patient will see, e.g. their specialty and how they fit into this plan."
-                            onChange={(e) => { const next = [...careTeam]; next[i] = { ...member, intro: e.target.value }; setCareTeam(next) }} />
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 8 }}>
-                          <div>
-                            <div style={editLabelStyle}>Appointment date</div>
-                            <input style={editInputStyle} type="date" value={member.date}
-                              onChange={(e) => { const next = [...careTeam]; next[i] = { ...member, date: e.target.value }; setCareTeam(next) }} />
-                          </div>
-                          <div>
-                            <div style={editLabelStyle}>Time</div>
-                            <input style={editInputStyle} type="time" value={member.time}
-                              onChange={(e) => { const next = [...careTeam]; next[i] = { ...member, time: e.target.value }; setCareTeam(next) }} />
-                          </div>
-                          <div>
-                            <div style={editLabelStyle}>Mode</div>
-                            <select style={editInputStyle} value={member.mode}
-                              onChange={(e) => { const next = [...careTeam]; next[i] = { ...member, mode: e.target.value }; setCareTeam(next) }}>
-                              <option value="">Select</option>
-                              <option value="In-person">In-person</option>
-                              <option value="Virtual">Virtual</option>
-                              <option value="In-person / Virtual">In-person / Virtual</option>
-                            </select>
-                          </div>
-                        </div>
-                        <button onClick={() => setCareTeam(careTeam.filter((_, idx) => idx !== i))}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: '#b4462f', fontSize: 12, fontWeight: 700, padding: 0 }}>
-                          <Trash2 size={13} /> Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    {coaches.length > 0 && (
-                      <select value="" onChange={(e) => { if (e.target.value) addTeamMemberFromDirectory(e.target.value) }}
-                        style={{ ...editInputStyle, width: 'auto', maxWidth: 260, fontWeight: 700, color: C.accent, cursor: 'pointer' }}>
-                        <option value="">+ Add from staff directory…</option>
-                        {Array.from(new Set(coaches.map((c) => c.department || 'No department'))).sort().map((dept) => (
-                          <optgroup key={dept} label={dept}>
-                            {coaches.filter((c) => (c.department || 'No department') === dept).map((c) => (
-                              <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      </select>
-                    )}
-                    <button onClick={() => setCareTeam([...careTeam, { name: '', role: '', intro: '', photo: '', date: '', time: '', mode: '' }])}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.rule}`, background: C.paper, color: C.ink, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                      <Plus size={14} /> Add manually
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {careTeam.map((member, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 12, border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', background: C.bg }}>
-                      {member.photo ? (
-                        <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: `url(${member.photo}) center/cover`, border: `1px solid ${C.rule}` }} />
-                      ) : (
-                        <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: C.accentSoft }} />
-                      )}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{member.name}</div>
-                        {member.role && <div style={{ fontSize: 12, color: C.muted, marginBottom: member.intro ? 6 : 0 }}>{member.role}</div>}
-                        {member.intro && <p style={{ ...bulletStyle, marginBottom: member.date ? 8 : 0 }}>{renderMarkdownBold(member.intro)}</p>}
-                        {member.date && (
-                          <div style={{ fontSize: 12.5, color: C.accent, fontWeight: 700 }}>
-                            <CalendarCheck size={13} style={{ verticalAlign: -2, marginRight: 5 }} />
-                            {new Date(member.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                            {member.time && ` · ${new Date(`2000-01-01T${member.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
-                            {member.mode && ` · ${member.mode}`}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* How to use this guide + Your why — one PDF page, kept together here too.
-              Actually walks through this dashboard's real structure (roadmap
-              drill-down, recipes, check-offs, download) instead of generic
-              filler copy, so a patient opening this for the first time knows
-              exactly where to look. */}
-          <div id="howto" {...hiddenAttrs('howto')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('howto') }}>
-            {editable && <SectionToggle hidden={isHidden('howto')} onToggle={() => toggleSection('howto')} />}
-            <div style={sectionTitleStyle}>How to use your plan</div>
-            <p style={{ ...bulletStyle, marginBottom: 16, fontWeight: 700, color: C.accent }}>Follow → Track → Adjust</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 16 }}>
-              {[
-                { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
-                { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
-                { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
-                { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
-                { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
-                { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
-              ].map(({ icon: Icon, title, text }) => (
-                <div key={title}>
-                  <div style={{ width: 32, height: 32, borderRadius: 9, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                    <Icon size={16} color={C.accent} />
-                  </div>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, marginBottom: 2 }}>{title}</div>
-                  <div style={{ fontSize: 12.5, color: C.inkSoft, lineHeight: 1.55 }}>{text}</div>
-                </div>
-              ))}
-            </div>
-            <div id="why" style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.rule}`, scrollMarginTop: SECTION_SCROLL_MARGIN }}>
-              <div style={{ ...sectionTitleStyle, fontSize: 15, marginBottom: 10, justifyContent: 'space-between' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>Your why</span>
+          {/* Orientation & Notes Grid Row: Founder's Note, Coach's Note, How to Use Your Plan */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 16 }}>
+            {/* 1. Founder's Note */}
+            <div id="founder" {...hiddenAttrs('founder')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, margin: 0, display: 'flex', flexDirection: 'column', ...hiddenStyle('founder') }}>
+              {editable && <SectionToggle hidden={isHidden('founder')} onToggle={() => toggleSection('founder')} />}
+              <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
+                <span>Founder&apos;s note</span>
                 {editable && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <ImageInsertButton value={whyReflection} onChange={setWhyReflection} />
-                    <AiEditButton roadmapId={rid} kind="text" value={whyReflection} context={aiContext} onApply={setWhyReflection} />
+                    <ImageInsertButton value={founderNote} onChange={setFounderNote} />
+                    <AiEditButton roadmapId={rid} kind="text" value={founderNote} context={aiContext} onApply={setFounderNote} />
                   </div>
                 )}
               </div>
-              {editable ? (
-                <>
-                  <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5 }} rows={3}
-                    value={whyReflection} onChange={(e) => setWhyReflection(e.target.value)}
-                    placeholder="1-2 sentences on what this plan is actually for, in their words." />
-                  <ImagePreviewStrip value={whyReflection} onChange={setWhyReflection} />
-                </>
-              ) : whyReflection ? (
-                <p style={bulletStyle}>{renderMarkdownBold(whyReflection)}</p>
-              ) : (
-                <p style={{ ...bulletStyle, color: C.muted }}>Not filled in yet.</p>
-              )}
+              <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginTop: 8, cursor: 'pointer' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 24, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${C.rule}` }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>Roshni Sanghvi</div>
+                  <div style={{ fontSize: 11.5, color: C.muted }}>Founder, Clinic Living Plus</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 4, lineHeight: 1.35 }}>{FOUNDER_INTRO}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: C.accent, marginTop: 6 }}>{founderOpen ? 'Hide note ▲' : 'Read founder note ▼'}</div>
+                </div>
+              </div>
+              <div data-founder-body style={{ display: (editable || founderOpen) ? 'block' : 'none', marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.rule}` }}>
+                {editable ? (
+                  <>
+                    <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5, fontSize: 12.5 }} rows={5}
+                      value={founderNote} onChange={(e) => setFounderNote(e.target.value)}
+                      placeholder="One paragraph per blank line" />
+                    <ImagePreviewStrip value={founderNote} onChange={setFounderNote} />
+                  </>
+                ) : (
+                  founderNote.split('\n\n').map((para, i) => <p key={i} style={{ ...bulletStyle, fontSize: 12.5, lineHeight: 1.5 }}>{para}</p>)
+                )}
+              </div>
+            </div>
+
+            {/* 2. Coach's Note */}
+            {(data.coach || editable) && (() => {
+              const activeCoach = coaches.find((c) => c.id === nutritionistId) || data.coach;
+              const careTeamCoachMatch = careTeam.find((m) => m.name && activeCoach?.full_name && m.name.trim().toLowerCase() === activeCoach.full_name.trim().toLowerCase());
+              const coachBio = activeCoach?.bio || careTeamCoachMatch?.intro || '';
+              const coachName = activeCoach?.full_name || 'Your Coach';
+              const coachDesignation = activeCoach?.designation || 'Integrative Health Coach';
+              const coachPhoto = activeCoach?.photo_url || careTeamCoachMatch?.photo || '';
+              const coachFirst = coachName.split(' ')[0] ?? 'Coach';
+
+              const isPlaceholder = !coachQuote || coachQuote.includes('[First name]') || coachQuote.includes('remember what you said about');
+              const cleanQuote = isPlaceholder ? coachBio : coachQuote;
+
+              return (
+                <div id="coach" {...hiddenAttrs('coach')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, margin: 0, display: 'flex', flexDirection: 'column', ...hiddenStyle('coach') }}>
+                  {editable && <SectionToggle hidden={isHidden('coach')} onToggle={() => toggleSection('coach')} />}
+                  <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
+                    <span>Coach&apos;s note</span>
+                    {editable && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <ImageInsertButton value={coachQuote} onChange={setCoachQuote} />
+                        <AiEditButton roadmapId={rid} kind="text" value={coachQuote} context={aiContext} onApply={setCoachQuote} />
+                      </div>
+                    )}
+                  </div>
+
+                  {editable ? (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={editLabelStyle}>Coach</div>
+                      <select style={{ ...editInputStyle, padding: '4px 8px', fontSize: 12 }} value={nutritionistId} onChange={(e) => {
+                        const nextId = e.target.value;
+                        setNutritionistId(nextId);
+                        const selected = coaches.find(c => c.id === nextId);
+                        if (selected && selected.bio && (isPlaceholder || !coachQuote)) {
+                          setCoachQuote(selected.bio);
+                        }
+                      }}>
+                        <option value="">Select a coach</option>
+                        {coaches.map((c) => (
+                          <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+
+                  <div data-coach-trigger onClick={() => setCoachOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginTop: 8, cursor: 'pointer' }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 24, flexShrink: 0, background: coachPhoto ? `url(${coachPhoto}) center/cover` : C.accentSoft, border: `1px solid ${C.rule}` }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>{coachName}</div>
+                      <div style={{ fontSize: 11.5, color: C.muted }}>{coachDesignation}</div>
+                      {coachBio && <div style={{ fontSize: 11, color: C.muted, marginTop: 4, lineHeight: 1.35 }}>{coachBio}</div>}
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.accent, marginTop: 6 }}>{coachOpen ? 'Hide note ▲' : `Read note from ${coachFirst} ▼`}</div>
+                    </div>
+                  </div>
+
+                  <div data-coach-body style={{ display: (editable || coachOpen) ? 'block' : 'none', marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.rule}` }}>
+                    {editable ? (
+                      <>
+                        <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5, fontSize: 12.5 }} rows={4}
+                          value={isPlaceholder ? coachBio : coachQuote} onChange={(e) => setCoachQuote(e.target.value)}
+                          placeholder={`Note from ${coachFirst}...`} />
+                        <ImagePreviewStrip value={coachQuote} onChange={setCoachQuote} />
+                      </>
+                    ) : (
+                      cleanQuote ? (
+                        cleanQuote.split('\n\n').map((para, i) => (
+                          <p key={i} style={{ ...bulletStyle, fontSize: 12.5, fontStyle: 'italic', color: C.accent, lineHeight: 1.5 }}>{renderMarkdownBold(para)}</p>
+                        ))
+                      ) : null
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 3. How to use your plan */}
+            <div id="howto" {...hiddenAttrs('howto')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, margin: 0, display: 'flex', flexDirection: 'column', ...hiddenStyle('howto') }}>
+              {editable && <SectionToggle hidden={isHidden('howto')} onToggle={() => toggleSection('howto')} />}
+              <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
+                <span>How to use your plan</span>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginTop: 6, marginBottom: 8 }}>
+                Follow → Track → Adjust
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, color: C.inkSoft, lineHeight: 1.4, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <MapPin size={14} color={C.accent} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div><strong>Roadmap:</strong> Drill down into month &amp; week focus.</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <CheckCircle2 size={14} color={C.accent} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div><strong>Track daily:</strong> Tick tasks &amp; log energy to see progress.</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <HelpCircle size={14} color={C.accent} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div><strong>Coaching:</strong> Message your coach to fine-tune routines.</div>
+                </div>
+              </div>
+
+              <div id="why" style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.rule}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>Your why</span>
+                  {editable && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <ImageInsertButton value={whyReflection} onChange={setWhyReflection} />
+                      <AiEditButton roadmapId={rid} kind="text" value={whyReflection} context={aiContext} onApply={setWhyReflection} />
+                    </div>
+                  )}
+                </div>
+                {editable ? (
+                  <>
+                    <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.4, fontSize: 12 }} rows={2}
+                      value={whyReflection} onChange={(e) => setWhyReflection(e.target.value)}
+                      placeholder="1-2 sentences on what this plan is for." />
+                    <ImagePreviewStrip value={whyReflection} onChange={setWhyReflection} />
+                  </>
+                ) : whyReflection ? (
+                  <p style={{ ...bulletStyle, fontSize: 12, fontStyle: 'italic', color: C.inkSoft, margin: 0 }}>{renderMarkdownBold(whyReflection)}</p>
+                ) : (
+                  <p style={{ ...bulletStyle, fontSize: 12, color: C.muted, margin: 0 }}>Not filled in yet.</p>
+                )}
+              </div>
             </div>
           </div>
 
