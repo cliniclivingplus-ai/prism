@@ -1097,50 +1097,6 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
           </Card>
         )}
 
-        {/* How to use + Your why */}
-        <Card id="howto" hidden={isHidden('howto')}>
-          <Eyebrow>Getting oriented</Eyebrow>
-          <SecTitle icon={<HelpCircle size={20} />}>How to use your plan</SecTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 18 }}>
-            {[
-              { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
-              { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
-              { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
-              { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
-              { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
-              { icon: HelpCircle, title: 'Need help?', text: `Message ${coachFirst} if something doesn't work for you.` },
-            ].map(({ icon: Icon, title, text }) => (
-              <div key={title}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: V.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                  <Icon size={17} color={V.accent} />
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>{title}</div>
-                <div style={{ fontSize: 12, color: V.muted, marginTop: 2 }}>{text}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${V.line}` }}>
-            <Eyebrow>Your why</Eyebrow>
-            {editable ? (
-              <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ width: 84, height: 84, borderRadius: 22, flexShrink: 0, background: V.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 26, fontWeight: 800 }}>{firstName.charAt(0)}</div>
-                <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-                  <InlineEditableText editable as="div" multiline value={whyReflection} placeholder="Not filled in yet." onSave={saveWhyReflection}
-                    style={{ fontSize: '1.05rem', lineHeight: 1.5, color: V.ink, fontWeight: 500, fontStyle: 'italic' }} />
-                  <div style={{ fontSize: 14, fontWeight: 700, color: V.ink, marginTop: 8 }}>{data.patient.full_name}</div>
-                  <div style={{ fontSize: 12.5, color: V.muted, marginTop: 1 }}>In your own words</div>
-                </div>
-              </div>
-            ) : whyReflection ? (
-              <PullQuote initials={firstName.charAt(0)} name={data.patient.full_name} role="In your own words"
-                accentColor={V.accent} accentSoft={V.accentSoft} borderColor={V.line}
-                quote={whyReflection} quoteIsItalic />
-            ) : (
-              <p style={{ fontSize: 13, color: V.muted }}>Not filled in yet.</p>
-            )}
-          </div>
-        </Card>
-
         {LIFESTYLE_PERIODS.some((label) => parseBullets(lifestyleByPeriod[label] || '').length > 0) && (
           <Card id="lifestyle" hidden={isHidden('lifestyle')}>
             <SecTitle icon={<Sun size={20} />}>Daily Lifestyle Guidelines</SecTitle>

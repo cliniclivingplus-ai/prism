@@ -1356,44 +1356,6 @@ function clpToggleGroceryCat(head){
         </section>
         )}
 
-      {/* How to use this guide + Your why */}
-      <section id="howto" style={{ background: PALETTE.gold1, padding: '4rem 1.5rem', ...hiddenStyle('howto') }}>
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <Eyebrow>Getting oriented</Eyebrow>
-          <SecTitle icon={<HelpCircle size={26} />} sectionId="howto" open={isSectionOpen('howto')} onToggle={() => toggleSection('howto')}>How To Use Your Plan</SecTitle>
-          <div data-section-body="howto" style={{ display: isSectionOpen('howto') ? 'block' : 'none' }}>
-          <p style={{ marginTop: 16, marginBottom: 20, fontSize: '0.95rem', fontWeight: 600, color: PALETTE.berry }}>Follow → Track → Adjust</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20 }}>
-            {[
-              { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
-              { icon: MapPin, title: 'Your goals', text: 'Your roadmap is one focused week, Sunday to Saturday. Open today to see its few small goals.' },
-              { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
-              { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
-              { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
-              { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
-            ].map(({ icon: Icon, title, text }) => (
-              <div key={title}>
-                <div style={{ width: 38, height: 38, borderRadius: 0, background: 'rgba(255,59,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                  <Icon size={18} color={PALETTE.berry} />
-                </div>
-                <div style={{ fontWeight: 600, fontSize: '0.92rem', marginBottom: 3 }}>{title}</div>
-                <div style={{ fontSize: '0.88rem', opacity: 0.75, lineHeight: 1.55 }}>{text}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 32, paddingTop: 24, borderTop: `3px solid ${PALETTE.line}` }}>
-            <Eyebrow>Your why</Eyebrow>
-            {whyImage && <img src={whyImage.image_url} alt={whyImage.label} style={{ display: 'block', width: '100%', maxWidth: 340, height: 'auto', borderRadius: 0, margin: '12px auto 16px' }} />}
-            {data.whyReflection ? (
-              <p style={{ fontSize: '0.95rem', lineHeight: 1.65 }}>{renderMarkdownBold(data.whyReflection)}</p>
-            ) : (
-              <p style={{ fontSize: '0.9rem', opacity: 0.6 }}>Not filled in yet.</p>
-            )}
-          </div>
-          </div>
-        </div>
-      </section>
-
       {/* Daily lifestyle guidelines — coach-editable (Ask AI or type your
           own in the Classic editor), defaults to this roadmap's own
           lifestyle_guidelines text so it's never empty on a plan that

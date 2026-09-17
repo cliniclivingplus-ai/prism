@@ -1226,44 +1226,6 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
           </Card>
         )}
 
-        {/* How to use this guide + Your why */}
-        <Card id="howto" hidden={isHidden('howto')}>
-          <Eyebrow>Getting oriented</Eyebrow>
-          <SecTitle icon={<HelpCircle size={20} />}>How to use your plan</SecTitle>
-          <p style={{ marginTop: 14, marginBottom: 18, fontSize: '0.92rem', fontWeight: 700, color: PULSE.accent }}>Follow → Track → Adjust</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-            {[
-              { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
-              { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
-              { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
-              { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
-              { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
-              { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
-            ].map(({ icon: Icon, title, text }) => (
-              <div key={title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: PULSE.bg, border: `1px solid ${PULSE.border}`, borderRadius: 14, padding: '12px 14px' }}>
-                <div style={{ width: 34, height: 34, borderRadius: 9, background: PULSE.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Icon size={16} color={PULSE.accent} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.88rem', marginBottom: 4, color: PULSE.ink }}>{title}</div>
-                  <div style={{ fontSize: '0.83rem', color: PULSE.muted, lineHeight: 1.55 }}>{text}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${PULSE.border}` }}>
-            <Eyebrow>Your why</Eyebrow>
-            {editable ? (
-              <InlineEditableText editable multiline value={whyReflection} onSave={saveWhyReflection} placeholder="Not filled in yet."
-                style={{ display: 'block', fontSize: '0.92rem', lineHeight: 1.65, color: PULSE.inkSoft, minHeight: 60 }} />
-            ) : whyReflection ? (
-              <p style={{ fontSize: '0.92rem', lineHeight: 1.65, color: PULSE.inkSoft }}>{renderMarkdownBold(whyReflection)}</p>
-            ) : (
-              <p style={{ fontSize: '0.88rem', color: PULSE.muted }}>Not filled in yet.</p>
-            )}
-          </div>
-        </Card>
-
         {LIFESTYLE_PERIODS.some((label) => parseBullets(lifestyleByPeriod[label] || '').length > 0) && (
           <Card id="lifestyle" hidden={isHidden('lifestyle')}>
             <SecTitle icon={<Sun size={20} />}>Daily Lifestyle Guidelines</SecTitle>
