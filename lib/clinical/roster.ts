@@ -34,27 +34,46 @@ const PAUSED_AFTER_DAYS = 60
 export async function loadRoster(): Promise<{ patients: RosterPatient[]; stats: RosterStats }> {
   const supabase = await createClient('compass')
 
-  const [patientsRes, roadmapsRes, sessionsRes, mrxRes, bloodRes] = await Promise.all([
-    // source = 'hub' excludes pre-merge Compass patients (backfilled
-    // 'legacy' by migration_v42) — the roster only lists patients the coach
-    // deliberately created here. Nothing about the legacy rows is deleted;
-    // this is a list filter, not a data change, and their own workspace
-    // page still opens fine if linked to directly.
-    supabase
-      .from('patients')
-      .select('id, full_name, clinic_patient_id, created_at')
-      .eq('source', 'hub')
-      .order('created_at', { ascending: false }),
+  // source = 'hub' excludes pre-merge Compass patients (backfilled
+  // 'legacy' by migration_v42) — the roster only lists patients the coach
+  // deliberately created here. Nothing about the legacy rows is deleted;
+  // this is a list filter, not a data change, and their own workspace
+  // page still opens fine if linked to directly.
+  const { data: hubPatientsRaw } = await supabase
+    .from('patients')
+    .select('id, full_name, clinic_patient_id, created_at')
+    .eq('source', 'hub')
+    .order('created_at', { ascending: false })
+
+  const hubPatients = hubPatientsRaw ?? []
+  const hubPatientIds = hubPatients.map((p) => p.id)
+
+  if (hubPatientIds.length === 0) {
+    return {
+      patients: [],
+      stats: { totalPatients: 0, activePrograms: 0, awaitingReview: 0, sessionsToday: 0 },
+    }
+  }
+
+  const [roadmapsRes, sessionsRes, mrxRes, bloodRes] = await Promise.all([
     supabase
       .from('roadmaps')
       .select('patient_id, created_at, status, duration_months')
+      .in('patient_id', hubPatientIds)
       .order('created_at', { ascending: false }),
     supabase
       .from('sessions')
       .select('patient_id, session_date, status, created_at')
+      .in('patient_id', hubPatientIds)
       .order('session_date', { ascending: false }),
-    supabase.from('mrx_patient_links').select('clp_patient_id, linked_at'),
-    supabase.from('blood_patient_links').select('clp_patient_id, linked_at'),
+    supabase
+      .from('mrx_patient_links')
+      .select('clp_patient_id, linked_at')
+      .in('clp_patient_id', hubPatientIds),
+    supabase
+      .from('blood_patient_links')
+      .select('clp_patient_id, linked_at')
+      .in('clp_patient_id', hubPatientIds),
   ])
 
   type R = { patient_id: string; created_at: string; status: string | null; duration_months: number | null }
@@ -81,7 +100,7 @@ export async function loadRoster(): Promise<{ patients: RosterPatient[]; stats: 
 
   const today = new Date().toISOString().slice(0, 10)
 
-  const patients: RosterPatient[] = (patientsRes.data ?? []).map((p) => {
+  const patients: RosterPatient[] = hubPatients.map((p) => {
     const rm = latestRoadmap.get(p.id)
     const ss = latestSession.get(p.id)
 

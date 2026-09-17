@@ -23,9 +23,12 @@ export const FOOD_PLATES: Record<MealType, { ratios: string; columns: { head: st
 
 export const GROCERY_CATEGORIES: { head: string; items: string[] }[] = [
   { head: 'Fruit', items: ['Apple', 'Banana', 'Papaya', 'Pear', 'Orange', 'Berries', 'Pomegranate', 'Kiwi'] },
-  { head: 'Vegetables', items: ['Broccoli', 'Cauliflower', 'Kale', 'Cabbage', 'Spinach', 'Bell pepper', 'Pumpkin', 'Zucchini', 'Mushroom', 'Ridge gourd', 'Bottle gourd', 'Asparagus'] },
+  { head: 'Cruciferous vegetables', items: ['Broccoli', 'Cauliflower', 'Kale', 'Cabbage', 'Brussels sprouts', 'Arugula', 'Bok choy', 'Radish'] },
+  { head: 'Green vegetables & leafy greens', items: ['Spinach', 'Lettuce', 'Zucchini', 'Green beans', 'Asparagus', 'Cucumber', 'Celery', 'Ridge gourd', 'Bottle gourd'] },
+  { head: 'Other vegetables', items: ['Tomato', 'Onion', 'Garlic', 'Ginger', 'Bell pepper', 'Pumpkin', 'Mushroom', 'Carrot', 'Beetroot'] },
   { head: 'Grains & millets', items: ['Oats', 'Brown rice', 'Ragi', 'Jowar', 'Bajra', 'Quinoa', 'Buckwheat', 'Amaranth', 'Foxtail millet', 'Barley'] },
   { head: 'Lentils & protein', items: ['Moong dal', 'Masoor dal', 'Chana', 'Toor dal', 'Rajma', 'Tofu', 'Tempeh', 'Edamame', 'Sprouts', 'Hummus'] },
   { head: 'Nuts & seeds', items: ['Almonds', 'Walnuts', 'Brazil nuts', 'Chia seeds', 'Flaxseeds', 'Pumpkin seeds'] },
+  { head: 'Herbs, spices & pantry', items: ['Cinnamon', 'Turmeric', 'Cumin', 'Black pepper', 'Salt', 'Olive oil', 'Coconut oil'] },
   { head: 'Other', items: ['Soy milk', 'Whole wheat'] },
 ]

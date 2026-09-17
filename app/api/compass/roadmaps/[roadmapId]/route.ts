@@ -81,3 +81,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ro
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ roadmapId: string }> }) {
+  const { roadmapId } = await params
+  await Promise.all([
+    supabaseAdmin.from('roadmap_checkins').delete().eq('roadmap_id', roadmapId),
+    supabaseAdmin.from('roadmap_versions').delete().eq('roadmap_id', roadmapId),
+  ])
+  const { error } = await supabaseAdmin.from('roadmaps').delete().eq('id', roadmapId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true })
+}

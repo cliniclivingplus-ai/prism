@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo, useEffect, useRef, Fragment, type ReactNode } from 'react'
 import { CheckCircle2, Circle, MapPin, Utensils, Pill, ShoppingCart, HeartPulse, HelpCircle, Phone, Clock, X, ChefHat, Download, Sparkles, Star, Save, Check, Loader2, ExternalLink, Flame, CalendarCheck, Target, TrendingUp, ChevronDown, ChevronRight, Video, MessageCircle, Users, Activity, Stethoscope, Plus, Trash2, Eye, EyeOff, LinkIcon, Droplet, Sun, type IconComponent } from '@/lib/kawaii/icons'
+import { UploadCloud } from 'lucide-react'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import { Splash } from '@/lib/kawaii/Mascot'
 import { KAWAII } from '@/lib/kawaii/tokens'
@@ -13,18 +14,21 @@ import { selectRecipesForPatient, type RecipeMatch } from '@/lib/pdf/matchRecipe
 import { curatedSlotIds as sharedCuratedSlotIds, getSlotRecipes as sharedGetSlotRecipes } from '@/lib/pdf/weekRecipes'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { DEFAULT_PLATE_COMPOSITION, type PlateComposition } from '@/lib/dietRules'
-import { splitRecipeLines } from '@/lib/recipeText'
+import { splitRecipeLines, parseRecipeStructuredLines } from '@/lib/recipeText'
+import { fillRecipeDefaults } from '@/lib/recipeDefaults'
 import { renderMarkdownBold, splitTextAndImages, normalizeLinks } from '@/lib/renderMarkdownBold'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from '@/lib/periodBullets'
 import AiEditButton from '@/components/AiEditButton'
 import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
+import CombineRecipesButton from '@/components/CombineRecipesButton'
 import LinkInsertButton from '@/components/LinkInsertButton'
 import RecipeLinkInsertButton from '@/components/RecipeLinkInsertButton'
 import ProtocolPickerButton from '@/components/ProtocolPickerButton'
 import ImageInsertButton from '@/components/ImageInsertButton'
 import ImagePreviewStrip from '@/components/ImagePreviewStrip'
+import TemplateSelectorModal from '@/components/TemplateSelectorModal'
 import { CareServiceLinkButton, CareServiceLinkFields, isVisibleCareService } from '@/components/CareServiceLink'
 import { useKeywordLinkBank } from '@/lib/hooks/useKeywordLinkBank'
 import { autoLinkText } from '@/lib/autoLinkKeywords'
@@ -103,7 +107,7 @@ function defaultCanvasBlock(type: BlockType): ChecklistPageBlock {
 const C = {
   bg: 'var(--clp-bg)', paper: 'var(--clp-paper)', ink: 'var(--clp-ink)', inkSoft: 'var(--clp-ink-soft)',
   accent: 'var(--clp-accent)', accentSoft: 'var(--clp-accent-soft)', rule: 'var(--clp-rule)', muted: 'var(--clp-muted)',
-  green: 'var(--clp-green)', greenDeep: 'var(--clp-green-deep)',
+  green: 'var(--clp-green)', greenDeep: 'var(--clp-green-deep)', greenBorder: 'var(--clp-green-border, #C8E9A8)', danger: '#b4462f',
 }
 // One color per food-group slot in a meal plate — cycled by index, matches
 // across the wheel diagram and its pill chips so a category reads the same
@@ -284,162 +288,433 @@ function parseServingsBase(servings: string | null | undefined): number {
 // stores render: Total Steps is real (steps.length); Eat/Prep/Cook
 // Time, Difficulty, Health Score, Tools, Notes, and Why It Works only show up
 // when a coach actually entered them (e.g. from a Canva recipe card) — never
-// invented. The servings stepper scales the real numbers already written in
-// each ingredient line rather than showing a number with no real effect.
-function RecipeBody({ recipe, imageUrl, override, editable, onSave }: { recipe: RecipeMatch['recipe']; imageUrl: string | null; override?: { ingredients: string; steps: string }; editable?: boolean; onSave?: (patch: Partial<{ ingredients: string; steps: string }>) => void }) {
-  const ingredients = splitRecipeLines(override?.ingredients ?? recipe.ingredients)
-  const steps = splitRecipeLines(override?.steps ?? recipe.steps)
-  const tools = recipe.tools ?? []
-  const notes = recipe.notes ?? []
-  const benefits = recipe.benefits ?? []
-  const base = parseServingsBase(recipe.servings)
+// invented. The servings stepper scales the numbers written in each line.
+function RecipeBody({ recipe, imageUrl, override, editable, onSave, onImageUpdate }: {
+  recipe: RecipeMatch['recipe'];
+  imageUrl: string | null;
+  override?: {
+    name?: string;
+    protein_label?: string;
+    ingredients?: string;
+    steps?: string;
+    eat_time?: string;
+    prep_time?: string;
+    cook_time?: string;
+    difficulty?: string;
+    health_score?: string;
+    servings?: string;
+    tools?: string | string[];
+    notes?: string | string[];
+    benefits?: string | string[];
+  };
+  editable?: boolean;
+  onSave?: (patch: Partial<{
+    name?: string;
+    protein_label?: string;
+    ingredients?: string;
+    steps?: string;
+    eat_time?: string;
+    prep_time?: string;
+    cook_time?: string;
+    difficulty?: string;
+    health_score?: string;
+    servings?: string;
+    tools?: string;
+    notes?: string;
+    benefits?: string;
+  }>) => void;
+  onImageUpdate?: (recipeId: string, imageUrl: string) => void;
+}) {
+  const defaults = fillRecipeDefaults(recipe, override)
+  const recipeName = override?.name ?? recipe.name
+  const proteinLabel = defaults.proteinLabel
+  const eatTime = defaults.eatTime
+  const prepTime = defaults.prepTime
+  const cookTime = defaults.cookTime
+  const difficulty = defaults.difficulty
+  const healthScore = defaults.healthScore
+  const servingsStr = defaults.servings
+
+  const ingredients = splitRecipeLines(defaults.ingredientsStr)
+  const steps = splitRecipeLines(defaults.stepsStr)
+  const tools = splitRecipeLines(defaults.toolsText)
+  const notes = splitRecipeLines(defaults.notesText)
+  const benefits = splitRecipeLines(defaults.benefitsText)
+
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [localImageUrl, setLocalImageUrl] = useState<string | null>(null)
+
+  const displayImageUrl = localImageUrl || imageUrl || recipe.image_url
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingImage(true)
+    setUploadError('')
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const r = await fetch('/api/compass/recipe-bank/image', { method: 'POST', body: form })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || 'Photo upload failed')
+
+      if (recipe.id) {
+        await fetch(`/api/compass/recipe-bank/${recipe.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_url: j.image_url, image_storage_path: j.image_storage_path }),
+        })
+      }
+      setLocalImageUrl(j.image_url)
+      onImageUpdate?.(recipe.id, j.image_url)
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Photo upload failed.')
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const base = parseServingsBase(servingsStr || '1 serving')
   const [servingsCount, setServingsCount] = useState(base)
   const ratio = servingsCount / base
+
   const facts: [string, string][] = [
-    ...(recipe.eat_time ? [['Eat time', recipe.eat_time] as [string, string]] : []),
-    ...(recipe.prep_time ? [['Prep time', recipe.prep_time] as [string, string]] : []),
-    ...(recipe.cook_time ? [['Cook time', recipe.cook_time] as [string, string]] : []),
-    ...(recipe.difficulty ? [['Difficulty', recipe.difficulty] as [string, string]] : []),
-    ...(recipe.health_score ? [['Health score', recipe.health_score] as [string, string]] : []),
+    ['Eat time', eatTime],
+    ['Prep time', prepTime],
+    ['Cook time', cookTime],
+    ['Difficulty', difficulty],
+    ['Health score', healthScore],
   ]
 
+  const miniInputStyle = {
+    width: '100%',
+    boxSizing: 'border-box' as const,
+    fontSize: 12,
+    padding: '5px 8px',
+    border: `1px solid ${C.rule}`,
+    borderRadius: 6,
+    fontFamily: 'inherit',
+    color: C.ink,
+  }
+
   return (
-  <>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 24, alignItems: 'start' }}>
-      <div>
-        {imageUrl ? (
-          <img src={imageUrl} alt={recipe.name} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: 14, marginBottom: 14 }} />
-        ) : (
-          <div style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: 14, marginBottom: 14, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ChefHat size={36} color={C.accent} />
-          </div>
-        )}
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 24, alignItems: 'start' }}>
         <div>
-          {facts.map(([label, val]) => (
-            <div key={label} style={factRow}>
-              <span style={{ color: C.muted, fontWeight: 500 }}>{label}</span>
-              <span style={{ fontWeight: 700, color: C.ink }}>{val}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        {recipe.protein_label && (
-          <div style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 700, color: C.green, background: `color-mix(in srgb, ${C.green} 15%, transparent)`, borderRadius: 20, padding: '4px 10px', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{recipe.protein_label}</div>
-        )}
-        <div style={{ fontSize: 22, fontWeight: 700, color: C.ink, paddingRight: 28, marginBottom: 20, lineHeight: 1.15 }}>{recipe.name}</div>
-
-        {tools.length > 0 && (
-          <div style={{ marginBottom: 22 }}>
-            <div style={weekBoxLabel}>Tools &amp; equipment</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
-              {tools.map((t, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: C.ink }}>
-                  <span style={{ width: 20, height: 20, borderRadius: '50%', background: C.accentSoft, color: C.accent, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</span>
-                  {t}
-                </div>
-              ))}
-            </div>
+          <div style={{ position: 'relative', marginBottom: 14 }}>
+            {displayImageUrl ? (
+              <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden' }}>
+                <img src={displayImageUrl} alt={recipeName} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
+                <label style={{
+                  position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.68)', color: '#fff',
+                  padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 5, backdropFilter: 'blur(4px)'
+                }}>
+                  {uploadingImage ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <UploadCloud size={12} />}
+                  {uploadingImage ? 'Uploading...' : 'Change photo'}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={handlePhotoUpload} disabled={uploadingImage} />
+                </label>
+              </div>
+            ) : (
+              <div style={{
+                width: '100%', aspectRatio: '1 / 1', borderRadius: 14, background: C.accentSoft,
+                border: `2px dashed ${C.greenBorder}`, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, textAlign: 'center'
+              }}>
+                <ChefHat size={36} color={C.accent} />
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>No photo for this recipe</div>
+                <label style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 13px',
+                  borderRadius: 8, background: C.green, color: '#fff', fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', boxShadow: '0 2px 6px rgba(83,138,34,0.3)'
+                }}>
+                  {uploadingImage ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <UploadCloud size={13} />}
+                  {uploadingImage ? 'Uploading...' : 'Upload Photo'}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={handlePhotoUpload} disabled={uploadingImage} />
+                </label>
+                {uploadError && <div style={{ fontSize: 11, color: C.danger }}>{uploadError}</div>}
+              </div>
+            )}
           </div>
-        )}
 
-        <div style={{ marginBottom: notes.length ? 20 : 0 }}>
-          <div style={weekBoxLabel}>Directions</div>
           {editable ? (
-            <textarea
-              value={override?.steps ?? recipe.steps}
-              onChange={(e) => onSave?.({ steps: e.target.value })}
-              rows={7} placeholder="One step per line"
-              style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: 13, padding: '8px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, lineHeight: 1.55, color: C.ink }}
-            />
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={weekBoxLabel}>Times &amp; Score</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <div>
+                  <label style={{ fontSize: 10.5, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 2 }}>Eat time</label>
+                  <input style={miniInputStyle} value={eatTime} onChange={(e) => onSave?.({ eat_time: e.target.value })} placeholder="~7:30 AM" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10.5, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 2 }}>Prep time</label>
+                  <input style={miniInputStyle} value={prepTime} onChange={(e) => onSave?.({ prep_time: e.target.value })} placeholder="5 mins" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10.5, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 2 }}>Cook time</label>
+                  <input style={miniInputStyle} value={cookTime} onChange={(e) => onSave?.({ cook_time: e.target.value })} placeholder="10 mins" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10.5, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 2 }}>Difficulty</label>
+                  <input style={miniInputStyle} value={difficulty} onChange={(e) => onSave?.({ difficulty: e.target.value })} placeholder="Easy" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10.5, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 2 }}>Health score</label>
+                  <input style={miniInputStyle} value={healthScore} onChange={(e) => onSave?.({ health_score: e.target.value })} placeholder="9/10" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10.5, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 2 }}>Servings</label>
+                  <input style={miniInputStyle} value={servingsStr} onChange={(e) => onSave?.({ servings: e.target.value })} placeholder="1 serving" />
+                </div>
+              </div>
+            </div>
           ) : (
             <div>
-              {steps.map((line, i) => (
-                <div key={i} style={{ display: 'flex', gap: 12, position: 'relative', paddingBottom: i < steps.length - 1 ? 18 : 0 }}>
-                  {i < steps.length - 1 && <div style={{ position: 'absolute', left: 12, top: 26, bottom: 0, width: 1.5, background: C.rule }} />}
-                  <div style={{ width: 25, height: 25, borderRadius: '50%', background: C.accent, color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>{i + 1}</div>
-                  <div style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.55, paddingTop: 3 }}>{line}</div>
+              {facts.map(([label, val]) => (
+                <div key={label} style={factRow}>
+                  <span style={{ color: C.muted, fontWeight: 500 }}>{label}</span>
+                  <span style={{ fontWeight: 700, color: C.ink }}>{val}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {notes.length > 0 && (
-          <div>
-            <div style={weekBoxLabel}>Notes</div>
-            {notes.map((n, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12.5, color: C.inkSoft, padding: '4px 0', lineHeight: 1.5 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.green, marginTop: 6, flexShrink: 0 }} />
-                {n}
+        <div>
+          {editable ? (
+            <>
+              <div style={{ marginBottom: 12 }}>
+                <div style={weekBoxLabel}>Recipe Name</div>
+                <input
+                  value={recipeName}
+                  onChange={(e) => onSave?.({ name: e.target.value })}
+                  placeholder="Recipe Name"
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 16, fontWeight: 700, padding: '7px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', color: C.ink }}
+                />
               </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      <div data-ing-list={recipe.id} data-ing-base={base}>
-        {editable ? (
-          <>
-            <div style={{ ...weekBoxLabel, marginBottom: 12 }}>Ingredients</div>
-            <textarea
-              value={override?.ingredients ?? recipe.ingredients}
-              onChange={(e) => onSave?.({ ingredients: e.target.value })}
-              rows={9} placeholder="One ingredient per line"
-              style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: 13, padding: '8px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, lineHeight: 1.55, color: C.ink }}
-            />
-          </>
-        ) : (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ ...weekBoxLabel, marginBottom: 0 }}>Servings</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <button data-serve-dec={recipe.id} onClick={() => setServingsCount((c) => Math.max(1, c - 1))}
-                  style={{ width: 24, height: 24, borderRadius: '50%', border: `1px solid ${C.rule}`, background: C.bg, color: C.ink, fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                <span data-serve-count={recipe.id} style={{ fontWeight: 700, color: C.ink, minWidth: 14, textAlign: 'center' }}>{servingsCount}</span>
-                <button data-serve-inc={recipe.id} onClick={() => setServingsCount((c) => Math.min(12, c + 1))}
-                  style={{ width: 24, height: 24, borderRadius: '50%', border: `1px solid ${C.rule}`, background: C.bg, color: C.ink, fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+              <div style={{ marginBottom: 14 }}>
+                <div style={weekBoxLabel}>Protein Label</div>
+                <input
+                  value={proteinLabel}
+                  onChange={(e) => onSave?.({ protein_label: e.target.value })}
+                  placeholder="e.g. ≈ 15g protein"
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '6px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', color: C.ink }}
+                />
               </div>
-            </div>
-            <div>
-              {ingredients.map((line, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < ingredients.length - 1 ? `1px solid ${C.rule}` : 'none' }}>
-                  <div style={{ width: 20, height: 20, borderRadius: 6, background: C.accentSoft, color: C.accent, fontSize: 10.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
-                  <span data-ing-item={i} data-ing-raw={line} style={{ fontSize: 13, color: C.ink }}>{scaleIngredientLine(line, ratio)}</span>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={weekBoxLabel}>Tools &amp; equipment (one per line)</div>
+                <textarea
+                  value={defaults.toolsText}
+                  onChange={(e) => onSave?.({ tools: e.target.value })}
+                  rows={2} placeholder="Blender&#10;Tawa"
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '6px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5, color: C.ink }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={weekBoxLabel}>Directions (one step per line)</div>
+                <textarea
+                  value={defaults.stepsStr}
+                  onChange={(e) => onSave?.({ steps: e.target.value })}
+                  rows={6} placeholder="One step per line"
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 13, padding: '8px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.55, color: C.ink }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={weekBoxLabel}>Notes (one per line)</div>
+                <textarea
+                  value={defaults.notesText}
+                  onChange={(e) => onSave?.({ notes: e.target.value })}
+                  rows={2} placeholder="Best eaten fresh."
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '6px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5, color: C.ink }}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              {proteinLabel && (
+                <div style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 700, color: C.green, background: `color-mix(in srgb, ${C.green} 15%, transparent)`, borderRadius: 20, padding: '4px 10px', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{proteinLabel}</div>
+              )}
+              <div style={{ fontSize: 22, fontWeight: 700, color: C.ink, paddingRight: 28, marginBottom: 20, lineHeight: 1.15 }}>{recipeName}</div>
+
+              {tools.length > 0 && (
+                <div style={{ marginBottom: 22 }}>
+                  <div style={weekBoxLabel}>Tools &amp; equipment</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
+                    {tools.map((t, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: C.ink }}>
+                        <span style={{ width: 20, height: 20, borderRadius: '50%', background: C.accentSoft, color: C.accent, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</span>
+                        {t}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
-            {base !== 1 && <div style={{ fontSize: 11, color: C.muted, fontStyle: 'italic', marginTop: 8 }}>Scaled from {base} servings.</div>}
-          </>
-        )}
-      </div>
-    </div>
+              )}
 
-    {benefits.length > 0 && (
-      <div style={{ background: C.paper, border: `1px solid ${C.rule}`, borderRadius: 14, padding: '18px 20px', marginTop: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <div style={{ ...weekBoxLabel, marginBottom: 0 }}>Why it works</div>
-          <div style={{ flex: 1, height: 1, background: C.rule }} />
+              <div style={{ marginBottom: notes.length ? 20 : 0 }}>
+                <div style={weekBoxLabel}>Directions</div>
+                <div>
+                  {(() => {
+                    const parsedSteps = parseRecipeStructuredLines(defaults.stepsStr)
+                    let stepNum = 0
+                    return parsedSteps.map((item, i) => {
+                      if (item.type === 'header') {
+                        stepNum = 0
+                        return (
+                          <div key={i} style={{ marginTop: i === 0 ? 4 : 18, marginBottom: 8 }}>
+                            <div style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '5px 11px',
+                              borderRadius: 6,
+                              background: C.accentSoft,
+                              color: C.accent,
+                              fontWeight: 700,
+                              fontSize: '0.75rem',
+                              letterSpacing: '0.05em',
+                              textTransform: 'uppercase',
+                              borderLeft: `3px solid ${C.accent}`,
+                            }}>
+                              {item.text}
+                            </div>
+                          </div>
+                        )
+                      }
+                      stepNum++
+                      return (
+                        <div key={i} style={{ display: 'flex', gap: 12, position: 'relative', paddingBottom: i < parsedSteps.length - 1 ? 18 : 0 }}>
+                          {i < parsedSteps.length - 1 && <div style={{ position: 'absolute', left: 12, top: 26, bottom: 0, width: 1.5, background: C.rule }} />}
+                          <div style={{ width: 25, height: 25, borderRadius: '50%', background: C.accent, color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>{stepNum}</div>
+                          <div style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.55, paddingTop: 3 }}>{item.text}</div>
+                        </div>
+                      )
+                    })
+                  })()}
+                </div>
+              </div>
+
+              {notes.length > 0 && (
+                <div>
+                  <div style={weekBoxLabel}>Notes</div>
+                  {notes.map((n, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12.5, color: C.inkSoft, padding: '4px 0', lineHeight: 1.5 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.green, marginTop: 6, flexShrink: 0 }} />
+                      {n}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
-        {benefits.map((b, i) => {
-          const [name, ...rest] = b.split(/\s*—\s*|\s+-\s+/)
-          const desc = rest.join(', ')
-          const BenefitIcon = BENEFIT_ICONS[i % BENEFIT_ICONS.length]
-          return (
-            <div key={i} style={{ display: 'flex', gap: 10, padding: '11px 0', borderBottom: i < benefits.length - 1 ? `1px solid ${C.rule}` : 'none' }}>
-              <div style={{ width: 26, height: 26, borderRadius: 8, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <BenefitIcon size={13} color={C.accent} />
-              </div>
-              <div style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.55 }}>
-                {desc ? <><strong>{name}:</strong> {desc}</> : b}
-              </div>
+
+        <div data-ing-list={recipe.id} data-ing-base={base}>
+          {editable ? (
+            <div>
+              <div style={{ ...weekBoxLabel, marginBottom: 8 }}>Ingredients (one per line)</div>
+              <textarea
+                value={defaults.ingredientsStr}
+                onChange={(e) => onSave?.({ ingredients: e.target.value })}
+                rows={10} placeholder="One ingredient per line"
+                style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: 13, padding: '8px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, lineHeight: 1.55, color: C.ink }}
+              />
             </div>
-          )
-        })}
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={weekBoxLabel}>Ingredients</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button data-serve-dec={recipe.id} onClick={() => setServingsCount((c) => Math.max(1, c - 1))}
+                    style={{ width: 24, height: 24, borderRadius: '50%', border: `1px solid ${C.rule}`, background: C.bg, color: C.ink, fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                  <span data-serve-count={recipe.id} style={{ fontWeight: 700, color: C.ink, minWidth: 14, textAlign: 'center' }}>{servingsCount}</span>
+                  <button data-serve-inc={recipe.id} onClick={() => setServingsCount((c) => Math.min(12, c + 1))}
+                    style={{ width: 24, height: 24, borderRadius: '50%', border: `1px solid ${C.rule}`, background: C.bg, color: C.ink, fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                </div>
+              </div>
+              <div>
+                {(() => {
+                  const parsedIngredients = parseRecipeStructuredLines(defaults.ingredientsStr)
+                  let ingNum = 0
+                  return parsedIngredients.map((item, i) => {
+                    if (item.type === 'header') {
+                      ingNum = 0
+                      return (
+                        <div key={i} style={{ marginTop: i === 0 ? 4 : 16, marginBottom: 6 }}>
+                          <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '5px 11px',
+                            borderRadius: 6,
+                            background: C.accentSoft,
+                            color: C.accent,
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            letterSpacing: '0.05em',
+                            textTransform: 'uppercase',
+                            borderLeft: `3px solid ${C.accent}`,
+                          }}>
+                            {item.text}
+                          </div>
+                        </div>
+                      )
+                    }
+                    ingNum++
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < parsedIngredients.length - 1 ? `1px solid ${C.rule}` : 'none' }}>
+                        <div style={{ width: 20, height: 20, borderRadius: 6, background: C.accentSoft, color: C.accent, fontSize: 10.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{ingNum}</div>
+                        <span data-ing-item={i} data-ing-raw={item.text} style={{ fontSize: 13, color: C.ink }}>{scaleIngredientLine(item.text, ratio)}</span>
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+              {base !== 1 && <div style={{ fontSize: 11, color: C.muted, fontStyle: 'italic', marginTop: 8 }}>Scaled from {base} servings.</div>}
+            </>
+          )}
+        </div>
       </div>
-    )}
-  </>
+
+      {editable ? (
+        <div style={{ background: C.paper, border: `1px solid ${C.rule}`, borderRadius: 14, padding: '16px 18px', marginTop: 24 }}>
+          <div style={{ ...weekBoxLabel, marginBottom: 8 }}>Why it works / Benefits (one per line)</div>
+          <textarea
+            value={defaults.benefitsText}
+            onChange={(e) => onSave?.({ benefits: e.target.value })}
+            rows={3} placeholder="Berries — improve cognitive function"
+            style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: 12.5, padding: '8px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, lineHeight: 1.55, color: C.ink }}
+          />
+        </div>
+      ) : (
+        benefits.length > 0 && (
+          <div style={{ background: C.paper, border: `1px solid ${C.rule}`, borderRadius: 14, padding: '18px 20px', marginTop: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <div style={{ ...weekBoxLabel, marginBottom: 0 }}>Why it works</div>
+              <div style={{ flex: 1, height: 1, background: C.rule }} />
+            </div>
+            {benefits.map((b, i) => {
+              const [name, ...rest] = b.split(/\s*—\s*|\s+-\s+/)
+              const desc = rest.join(', ')
+              const BenefitIcon = BENEFIT_ICONS[i % BENEFIT_ICONS.length]
+              return (
+                <div key={i} style={{ display: 'flex', gap: 10, padding: '11px 0', borderBottom: i < benefits.length - 1 ? `1px solid ${C.rule}` : 'none' }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 8, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <BenefitIcon size={13} color={C.accent} />
+                  </div>
+                  <div style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.55 }}>
+                    {desc ? <><strong>{name}:</strong> {desc}</> : b}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+    </>
   )
 }
 
@@ -885,6 +1160,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
 
   const [checkins, setCheckins] = useState<Checkin[]>(initialCheckins)
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null)
+  const [customUploadedRecipeImages, setCustomUploadedRecipeImages] = useState<Record<string, string>>({})
   const [openMonth, setOpenMonth] = useState<number | null>(null)
   const [openWeek, setOpenWeek] = useState<number | null>(null)
   const [openDay, setOpenDay] = useState<string | null>(null)
@@ -1029,19 +1305,33 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // this content existing (empty on every template until backfilled), so
   // it fills the same way a freshly generated roadmap already does.
   const [regeneratingDaily, setRegeneratingDaily] = useState(false)
+  const [regeneratedDailySuccess, setRegeneratedDailySuccess] = useState(false)
   const [confirmRegenerateDaily, setConfirmRegenerateDaily] = useState(false)
   const [regenerateDailyError, setRegenerateDailyError] = useState('')
   async function regenerateDailyContent() {
     setConfirmRegenerateDaily(false)
     setRegeneratingDaily(true)
+    setRegeneratedDailySuccess(false)
     setRegenerateDailyError('')
     try {
-      const res = await fetch(`/api/compass/roadmaps/${rid}/regenerate-daily-content`, { method: 'POST' })
+      const currentLifestyleText = joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS)
+      const currentMealsText = joinPeriods(mealsByPeriod, MEAL_PERIODS)
+
+      const res = await fetch(`/api/compass/roadmaps/${rid}/regenerate-daily-content`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lifestyle_guidelines: currentLifestyleText,
+          meal_guidelines: currentMealsText,
+        }),
+      })
       const j = await res.json().catch(() => null)
       if (res.ok && j) {
         setLifestyleByPeriod(splitIntoPeriods(j.lifestyle_guidelines || '', LIFESTYLE_PERIODS))
         setMealsByPeriod(splitIntoPeriods(j.meal_guidelines || '', MEAL_PERIODS))
         setDailyScheduleText(j.daily_schedule || '')
+        setRegeneratedDailySuccess(true)
+        setTimeout(() => setRegeneratedDailySuccess(false), 3000)
       } else {
         setRegenerateDailyError(j?.error || 'Regeneration failed — try again.')
       }
@@ -1061,23 +1351,11 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const [theme, setTheme] = useState(data.theme && PALETTES[data.theme] ? data.theme : 'classic')
   const WEEK_FAMILY_TEMPLATES = ['week', 'week-brutal', 'week-earth', 'week-editorial', 'week-neon', 'week-bloom', 'week-care', 'week-aurora']
   const [template, setTemplate] = useState(
-    ['almanac', 'pulse', 'onyx', 'vitals', ...WEEK_FAMILY_TEMPLATES].includes(data.template) ? data.template : 'classic'
+    ['almanac', 'pulse', 'onyx', 'vitals', ...WEEK_FAMILY_TEMPLATES].includes(data.template)
+      ? data.template
+      : duration === 0.25 ? 'week' : 'classic'
   )
-  // Hard-categorized, not just suggested: every Week-family template only
-  // ever makes sense for a single-week plan (each is built assuming one
-  // week_number of data), and every other template assumes month/quarter
-  // structure — mixing them renders broken/empty content. Picking "Week 1"
-  // duration forces a Week-family template (keeping whichever one was
-  // already picked, defaulting to 'week' otherwise); picking any monthly
-  // duration forces off of the Week family if it was somehow still selected
-  // (e.g. duration changed after the fact). The template picker below only
-  // ever offers the matching set.
   const isWeekDuration = duration === 0.25
-  useEffect(() => {
-    if (isWeekDuration) setTemplate((prev) => (WEEK_FAMILY_TEMPLATES.includes(prev) ? prev : 'week'))
-    else setTemplate((prev) => (WEEK_FAMILY_TEMPLATES.includes(prev) ? 'classic' : prev))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [duration])
   const [recipeOverrides, setRecipeOverrides] = useState(data.recipeContentOverrides)
   const [powerPoints, setPowerPoints] = useState(data.powerPoints || [])
   const [careServices, setCareServices] = useState(data.careServices || [])
@@ -1096,7 +1374,18 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   }
   const [hiddenSections, setHiddenSections] = useState<string[]>(data.hiddenSections || [])
   const isHidden = (id: string) => hiddenSections.includes(id)
-  const toggleSection = (id: string) => setHiddenSections((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  const toggleSection = (id: string) =>
+    setHiddenSections((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      if (roadmapId) {
+        fetch(`/api/compass/roadmaps/${roadmapId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ guide_overrides: { hidden_sections: next } }),
+        }).catch(() => {})
+      }
+      return next
+    })
   // Patient view: hide with CSS so nothing renders for them. Editor view:
   // always show (dimmed via the toggle pill) so the coach can switch it back
   // on — but still tag it `data-hidden-section` so downloadDashboard() strips
@@ -1107,12 +1396,28 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
 
+  function ensureBlockLayouts(blocks: ChecklistPageBlock[]): ChecklistPageBlock[] {
+    let maxY = 0
+    blocks.forEach((b) => {
+      if (b.layout) maxY = Math.max(maxY, b.layout.y + b.layout.h)
+    })
+    return blocks.map((b) => {
+      if (b.layout && typeof b.layout.x === 'number' && typeof b.layout.y === 'number' && typeof b.layout.w === 'number' && typeof b.layout.h === 'number') {
+        return b
+      }
+      const defaultH = b.type === 'image' ? 240 : 140
+      const layout: BlockLayout = { x: 0, y: maxY + 16, w: CANVAS_WIDTH, h: defaultH }
+      maxY += defaultH + 16
+      return { ...b, layout }
+    })
+  }
+
   // "Custom blocks" — the same manual canvas editor as the standalone
   // Checklist feature (src/lib/blocks/*), embedded as one more section on
   // this page instead of a separate tool. Folded into this page's existing
   // single save() flow (no separate autosave), so it saves exactly when the
   // coach clicks "Save changes" like everything else here.
-  const [canvasBlocks, setCanvasBlocks] = useState<ChecklistPageBlock[]>(data.canvasBlocks || [])
+  const [canvasBlocks, setCanvasBlocks] = useState<ChecklistPageBlock[]>(() => ensureBlockLayouts(data.canvasBlocks || []))
   const [selectedCanvasBlockId, setSelectedCanvasBlockId] = useState<string | null>(null)
   const [canvasAddMenuOpen, setCanvasAddMenuOpen] = useState(false)
   const [canvasAiOpen, setCanvasAiOpen] = useState(false)
@@ -1144,14 +1449,24 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     return () => observer.disconnect()
   }, [])
 
+  function patchRoadmap(body: Record<string, unknown>) {
+    if (!roadmapId) return
+    fetch(`/api/compass/roadmaps/${roadmapId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).catch(() => {})
+  }
+
   function updateCanvasBlocks(next: ChecklistPageBlock[]) {
-    setCanvasBlocks(next)
+    const formatted = ensureBlockLayouts(next)
+    setCanvasBlocks(formatted)
+    patchRoadmap({ guide_overrides: { canvas_blocks: formatted } })
   }
   function addCanvasBlock(type: BlockType) {
-    if (type === 'image' && localImageBank.length === 0) return
     const bottom = canvasBlocks.reduce((max, b) => Math.max(max, (b.layout?.y ?? 0) + (b.layout?.h ?? 0)), 0)
     const block: ChecklistPageBlock = type === 'image'
-      ? { id: `blk_${Math.random().toString(36).slice(2, 10)}`, type: 'image', image_id: localImageBank[0].id }
+      ? { id: `blk_${Math.random().toString(36).slice(2, 10)}`, type: 'image', image_id: localImageBank[0]?.id || '' }
       : defaultCanvasBlock(type)
     const layout: BlockLayout = { x: 0, y: bottom + 16, w: CANVAS_WIDTH, h: type === 'image' ? 240 : 140 }
     updateCanvasBlocks([...canvasBlocks, { ...block, layout }])
@@ -1493,7 +1808,17 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     })
   }
 
-  const months = reshapeRoadmapIntoMonths(editWeeks).filter((m) => m.planned)
+  const allMonths = useMemo(() => reshapeRoadmapIntoMonths(editWeeks).filter((m) => m.planned), [editWeeks])
+  const months = useMemo(() => {
+    if (editable) return allMonths
+    return allMonths
+      .filter((m) => !hiddenSections.includes(`month-${m.monthNumber}`))
+      .map((m) => ({
+        ...m,
+        weeks: m.weeks.filter((w) => !hiddenSections.includes(`week-${w.week_number}`)),
+      }))
+      .filter((m) => m.weeks.length > 0)
+  }, [allMonths, hiddenSections, editable])
   const parsedGuidelines = parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines)
   const firstName = data.patient?.full_name?.split(' ')[0] ?? 'there'
   const coachFirst = data.coach?.full_name?.split(' ')[0] || 'your coach'
@@ -1719,6 +2044,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
       combinedImages.set(m.recipe.id, img?.image_url ?? null)
     }
   }))
+  Object.entries(customUploadedRecipeImages).forEach(([id, url]) => combinedImages.set(id, url))
 
   // Downloads exactly what's rendered on screen — everything in this
   // component is inline-styled (no external stylesheet to lose), so cloning
@@ -1869,7 +2195,14 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             {allMatches.map((m) => (
               <div key={m.recipe.id} data-recipe-body={m.recipe.id} style={{ display: openRecipeId === m.recipe.id ? 'block' : 'none' }}>
                 <RecipeBody recipe={m.recipe} imageUrl={combinedImages.get(m.recipe.id) ?? null} override={recipeOverrides[m.recipe.id]} editable={editable}
-                  onSave={(patch) => setRecipeOverrides((prev) => ({ ...prev, [m.recipe.id]: { ingredients: prev[m.recipe.id]?.ingredients ?? m.recipe.ingredients, steps: prev[m.recipe.id]?.steps ?? m.recipe.steps, ...patch } }))} />
+                  onSave={(patch) => {
+                    setRecipeOverrides((prev) => {
+                      const next = { ...prev, [m.recipe.id]: { ...prev[m.recipe.id], ...patch } }
+                      patchRoadmap({ guide_overrides: { recipe_content_overrides: next } })
+                      return next
+                    })
+                  }}
+                  onImageUpdate={(id, url) => setCustomUploadedRecipeImages((prev) => ({ ...prev, [id]: url }))} />
               </div>
             ))}
           </div>
@@ -2108,55 +2441,18 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             <div style={{ maxWidth: 480, marginLeft: 'auto', marginRight: 'auto', marginTop: 10, textAlign: 'left' }}>
               <div style={editLabelStyle}>Goal (shown at the top)</div>
               <input style={editInputStyle} value={goalLabel} onChange={(e) => setGoalLabel(e.target.value)} placeholder="e.g. Steady energy, no more 4pm crashes" />
-              <div style={{ ...editLabelStyle, marginTop: 14 }}>Plan look</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {PALETTE_LIST.map((p) => (
-                  <button key={p.id} onClick={() => setTheme(p.id)}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, cursor: 'pointer',
-                      border: theme === p.id ? `2px solid ${PALETTES[p.id].accent}` : `1px solid ${C.rule}`,
-                      background: theme === p.id ? PALETTES[p.id].accentSoft : '#fff', fontSize: 12, fontWeight: 700, color: PALETTES[p.id].ink,
-                    }}>
-                    <span style={{ width: 12, height: 12, borderRadius: '50%', background: PALETTES[p.id].accent, flexShrink: 0 }} />
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-              {(template === 'onyx' || template === 'almanac' || WEEK_FAMILY_TEMPLATES.includes(template)) && (
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 5 }}>
-                  {template === 'onyx' ? 'Onyx' : template === 'almanac' ? 'Almanac' : 'This Week template'} has its own fixed look, not affected by Plan look.
-                </div>
-              )}
-              <div style={{ ...editLabelStyle, marginTop: 14 }}>Template {isWeekDuration ? <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(Weekly Protocol)</span> : <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(Monthly Program)</span>}</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {(isWeekDuration
-                  ? [
-                      { id: 'week', label: 'Week' },
-                      { id: 'week-brutal', label: 'Brutal' },
-                      { id: 'week-earth', label: 'Earth' },
-                      { id: 'week-editorial', label: 'Editorial' },
-                      { id: 'week-neon', label: 'Neon' },
-                      { id: 'week-bloom', label: 'Bloom' },
-                      { id: 'week-care', label: 'Care Canvas' },
-                      { id: 'week-aurora', label: 'Aurora' },
-                    ]
-                  : [{ id: 'classic', label: 'Classic' }, { id: 'almanac', label: 'Almanac' }, { id: 'pulse', label: 'Pulse' }, { id: 'onyx', label: 'Onyx' }, { id: 'vitals', label: 'Vitals' }]
-                ).map((t) => (
-                  <button key={t.id} onClick={() => setTemplate(t.id)}
-                    style={{
-                      padding: '6px 14px', borderRadius: 20, cursor: 'pointer', fontSize: 12, fontWeight: 700,
-                      border: template === t.id ? `2px solid ${C.accent}` : `1px solid ${C.rule}`,
-                      background: template === t.id ? C.accentSoft : '#fff', color: C.ink,
-                    }}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 5 }}>
-                {isWeekDuration
-                  ? 'A single-week plan only ever uses a checklist-style Week template — pick whichever look fits this patient.'
-                  : 'Changes only what the patient sees. You always edit here in Classic, regardless of which one is picked.'}
-              </div>
+              <TemplateSelectorModal
+                currentTemplate={template}
+                currentTheme={theme}
+                onSelectTemplate={(tId) => {
+                  setTemplate(tId)
+                  patchRoadmap({ guide_overrides: { template: tId } })
+                }}
+                onSelectTheme={(thId) => {
+                  setTheme(thId)
+                  patchRoadmap({ guide_overrides: { theme: thId } })
+                }}
+              />
             </div>
           ) : (
             <div style={{ fontSize: 13.5, color: C.inkSoft, marginTop: 6, maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>{goalLabel}</div>
@@ -2626,8 +2922,20 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <div style={sectionTitleStyle}>Daily lifestyle / meals / schedule</div>
                 <button type="button" onClick={() => setConfirmRegenerateDaily(true)} disabled={regeneratingDaily}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '7px 12px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.paper, color: C.accent, cursor: regeneratingDaily ? 'default' : 'pointer', opacity: regeneratingDaily ? 0.6 : 1 }}>
-                  <Sparkles size={13} /> {regeneratingDaily ? 'Regenerating…' : 'Ask AI to regenerate all 3'}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '7px 12px', borderRadius: 10, border: `1px solid ${regeneratedDailySuccess ? '#1E7A34' : C.rule}`, background: regeneratedDailySuccess ? '#F0FDF4' : C.paper, color: regeneratedDailySuccess ? '#1E7A34' : C.accent, cursor: regeneratingDaily ? 'default' : 'pointer', opacity: regeneratingDaily ? 0.6 : 1 }}>
+                  {regeneratingDaily ? (
+                    <>
+                      <Loader2 size={13} style={{ animation: 'clpBulkAiSpin 1s linear infinite' }} /> Regenerating…
+                    </>
+                  ) : regeneratedDailySuccess ? (
+                    <>
+                      <Check size={13} color="#1E7A34" /> Generated ✓
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={13} /> Ask AI to regenerate all 3
+                    </>
+                  )}
                 </button>
               </div>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Same content the patient sees under &quot;Daily Lifestyle Guidelines,&quot; &quot;Breakfast, Lunch &amp; Dinner,&quot; and &quot;Daily Schedule,&quot; edited together here. Empty on an older roadmap generated before this content existed — regenerate to backfill it, grounded in this roadmap&apos;s own overview, diet protocol, and confirmed supplements.</div>
@@ -2704,6 +3012,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                         <LinkInsertButton getTextarea={() => mealsTextareaRefs.current[period]} value={textOnlyValue(mealsByPeriod[period])}
                           onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} onLinked={addKeywordLink} />
+                        <RecipeLinkInsertButton getTextarea={() => mealsTextareaRefs.current[period]} value={textOnlyValue(mealsByPeriod[period])}
+                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} recipeBank={data.recipeBank} shareToken={shareToken} />
                         <ProtocolPickerButton value={textOnlyValue(mealsByPeriod[period])}
                           onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} />
                         <ImageInsertButton value={mealsByPeriod[period]}
@@ -2905,16 +3215,34 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   Pick a week, then edit its goals and pick its recipes right here — everything for that week in one place. Different weeks can have different goals and recipes.
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                  {months.flatMap((m) => m.weeks).map((wk: WeeklyPlan) => (
-                    <button key={wk.week_number} onClick={() => setEditingWeek(wk.week_number)}
-                      style={{
-                        padding: '6px 12px', borderRadius: 20, cursor: 'pointer', fontSize: 12, fontWeight: 700,
-                        border: currentWeek === wk.week_number ? `2px solid ${C.accent}` : `1px solid ${C.rule}`,
-                        background: currentWeek === wk.week_number ? C.accentSoft : C.paper, color: C.ink,
-                      }}>
-                      Week {wk.week_number}
-                    </button>
-                  ))}
+                  {months.flatMap((m) => m.weeks).map((wk: WeeklyPlan) => {
+                    const isWkHidden = isHidden(`week-${wk.week_number}`)
+                    return (
+                      <div key={wk.week_number} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                        <button onClick={() => setEditingWeek(wk.week_number)}
+                          style={{
+                            padding: '6px 12px', borderRadius: 20, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                            border: currentWeek === wk.week_number ? `2px solid ${C.accent}` : `1px ${isWkHidden ? 'dashed' : 'solid'} ${C.rule}`,
+                            background: currentWeek === wk.week_number ? C.accentSoft : isWkHidden ? '#F9F8F3' : C.paper,
+                            color: isWkHidden ? C.muted : C.ink,
+                            opacity: isWkHidden ? 0.75 : 1,
+                          }}>
+                          Week {wk.week_number} {isWkHidden && <span style={{ fontSize: 10, opacity: 0.75, marginLeft: 2 }}>(Hidden)</span>}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); toggleSection(`week-${wk.week_number}`) }}
+                          title={isWkHidden ? `Unhide Week ${wk.week_number} for patient` : `Hide Week ${wk.week_number} from patient`}
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px',
+                            color: isWkHidden ? C.accent : C.muted, display: 'inline-flex', alignItems: 'center'
+                          }}
+                        >
+                          {isWkHidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
 
                 {/* This week's goal template — focus/actions/milestone, same
@@ -3059,55 +3387,94 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           <div id="recipes" {...hiddenAttrs('recipes')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('recipes') }}>
             {editable && <SectionToggle hidden={isHidden('recipes')} onToggle={() => toggleSection('recipes')} />}
             <div style={sectionTitleStyle}><ChefHat size={18} color={C.accent} /> Your recipes</div>
-            {editable && roadmapId && (
-              <div style={{ marginTop: 8 }}>
-                <AiBulkRecipeEditButton roadmapId={roadmapId} onApply={(o) => setRecipeOverrides((prev) => ({ ...prev, ...o }))} />
+            {editable && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {roadmapId && (
+                  <AiBulkRecipeEditButton
+                    roadmapId={roadmapId}
+                    onApply={(o) => {
+                      setRecipeOverrides((prev) => {
+                        const next = { ...prev, ...o }
+                        patchRoadmap({ guide_overrides: { recipe_content_overrides: next } })
+                        return next
+                      })
+                    }}
+                  />
+                )}
+                <CombineRecipesButton
+                  recipes={data.recipeBank}
+                  recipeOverrides={recipeOverrides}
+                  manualRecipes={manualRecipes}
+                  weeklyManualRecipes={weeklyManualRecipes}
+                  weekMealMatches={weekMealMatches}
+                  onApply={(nextOverrides, nextManual, nextWeekly) => {
+                    setRecipeOverrides(nextOverrides)
+                    setManualRecipes(nextManual)
+                    setWeeklyManualRecipes(nextWeekly)
+                    patchRoadmap({
+                      guide_overrides: {
+                        recipe_content_overrides: nextOverrides,
+                        manual_recipes: nextManual,
+                        weekly_manual_recipes: nextWeekly,
+                      },
+                    })
+                  }}
+                />
               </div>
             )}
-            {recipesBySlot.every((s) => s.matches.length === 0) ? (
+            {recipesBySlot.every((s) => s.matches.filter((m) => !recipeOverrides[m.recipe.id]?.hidden).length === 0) ? (
               <p style={{ fontSize: 13, color: C.muted, marginTop: 12 }}>Not planned yet, check back once your coach generates your roadmap.</p>
             ) : (
               <>
                 <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginTop: 16 }}>
-                  {recipesBySlot.map(({ slot, matches }) => (
-                    <button key={slot} data-slot-trigger={slot} onClick={() => setOpenSlot(slot)}
-                      style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.bg, cursor: 'pointer' }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>{SLOT_LABELS[slot]}</div>
-                      <div style={{ fontSize: 11.5, color: matches.length ? C.accent : C.muted, marginTop: 4, fontWeight: 600 }}>
-                        {matches.length ? `${matches.length} recipe${matches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
-                      </div>
-                    </button>
-                  ))}
+                  {recipesBySlot.map(({ slot, matches }) => {
+                    const visible = matches.filter((m) => !recipeOverrides[m.recipe.id]?.hidden)
+                    return (
+                      <button key={slot} data-slot-trigger={slot} onClick={() => setOpenSlot(slot)}
+                        style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.bg, cursor: 'pointer' }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>{SLOT_LABELS[slot]}</div>
+                        <div style={{ fontSize: 11.5, color: visible.length ? C.accent : C.muted, marginTop: 4, fontWeight: 600 }}>
+                          {visible.length ? `${visible.length} recipe${visible.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
-                {recipesBySlot.map(({ slot, matches }) => (
-                  <div key={slot} data-slot-body={slot} style={{ display: openSlot === slot ? 'block' : 'none', marginTop: 16 }}>
-                    <button data-slot-back onClick={() => setOpenSlot(null)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: C.accent, fontSize: 12.5, fontWeight: 700, padding: 0, marginBottom: 12 }}>
-                      ← Back to meal slots
-                    </button>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</div>
-                    {matches.length > 0 ? (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-                        {matches.map((m) => (
-                          <button key={m.recipe.id} data-recipe-trigger={m.recipe.id} onClick={() => setOpenRecipeId(m.recipe.id)}
-                            style={{ textAlign: 'left', padding: 0, borderRadius: 12, border: `1px solid ${C.rule}`, background: C.bg, overflow: 'hidden', cursor: 'pointer' }}>
-                            {combinedImages.get(m.recipe.id) ? (
-                              <img src={combinedImages.get(m.recipe.id) ?? undefined} alt={m.recipe.name} style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
-                            ) : (
-                              <div style={{ width: '100%', height: 90, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChefHat size={20} color={C.accent} /></div>
-                            )}
-                            <div style={{ padding: '8px 10px' }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>{m.recipe.name}</div>
-                              {m.recipe.protein_label && <div style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{m.recipe.protein_label}</div>}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 12.5, color: C.muted }}>Nothing detected for {SLOT_LABELS[slot].toLowerCase()} yet, {coachFirst} will add some.</div>
-                    )}
-                  </div>
-                ))}
+                {recipesBySlot.map(({ slot, matches }) => {
+                  const visible = matches.filter((m) => !recipeOverrides[m.recipe.id]?.hidden)
+                  return (
+                    <div key={slot} data-slot-body={slot} style={{ display: openSlot === slot ? 'block' : 'none', marginTop: 16 }}>
+                      <button data-slot-back onClick={() => setOpenSlot(null)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: C.accent, fontSize: 12.5, fontWeight: 700, padding: 0, marginBottom: 12 }}>
+                        ← Back to meal slots
+                      </button>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</div>
+                      {visible.length > 0 ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+                          {visible.map((m) => {
+                            const displayName = recipeOverrides[m.recipe.id]?.name ?? m.recipe.name
+                            return (
+                              <button key={m.recipe.id} data-recipe-trigger={m.recipe.id} onClick={() => setOpenRecipeId(m.recipe.id)}
+                                style={{ textAlign: 'left', padding: 0, borderRadius: 12, border: `1px solid ${C.rule}`, background: C.bg, overflow: 'hidden', cursor: 'pointer' }}>
+                                {combinedImages.get(m.recipe.id) ? (
+                                  <img src={combinedImages.get(m.recipe.id) ?? undefined} alt={displayName} style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
+                                ) : (
+                                  <div style={{ width: '100%', height: 90, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChefHat size={20} color={C.accent} /></div>
+                                )}
+                                <div style={{ padding: '8px 10px' }}>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>{displayName}</div>
+                                  {m.recipe.protein_label && <div style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{m.recipe.protein_label}</div>}
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12.5, color: C.muted }}>Nothing detected for {SLOT_LABELS[slot].toLowerCase()} yet, {coachFirst} will add some.</div>
+                      )}
+                    </div>
+                  )
+                })}
               </>
             )}
           </div>
@@ -3546,15 +3913,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       </button>
                       {canvasAddMenuOpen && (
                         <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 20, background: C.paper, border: `1px solid ${C.rule}`, borderRadius: 10, padding: 6, boxShadow: '0 8px 20px rgba(17,24,39,0.12)' }}>
-                          {CANVAS_ADDABLE_TYPES.map((t) => {
-                            const disabled = t === 'image' && localImageBank.length === 0
-                            return (
-                              <button key={t} onClick={() => !disabled && addCanvasBlock(t)} disabled={disabled} title={disabled ? 'Upload a picture to the Picture bank first' : undefined}
-                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: disabled ? C.muted : C.ink, fontSize: 12.5, cursor: disabled ? 'not-allowed' : 'pointer' }}>
-                                {CANVAS_BLOCK_LABELS[t]}{disabled ? ' (no pictures yet)' : ''}
-                              </button>
-                            )
-                          })}
+                          {CANVAS_ADDABLE_TYPES.map((t) => (
+                            <button key={t} onClick={() => addCanvasBlock(t)}
+                              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: C.ink, fontSize: 12.5, cursor: 'pointer' }}>
+                              {CANVAS_BLOCK_LABELS[t]}
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>

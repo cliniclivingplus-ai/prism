@@ -12,7 +12,7 @@ import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
   HeartPulse, Utensils, Pill, Phone, Clock, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Flame, Target, TrendingUp,
-  Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon,
+  Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon, Eye, EyeOff,
   type LucideIcon, AlertTriangle, Plus,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
@@ -25,6 +25,7 @@ import ImageInsertButton from '@/components/ImageInsertButton'
 import { CareServiceLinkButton, CareServiceLinkFields, isVisibleCareService } from '@/components/CareServiceLink'
 import ImagePreviewStrip from '@/components/ImagePreviewStrip'
 import { splitRecipeLines } from '@/lib/recipeText'
+import { RecipeIngredientsRenderer, RecipeDirectionsRenderer } from '@/components/RecipeContentRenderer'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { matchGuideImageDistinct } from '@/lib/pdf/matchGuideImage'
@@ -36,6 +37,7 @@ import { splitIntoPeriods, parseScheduleLines, joinPeriods } from '@/lib/periodB
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import InlineEditableText from '@/components/InlineEditableText'
 import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
+import CombineRecipesButton from '@/components/CombineRecipesButton'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
 const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
@@ -241,8 +243,16 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
 
   const firstName = data.patient.full_name?.split(' ')[0] || 'there'
   const coachFirst = data.coach?.full_name?.split(' ')[0] || 'your coach'
-  const hiddenSections = data.hiddenSections ?? []
+  const [hiddenSections, setHiddenSections] = useState<string[]>(data.hiddenSections || [])
   const isHidden = (id: string) => hiddenSections.includes(id)
+  function toggleSection(id: string) {
+    setHiddenSections((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      patchRoadmap({ guide_overrides: { hidden_sections: next } })
+      return next
+    })
+  }
+  const hiddenStyle = (id: string): CSSProperties => (!editable && isHidden(id) ? { display: 'none' } : {})
   const parsed = useMemo(() => parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines), [data.roadmap.nutritionist_guidelines])
   const lifestyleBullets = useMemo(() => parseBullets(data.roadmap.lifestyle_guidelines), [data.roadmap.lifestyle_guidelines])
 
@@ -250,7 +260,17 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
   // WeekTemplate's own weeklySchedule state, just reshaped into months for
   // Pulse's multi-week roadmap section instead of showing week 1 alone.
   const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
-  const months = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+  const allMonths = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+  const months = useMemo(() => {
+    if (editable) return allMonths
+    return allMonths
+      .filter((m) => !hiddenSections.includes(`month-${m.monthNumber}`))
+      .map((m) => ({
+        ...m,
+        weeks: m.weeks.filter((w) => !hiddenSections.includes(`week-${w.week_number}`)),
+      }))
+      .filter((m) => m.weeks.length > 0)
+  }, [allMonths, hiddenSections, editable])
 
   // A week with no per-day breakdown (`days`) falls back to sharing one
   // `actions` list across every day (see the render below) — editing any
@@ -541,6 +561,9 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
   // other field here.
   const [supplementRows, setSupplementRows] = useState(data.confirmedSupplements)
   const [recipeOverrides, setRecipeOverrides] = useState(data.recipeContentOverrides)
+  useEffect(() => {
+    if (data.recipeContentOverrides) setRecipeOverrides(data.recipeContentOverrides)
+  }, [data.recipeContentOverrides])
   function updateSupplementRow(i: number, patch: Partial<GuideData['confirmedSupplements'][number]>) {
     setSupplementRows((prev) => {
       const next = prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
@@ -1251,22 +1274,39 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
             <SecTitle icon={<MapPin size={20} />}>Your roadmap</SecTitle>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 18 }}>
-              {months.map((m) => (
-                <button key={m.monthNumber} data-month-trigger={m.monthNumber} onClick={() => { const next = openMonth === m.monthNumber ? null : m.monthNumber; setOpenMonth(next); setOpenWeek(null); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
-                  style={{
-                    padding: '8px 16px', borderRadius: 20, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700,
-                    border: `1px solid ${openMonth === m.monthNumber ? PULSE.accent : PULSE.border}`,
-                    background: openMonth === m.monthNumber ? PULSE.accent : 'transparent', color: openMonth === m.monthNumber ? '#fff' : PULSE.ink,
-                  }}>
-                  {m.monthLabel}
-                </button>
-              ))}
+              {months.map((m) => {
+                const isMthHidden = isHidden(`month-${m.monthNumber}`)
+                return (
+                  <div key={m.monthNumber} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                    <button data-month-trigger={m.monthNumber} onClick={() => { const next = openMonth === m.monthNumber ? null : m.monthNumber; setOpenMonth(next); setOpenWeek(null); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
+                      style={{
+                        padding: '8px 16px', borderRadius: 20, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700,
+                        border: `1px ${isMthHidden ? 'dashed' : 'solid'} ${openMonth === m.monthNumber ? PULSE.accent : PULSE.border}`,
+                        background: openMonth === m.monthNumber ? PULSE.accent : 'transparent', color: openMonth === m.monthNumber ? '#fff' : PULSE.ink,
+                        opacity: isMthHidden ? 0.65 : 1,
+                      }}>
+                      {m.monthLabel} {isMthHidden && <span style={{ opacity: 0.75 }}>(Hidden)</span>}
+                    </button>
+                    {editable && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleSection(`month-${m.monthNumber}`) }}
+                        title={isMthHidden ? `Unhide Month ${m.monthNumber} for patient` : `Hide Month ${m.monthNumber} from patient`}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: isMthHidden ? PULSE.accent : PULSE.muted }}
+                      >
+                        {isMthHidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             {months.map((m) => (
               <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 22, display: openMonth === m.monthNumber ? 'block' : 'none' }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
                   {m.weeks.map((w) => {
+                    const isWkHidden = isHidden(`week-${w.week_number}`)
                     // A div in edit mode: a text field inside a <button> would
                     // toggle the week on every click into it (and on Space).
                     const WeekCard = editable ? 'div' : 'button'
@@ -1274,10 +1314,25 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                     <WeekCard key={w.week_number} data-week-trigger={w.week_number} role={editable ? 'button' : undefined} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
                       style={{
                         textAlign: 'left', padding: '11px 15px', borderRadius: 12, cursor: 'pointer', minWidth: 150,
-                        border: `1px solid ${openWeek === w.week_number ? PULSE.accent : PULSE.border}`,
+                        border: `1px ${isWkHidden ? 'dashed' : 'solid'} ${openWeek === w.week_number ? PULSE.accent : PULSE.border}`,
                         background: openWeek === w.week_number ? PULSE.accentSoft : PULSE.bg,
+                        opacity: isWkHidden ? 0.65 : 1,
                       }}>
-                      <div style={{ color: PULSE.accentDeep, fontSize: '0.72rem', fontWeight: 700 }}>Week {w.week_number}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                        <div style={{ color: PULSE.accentDeep, fontSize: '0.72rem', fontWeight: 700 }}>
+                          Week {w.week_number} {isWkHidden && <span style={{ opacity: 0.75 }}>(Hidden)</span>}
+                        </div>
+                        {editable && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleSection(`week-${w.week_number}`) }}
+                            title={isWkHidden ? `Unhide Week ${w.week_number} for patient` : `Hide Week ${w.week_number} from patient`}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: isWkHidden ? PULSE.accent : PULSE.muted }}
+                          >
+                            {isWkHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                        )}
+                      </div>
                       {editable ? (
                         <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 3 }}>
                           <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
@@ -1358,9 +1413,37 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
             <Card id="recipes" hidden={isHidden('recipes')}>
               <Eyebrow>Picked for your plan</Eyebrow>
               <SecTitle icon={<ChefHat size={20} />}>Your recipes</SecTitle>
-            {editable && roadmapId && (
-              <div style={{ marginTop: 8 }}>
-                <AiBulkRecipeEditButton roadmapId={roadmapId} onApply={(o) => setRecipeOverrides((prev) => ({ ...prev, ...o }))} />
+            {editable && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {roadmapId && (
+                  <AiBulkRecipeEditButton
+                    roadmapId={roadmapId}
+                    onApply={(o) => {
+                      setRecipeOverrides((prev) => {
+                        const next = { ...prev, ...o }
+                        patchRoadmap({ guide_overrides: { recipe_content_overrides: next } })
+                        return next
+                      })
+                    }}
+                  />
+                )}
+                <CombineRecipesButton
+                  recipes={data.recipeBank}
+                  recipeOverrides={recipeOverrides}
+                  manualRecipes={data.manualRecipes}
+                  weeklyManualRecipes={data.weeklyManualRecipes}
+                  weekMealMatches={weekMealMatches}
+                  onApply={(nextOverrides, nextManual, nextWeekly) => {
+                    setRecipeOverrides(nextOverrides)
+                    patchRoadmap({
+                      guide_overrides: {
+                        recipe_content_overrides: nextOverrides,
+                        manual_recipes: nextManual,
+                        weekly_manual_recipes: nextWeekly,
+                      },
+                    })
+                  }}
+                />
               </div>
             )}
               {(() => {
@@ -1369,13 +1452,14 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                   <div style={{ marginTop: 16 }}>
                     <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginTop: 10 }}>
                       {weekSlotRecipes.map(({ slot, matches }) => {
+                        const visibleMatches = matches.filter(({ recipe }) => !recipeOverrides[recipe.id]?.hidden)
                         const slotId = `${w.week_number}-${slot}`
                         return (
                           <button key={slot} data-slot-trigger={slotId} onClick={() => setOpenSlot(slotId)}
                             style={{ textAlign: 'left', padding: '11px 13px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${PULSE.border}`, background: PULSE.bg }}>
                             <div style={{ fontSize: '0.83rem', fontWeight: 700, color: PULSE.ink }}>{SLOT_LABELS[slot]}</div>
-                            <div style={{ fontSize: '0.75rem', color: matches.length ? PULSE.accent : PULSE.muted, marginTop: 4, fontWeight: 600 }}>
-                              {matches.length ? `${matches.length} recipe${matches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
+                            <div style={{ fontSize: '0.75rem', color: visibleMatches.length ? PULSE.accent : PULSE.muted, marginTop: 4, fontWeight: 600 }}>
+                              {visibleMatches.length ? `${visibleMatches.length} recipe${visibleMatches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
                             </div>
                           </button>
                         )
@@ -1383,6 +1467,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                     </div>
 
                     {weekSlotRecipes.map(({ slot, matches }) => {
+                      const visibleMatches = matches.filter(({ recipe }) => !recipeOverrides[recipe.id]?.hidden)
                       const slotId = `${w.week_number}-${slot}`
                       return (
                       <div key={slot} data-slot-body={slotId} style={{ display: openSlot === slotId ? 'block' : 'none', marginTop: 14 }}>
@@ -1391,22 +1476,23 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                           ← Back to meal slots
                         </button>
                         <div style={{ fontSize: '0.8rem', fontWeight: 700, color: PULSE.ink, marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</div>
-                        {matches.length > 0 ? (
+                        {visibleMatches.length > 0 ? (
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-                            {matches.map(({ recipe }) => {
+                            {visibleMatches.map(({ recipe }) => {
                               const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                              const recipeName = recipeOverrides[recipe.id]?.name ?? recipe.name
                               return (
                               <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
                                 style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? PULSE.accentSoft : PULSE.bg, border: `1px solid ${openRecipeId === recipeKey ? PULSE.accent : PULSE.border}`, borderRadius: 14, overflow: 'hidden' }}>
                                 {recipe.image_url ? (
-                                  <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', height: 96, objectFit: 'cover', display: 'block' }} />
+                                  <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', height: 96, objectFit: 'cover', display: 'block' }} />
                                 ) : (
                                   <div style={{ width: '100%', height: 96, background: PULSE.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <ChefHat size={20} color={PULSE.accent} />
                                   </div>
                                 )}
                                 <div style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                                  <span style={{ color: PULSE.ink, fontSize: '0.83rem', fontWeight: 700 }}>{recipe.name}</span>
+                                  <span style={{ color: PULSE.ink, fontSize: '0.83rem', fontWeight: 700 }}>{recipeName}</span>
                                   {openRecipeId === recipeKey ? <ChevronDown size={14} color={PULSE.accent} style={{ flexShrink: 0 }} /> : <ChevronRight size={14} color={PULSE.muted} style={{ flexShrink: 0 }} />}
                                 </div>
                               </button>
@@ -1417,8 +1503,9 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                           <div style={{ fontSize: '0.83rem', color: PULSE.muted }}>Nothing detected for {SLOT_LABELS[slot].toLowerCase()} yet, {coachFirst} will add some.</div>
                         )}
 
-                        {matches.map(({ recipe }) => {
+                        {visibleMatches.map(({ recipe }) => {
                           const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                          const recipeName = recipeOverrides[recipe.id]?.name ?? recipe.name
                           return (
                           <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: PULSE.bg, border: `1px solid ${PULSE.border}`, borderRadius: 16, padding: '1.5rem', position: 'relative' }}>
                             <button onClick={() => setOpenRecipeId(null)} data-no-export style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: PULSE.muted }}><X size={18} /></button>
@@ -1436,7 +1523,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                               <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 22, alignItems: 'stretch' }}>
                                 {recipe.image_url && (
                                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 12, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
+                                    <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', borderRadius: 12, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
                                     {facts.length > 0 && (
                                       <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                         {facts.map(([label, value]) => (
@@ -1484,7 +1571,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                                 )}
                                 <div>
                                   {recipe.protein_label && <Eyebrow>{recipe.protein_label}</Eyebrow>}
-                                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: PULSE.ink, margin: '0 0 16px' }}>{recipe.name}</h3>
+                                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: PULSE.ink, margin: '0 0 16px' }}>{recipeName}</h3>
                                   <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Ingredients</span>
                                   {editable ? (
                                     <textarea
@@ -1495,14 +1582,10 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                                       style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: '0.85rem', padding: '8px 10px', border: `1px solid ${PULSE.border}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, margin: '10px 0 20px', lineHeight: 1.5, color: PULSE.ink }}
                                     />
                                   ) : (
-                                    <ul style={{ listStyle: 'none', margin: '10px 0 20px', padding: 0, display: 'grid', gap: 8 }}>
-                                      {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
-                                        <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PULSE.inkSoft, fontSize: '0.85rem', lineHeight: 1.5 }}>
-                                          <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PULSE.accent, marginTop: 7 }} />
-                                          <span>{line}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
+                                    <RecipeIngredientsRenderer
+                                      rawText={recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients}
+                                      colors={{ accent: PULSE.accent, text: PULSE.inkSoft, accentSoft: PULSE.accentSoft }}
+                                    />
                                   )}
                                   <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: PULSE.accent }}>Directions</span>
                                   {editable ? (
@@ -1514,14 +1597,10 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                                       style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: '0.85rem', padding: '8px 10px', border: `1px solid ${PULSE.border}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, margin: '10px 0 0', lineHeight: 1.5, color: PULSE.ink }}
                                     />
                                   ) : (
-                                    <ol style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 12 }}>
-                                      {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
-                                        <li key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                                          <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: PULSE.accentSoft, color: PULSE.accentDeep, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-                                          <span style={{ color: PULSE.inkSoft, fontSize: '0.85rem', lineHeight: 1.55, paddingTop: 1 }}>{line}</span>
-                                        </li>
-                                      ))}
-                                    </ol>
+                                    <RecipeDirectionsRenderer
+                                      rawText={recipeOverrides[recipe.id]?.steps ?? recipe.steps}
+                                      colors={{ accent: PULSE.accent, text: PULSE.inkSoft, accentSoft: PULSE.accentSoft, stepBadgeColor: PULSE.accentDeep }}
+                                    />
                                   )}
                                   {!recipe.image_url && recipe.benefits && recipe.benefits.length > 0 && (
                                     <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${PULSE.border}` }}>

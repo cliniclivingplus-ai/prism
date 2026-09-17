@@ -16,7 +16,7 @@ import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
   HeartPulse, Utensils, Pill, Phone, Clock, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
-  Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon, Flame, Award,
+  Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon, Flame, Award, Eye, EyeOff,
   type LucideIcon, AlertTriangle, Plus,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
@@ -28,6 +28,7 @@ import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkd
 import ImageInsertButton from '@/components/ImageInsertButton'
 import ImagePreviewStrip from '@/components/ImagePreviewStrip'
 import { splitRecipeLines } from '@/lib/recipeText'
+import { RecipeIngredientsRenderer, RecipeDirectionsRenderer } from '@/components/RecipeContentRenderer'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { matchGuideImageDistinct } from '@/lib/pdf/matchGuideImage'
@@ -40,6 +41,7 @@ import { splitIntoPeriods, parseScheduleLines, joinPeriods } from '@/lib/periodB
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import InlineEditableText from '@/components/InlineEditableText'
 import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
+import CombineRecipesButton from '@/components/CombineRecipesButton'
 import { CareServiceLinkButton, isVisibleCareService } from '@/components/CareServiceLink'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
@@ -186,8 +188,16 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
 
   const firstName = data.patient.full_name?.split(' ')[0] || 'there'
   const coachFirst = data.coach?.full_name?.split(' ')[0] || 'your coach'
-  const hiddenStyle = (id: string): CSSProperties => ((data.hiddenSections ?? []).includes(id) ? { display: 'none' } : {})
-  const isHidden = (id: string) => (data.hiddenSections ?? []).includes(id)
+  const [hiddenSections, setHiddenSections] = useState<string[]>(data.hiddenSections || [])
+  const isHidden = (id: string) => hiddenSections.includes(id)
+  function toggleSection(id: string) {
+    setHiddenSections((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      patchRoadmap({ guide_overrides: { hidden_sections: next } })
+      return next
+    })
+  }
+  const hiddenStyle = (id: string): CSSProperties => (!editable && isHidden(id) ? { display: 'none' } : {})
   const parsed = useMemo(() => parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines), [data.roadmap.nutritionist_guidelines])
   const lifestyleBullets = useMemo(() => parseBullets(data.roadmap.lifestyle_guidelines), [data.roadmap.lifestyle_guidelines])
 
@@ -203,7 +213,17 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
   // shows every month/week, so the editable copy stays the full raw
   // weekly_schedule and `months` is re-derived from it live.
   const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
-  const months = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+  const allMonths = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+  const months = useMemo(() => {
+    if (editable) return allMonths
+    return allMonths
+      .filter((m) => !hiddenSections.includes(`month-${m.monthNumber}`))
+      .map((m) => ({
+        ...m,
+        weeks: m.weeks.filter((w) => !hiddenSections.includes(`week-${w.week_number}`)),
+      }))
+      .filter((m) => m.weeks.length > 0)
+  }, [allMonths, hiddenSections, editable])
 
   // Founder's note / coach's note / your why — real coach/patient text, not
   // covered by WeekTemplate's editable scope, but same InlineEditableText +
@@ -291,6 +311,13 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
   const [openSlot, setOpenSlot] = useState<string | null>(null)
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null)
 
+  const [recipeOverrides, setRecipeOverrides] = useState(data.recipeContentOverrides)
+  useEffect(() => {
+    if (data.recipeContentOverrides) {
+      setRecipeOverrides(data.recipeContentOverrides)
+    }
+  }, [data.recipeContentOverrides])
+
   // Every distinct recipe used anywhere in the plan, deduped, grouped by
   // meal type — same computation the Recipes section renders below, hoisted
   // here so the "open from a lifestyle recipe link" effect further down can
@@ -303,9 +330,11 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
   const recipesBySlot = useMemo(() => DAY_MEAL_SLOTS.map((slot) => {
     const bySlot = allWeekNumbers.map((wn) => getSlotRecipes(wn, [slot], data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')[0])
     const seen = new Set<string>()
-    const matches = bySlot.flatMap((s) => s?.matches ?? []).filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
+    const matches = bySlot.flatMap((s) => s?.matches ?? [])
+      .filter((m) => !recipeOverrides[m.recipe.id]?.hidden)
+      .filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
     return { slot, matches }
-  }), [allWeekNumbers, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }), [allWeekNumbers, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, recipeOverrides])
   // A coach can link a lifestyle line (see RecipeLinkInsertButton) to any
   // recipe in the bank, not only the plan's top auto-matched picks — set by
   // the effect below (client-only, after hydration), never during render.
@@ -466,7 +495,6 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
   // touching the source report(s) — same override-wins pattern as every
   // other field here.
   const [supplementRows, setSupplementRows] = useState(data.confirmedSupplements)
-  const [recipeOverrides, setRecipeOverrides] = useState(data.recipeContentOverrides)
   function updateSupplementRow(i: number, patch: Partial<GuideData['confirmedSupplements'][number]>) {
     setSupplementRows((prev) => {
       const next = prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
@@ -1136,14 +1164,32 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
             <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'center', marginTop: 18 }}>
               <Wheel segments={wheelSegments} selectedIndex={wheelMonthIdx} onSelect={(i) => { setWheelMonthIdx(wheelMonthIdx === i ? null : i); setOpenMonth(months[i]?.monthNumber ?? null); setOpenWeek(null); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: '1 1 220px' }}>
-                {wheelSegments.map((seg, i) => (
-                  <button key={i} data-month-trigger={months[i]?.monthNumber} onClick={() => { setWheelMonthIdx(wheelMonthIdx === i ? null : i); setOpenMonth(months[i]?.monthNumber ?? null); setOpenWeek(null); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px', borderRadius: 8, textAlign: 'left' }}>
-                    <span style={{ width: 10, height: 10, borderRadius: 3, background: WHEEL_COLORS[i % WHEEL_COLORS.length], flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: V.ink, flex: 1 }}>{seg.label}</span>
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: V.muted }}>{seg.pct}%</span>
-                  </button>
-                ))}
+                {wheelSegments.map((seg, i) => {
+                  const m = months[i]
+                  const isMthHidden = m ? isHidden(`month-${m.monthNumber}`) : false
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button data-month-trigger={m?.monthNumber} onClick={() => { setWheelMonthIdx(wheelMonthIdx === i ? null : i); setOpenMonth(m?.monthNumber ?? null); setOpenWeek(null); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px', borderRadius: 8, textAlign: 'left', flex: 1, opacity: isMthHidden ? 0.65 : 1 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 3, background: WHEEL_COLORS[i % WHEEL_COLORS.length], flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: V.ink, flex: 1 }}>
+                          {seg.label} {isMthHidden && <span style={{ fontSize: 11, color: V.accent }}>(Hidden)</span>}
+                        </span>
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: V.muted }}>{seg.pct}%</span>
+                      </button>
+                      {editable && m && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); toggleSection(`month-${m.monthNumber}`) }}
+                          title={isMthHidden ? `Unhide Month ${m.monthNumber} for patient` : `Hide Month ${m.monthNumber} from patient`}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: isMthHidden ? V.accent : V.muted }}
+                        >
+                          {isMthHidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
@@ -1151,13 +1197,28 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
               <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 24, display: openMonth === m.monthNumber ? 'block' : 'none', borderTop: `1px solid ${V.line}`, paddingTop: 20 }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
                   {m.weeks.map((w) => {
+                    const isWkHidden = isHidden(`week-${w.week_number}`)
                     // A div in edit mode: a text field inside a <button> would
                     // toggle the week on every click into it (and on Space).
                     const WeekCard = editable ? 'div' : 'button'
                     return (
                     <WeekCard key={w.week_number} data-week-trigger={w.week_number} role={editable ? 'button' : undefined} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
-                      style={{ textAlign: 'left', padding: '10px 14px', borderRadius: 10, cursor: 'pointer', minWidth: 140, border: `1px solid ${openWeek === w.week_number ? V.accent : V.line}`, background: openWeek === w.week_number ? V.accentSoft : '#fff' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: V.accent }}>Week {w.week_number}</div>
+                      style={{ textAlign: 'left', padding: '10px 14px', borderRadius: 10, cursor: 'pointer', minWidth: 140, border: `1px ${isWkHidden ? 'dashed' : 'solid'} ${openWeek === w.week_number ? V.accent : V.line}`, background: openWeek === w.week_number ? V.accentSoft : '#fff', opacity: isWkHidden ? 0.65 : 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: V.accent }}>
+                          Week {w.week_number} {isWkHidden && <span style={{ opacity: 0.75 }}>(Hidden)</span>}
+                        </div>
+                        {editable && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleSection(`week-${w.week_number}`) }}
+                            title={isWkHidden ? `Unhide Week ${w.week_number} for patient` : `Hide Week ${w.week_number} from patient`}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: isWkHidden ? V.accent : V.muted }}
+                          >
+                            {isWkHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                        )}
+                      </div>
                       {editable ? (
                         <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 2 }}>
                           <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
@@ -1238,9 +1299,37 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
             <Card id="recipes" hidden={isHidden('recipes')}>
               <Eyebrow>Picked for your plan</Eyebrow>
               <SecTitle icon={<ChefHat size={20} />}>Your recipes</SecTitle>
-            {editable && roadmapId && (
-              <div style={{ marginTop: 8 }}>
-                <AiBulkRecipeEditButton roadmapId={roadmapId} onApply={(o) => setRecipeOverrides((prev) => ({ ...prev, ...o }))} />
+            {editable && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {roadmapId && (
+                  <AiBulkRecipeEditButton
+                    roadmapId={roadmapId}
+                    onApply={(o) => {
+                      setRecipeOverrides((prev) => {
+                        const next = { ...prev, ...o }
+                        patchRoadmap({ guide_overrides: { recipe_content_overrides: next } })
+                        return next
+                      })
+                    }}
+                  />
+                )}
+                <CombineRecipesButton
+                  recipes={data.recipeBank}
+                  recipeOverrides={recipeOverrides}
+                  manualRecipes={data.manualRecipes}
+                  weeklyManualRecipes={data.weeklyManualRecipes}
+                  weekMealMatches={weekMealMatches}
+                  onApply={(nextOverrides, nextManual, nextWeekly) => {
+                    setRecipeOverrides(nextOverrides)
+                    patchRoadmap({
+                      guide_overrides: {
+                        recipe_content_overrides: nextOverrides,
+                        manual_recipes: nextManual,
+                        weekly_manual_recipes: nextWeekly,
+                      },
+                    })
+                  }}
+                />
               </div>
             )}
               {(() => {
@@ -1274,15 +1363,16 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
                                     {matches.map(({ recipe }) => {
                                       const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                                      const recipeName = recipeOverrides[recipe.id]?.name ?? recipe.name
                                       return (
                                         <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
                                           style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? V.accentSoft : '#fff', border: `1px solid ${openRecipeId === recipeKey ? V.accent : V.line}`, borderRadius: 12, overflow: 'hidden' }}>
                                           {recipe.image_url ? (
-                                            <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
+                                            <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
                                           ) : (
                                             <div style={{ width: '100%', height: 90, background: V.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChefHat size={18} color={V.accent} /></div>
                                           )}
-                                          <div style={{ padding: '8px 10px', fontSize: 12.5, fontWeight: 700 }}>{recipe.name}</div>
+                                          <div style={{ padding: '8px 10px', fontSize: 12.5, fontWeight: 700 }}>{recipeName}</div>
                                         </button>
                                       )
                                     })}
@@ -1292,6 +1382,7 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                                 )}
                                 {matches.map(({ recipe }) => {
                                   const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                                  const recipeName = recipeOverrides[recipe.id]?.name ?? recipe.name
                                   const facts: [string, string][] = [
                                     ...(recipe.prep_time ? [['Prep', recipe.prep_time] as [string, string]] : []),
                                     ...(recipe.cook_time ? [['Cook', recipe.cook_time] as [string, string]] : []),
@@ -1307,7 +1398,7 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                                       <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 18 }}>
                                         {recipe.image_url && (
                                           <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 180 } : { flex: 1, minHeight: 220 }) }} />
+                                            <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 180 } : { flex: 1, minHeight: 220 }) }} />
                                             {facts.length > 0 && (
                                               <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                                                 {facts.map(([label, value]) => (
@@ -1354,7 +1445,7 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                                           </div>
                                         )}
                                         <div>
-                                          <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 10px' }}>{recipe.name}</h3>
+                                          <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 10px' }}>{recipeName}</h3>
                                           <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Ingredients</span>
                                           {editable ? (
                                             <textarea
@@ -1365,14 +1456,10 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                                               style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: 12.5, padding: '7px 9px', border: `1px solid ${V.line}`, borderRadius: 10, fontFamily: 'inherit', resize: 'vertical' as const, margin: '8px 0 14px', lineHeight: 1.5, color: V.ink }}
                                             />
                                           ) : (
-                                            <ul style={{ listStyle: 'none', margin: '8px 0 14px', padding: 0, display: 'grid', gap: 7 }}>
-                                              {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
-                                                <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: V.inkSoft, lineHeight: 1.45 }}>
-                                                  <span style={{ flexShrink: 0, width: 4, height: 4, borderRadius: '50%', background: V.accent, marginTop: 7 }} />
-                                                  <span>{line}</span>
-                                                </li>
-                                              ))}
-                                            </ul>
+                                            <RecipeIngredientsRenderer
+                                              rawText={recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients}
+                                              colors={{ accent: V.accent, text: V.inkSoft, accentSoft: V.accentSoft }}
+                                            />
                                           )}
                                           <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Directions</span>
                                           {editable ? (
@@ -1384,14 +1471,10 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                                               style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: 12.5, padding: '7px 9px', border: `1px solid ${V.line}`, borderRadius: 10, fontFamily: 'inherit', resize: 'vertical' as const, margin: '8px 0 0', lineHeight: 1.5, color: V.ink }}
                                             />
                                           ) : (
-                                            <ol style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 10 }}>
-                                              {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
-                                                <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                                                  <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: '50%', background: V.accentSoft, color: V.accent, fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-                                                  <span style={{ fontSize: 12.5, color: V.inkSoft, lineHeight: 1.5, paddingTop: 1 }}>{line}</span>
-                                                </li>
-                                              ))}
-                                            </ol>
+                                            <RecipeDirectionsRenderer
+                                              rawText={recipeOverrides[recipe.id]?.steps ?? recipe.steps}
+                                              colors={{ accent: V.accent, text: V.inkSoft, accentSoft: V.accentSoft }}
+                                            />
                                           )}
                                           {!recipe.image_url && recipe.benefits && recipe.benefits.length > 0 && (
                                             <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${V.line}` }}>

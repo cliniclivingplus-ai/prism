@@ -7,6 +7,7 @@ import { generateAIChecklist, buildDeterministicChecklist } from '@/lib/dailyChe
 type RoadmapRow = {
   id: string
   patient_id: string
+  session_id?: string | null
   overview: string | null
   nutritionist_guidelines: string | null
   guide_overrides: Record<string, unknown> | null
@@ -37,7 +38,26 @@ export async function ensureDailyContent(roadmap: RoadmapRow): Promise<void> {
     'daily_lifestyle_guidelines' in overrides || 'meal_guidelines' in overrides || 'daily_schedule' in overrides
   if (hasAnyOverride) return
 
+  let geminiSnippet = ''
+  let fullQA = ''
+  if (roadmap.session_id) {
+    try {
+      const { data: session } = await supabaseAdmin
+        .from('sessions')
+        .select('gemini_doc_raw, qa_pairs')
+        .eq('id', roadmap.session_id)
+        .maybeSingle()
+      if (session) {
+        const qaPairs: { question: string; answer: string }[] = session.qa_pairs ?? []
+        fullQA = qaPairs.map((qa, i) => `Q${i + 1}: ${qa.question}\nAnswer: ${qa.answer}`).join('\n\n')
+        geminiSnippet = session.gemini_doc_raw?.slice(0, 1500) ?? ''
+      }
+    } catch { /* ignore session fetch failure */ }
+  }
+
   const patientFacts = [
+    geminiSnippet ? `CONSULTATION TRANSCRIPT / MEETING NOTES:\n${geminiSnippet}` : '',
+    fullQA ? `CONSULTATION Q&A NOTES:\n${fullQA}` : '',
     roadmap.overview ?? '',
     (() => {
       const parsed = parseNutritionistGuidelines(roadmap.nutritionist_guidelines ?? '')

@@ -199,6 +199,41 @@ function buildBlock(type: BlockType, b: Record<string, unknown>, id: string, all
   }
 }
 
+function normalizeRawBlock(b: Record<string, unknown>): Record<string, unknown> {
+  const norm = { ...b }
+  // Type aliases
+  if (norm.type === 'heading') norm.type = 'hero'
+  if (norm.type === 'quote') norm.type = 'pull_quote'
+  if (norm.type === 'text') norm.type = 'text_block'
+
+  // Field aliases
+  if (!norm.title && typeof norm.heading === 'string') norm.title = norm.heading
+  if (!norm.text && typeof norm.content === 'string') norm.text = norm.content
+  if (!norm.text && typeof norm.body === 'string') norm.text = norm.body
+  if (!norm.text && typeof norm.quote === 'string') norm.text = norm.quote
+
+  // Items normalization
+  if (Array.isArray(norm.items)) {
+    norm.items = norm.items.map((it) => {
+      if (typeof it === 'string') {
+        if (norm.type === 'checklist') return { text: it }
+        if (norm.type === 'goal_icons') return { icon: 'target', label: it }
+        if (norm.type === 'stat_row') return { label: it, value: '•' }
+        return { topic: it, text: it }
+      }
+      if (it && typeof it === 'object') {
+        const itemObj = { ...(it as Record<string, unknown>) }
+        if (!itemObj.text && typeof itemObj.title === 'string') itemObj.text = itemObj.title
+        if (!itemObj.topic && typeof itemObj.label === 'string') itemObj.topic = itemObj.label
+        if (!itemObj.value && typeof itemObj.number === 'string') itemObj.value = itemObj.number
+        return itemObj
+      }
+      return it
+    })
+  }
+  return norm
+}
+
 // Strict runtime validation — every block the AI produces (at generation OR
 // edit time), and every block the coach's manual editor saves, is checked
 // against this before it's ever stored or rendered. An invalid block
@@ -207,7 +242,7 @@ function buildBlock(type: BlockType, b: Record<string, unknown>, id: string, all
 // crashes the page, never silently shows something nobody actually provided.
 export function validateBlock(raw: unknown, allowedRecipeIds: Set<string>, allowedImageIds: Set<string>): ChecklistPageBlock | null {
   if (!raw || typeof raw !== 'object') return null
-  const b = raw as Record<string, unknown>
+  const b = normalizeRawBlock(raw as Record<string, unknown>)
   const id = typeof b.id === 'string' && b.id ? b.id : `blk_${Math.random().toString(36).slice(2, 10)}`
   const type = b.type
   if (typeof type !== 'string' || !(BLOCK_TYPES as readonly string[]).includes(type)) return null

@@ -10,6 +10,7 @@ export type PatientRecord = {
   full_name: string | null
   gender: string | null
   date_of_birth: string | null
+  age_years: number | null
   phone: string | null
   primary_concern: string | null
   medical_history: string | null
@@ -143,7 +144,7 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
   const { data: p } = await supabase
     .from('patients')
     .select(
-      'id, full_name, gender, date_of_birth, phone, primary_concern, medical_history, clinic_patient_id, created_at, nutritionist_id'
+      'id, full_name, gender, date_of_birth, age_years, phone, primary_concern, medical_history, clinic_patient_id, created_at, nutritionist_id'
     )
     .eq('id', id)
     .maybeSingle()
@@ -222,18 +223,16 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
     updatedAt: roadmap?.created_at ?? latestSession?.created_at ?? null,
   }
 
-  // ── MicrobiomeRx (mrx schema, reached only through the link table) ──
-  const mrx: MrxSnapshot = {
-    hasData: false, reportId: null, reportDate: null, rychIndex: null, rychTier: null,
-    shannon: null, scfa: [], flagged: [], speciesCount: null, prescriptionApprovedAt: null,
-    nameMismatch: null,
-  }
-  {
+  // ── MicrobiomeRx & Blood Panel snapshots (executed in parallel) ──
+  const getMrxSnapshot = async (): Promise<MrxSnapshot> => {
+    const mrx: MrxSnapshot = {
+      hasData: false, reportId: null, reportDate: null, rychIndex: null, rychTier: null,
+      shannon: null, scfa: [], flagged: [], speciesCount: null, prescriptionApprovedAt: null,
+      nameMismatch: null,
+    }
     const mrxDb = createAdminClient('mrx')
     const mrxPatientId = mrxLinkRes.data?.mrx_patient_id ?? null
 
-    // 1. The unambiguous path: a hub foreign key, set on every report
-    //    uploaded after migration v35. No link row or name needed.
     const REPORT_COLS = 'id, created_at, sample_date, rules_output, report_data, species_count, patient_name'
     let rep = (
       await mrxDb
@@ -245,7 +244,6 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
         .maybeSingle()
     ).data
 
-    // 2. Historical path: the tool's own patient_id, via the link table.
     if (!rep && mrxPatientId) rep = (
       await mrxDb
         .from('reports')
@@ -256,15 +254,6 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
         .maybeSingle()
     ).data
 
-    // 3. Historical fallback, permanent and intended for the pre-v35 rows:
-    //    all 207 of them have an empty patient_id and identify their patient
-    //    by patient_name only, so nothing above can match them.
-    //
-    //    Guarded deliberately: if more than one mrx patient shares that name
-    //    we refuse to match rather than risk attaching another patient's
-    //    stool panel to this record. This is NOT a shim to delete — see
-    //    "Known data-quality issues" in CLAUDE.md. New uploads never reach
-    //    here, because step 1 resolves them by foreign key.
     if (!rep && mrxPatientId) {
       const { data: mrxPatient } = await mrxDb
         .from('patients')
@@ -338,21 +327,19 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
         .maybeSingle()
       mrx.prescriptionApprovedAt = (rx?.approved_at as string | null) ?? null
     }
+
+    return mrx
   }
 
-  // ── Blood Panel (blood schema) ──
-  const blood: BloodSnapshot = {
-    hasData: false, bloodPatientId: null, reportId: null,
-    reportDate: null, markers: [], abnormal: [], nameMismatch: null,
-  }
-  {
+  const getBloodSnapshot = async (): Promise<BloodSnapshot> => {
+    const blood: BloodSnapshot = {
+      hasData: false, bloodPatientId: null, reportId: null,
+      reportDate: null, markers: [], abnormal: [], nameMismatch: null,
+    }
     const bloodDb = createAdminClient('blood')
     const bloodPatientId = bloodLinkRes.data?.blood_patient_id ?? null
     blood.bloodPatientId = bloodPatientId
 
-    // Hub FK first (v36), exactly as for MicrobiomeRx; the tool's own
-    // patient_id is the fallback for panels uploaded before that column
-    // existed. No name matching on either path.
     const BLOOD_COLS = 'id, created_at, markers, patient_id'
     let rep = (
       await bloodDb
@@ -397,7 +384,11 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
       blood.markers = markers
       blood.abnormal = markers.filter((m) => m.abnormal)
     }
+
+    return blood
   }
+
+  const [mrx, blood] = await Promise.all([getMrxSnapshot(), getBloodSnapshot()])
 
   const activity: PatientWorkspace['activity'] = []
   if (latestSession?.session_date) {
@@ -437,6 +428,7 @@ export async function loadPatientWorkspace(id: string): Promise<PatientWorkspace
       full_name: p.full_name,
       gender: p.gender,
       date_of_birth: p.date_of_birth,
+      age_years: p.age_years ?? null,
       phone: p.phone,
       primary_concern: p.primary_concern,
       medical_history: p.medical_history,

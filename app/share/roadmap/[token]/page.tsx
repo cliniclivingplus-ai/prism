@@ -1,24 +1,26 @@
+import nextDynamic from 'next/dynamic'
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveRoadmapId } from '@/lib/share/publicData'
 import { buildGuideData } from '@/lib/pdf/buildGuideData'
 import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplements'
 import { ensureDailyContent } from '@/lib/pdf/ensureDailyContent'
-import DashboardClient from '@/components/guide-templates/DashboardClient'
-import AlmanacTemplate from '@/components/guide-templates/AlmanacTemplate'
-import PulseTemplate from '@/components/guide-templates/PulseTemplate'
-import OnyxTemplate from '@/components/guide-templates/OnyxTemplate'
-import WeekTemplate from '@/components/guide-templates/WeekTemplate'
-import VitalsTemplate from '@/components/guide-templates/VitalsTemplate'
-import WeekBrutalTemplate from '@/components/guide-templates/WeekBrutalTemplate'
-import WeekEarthTemplate from '@/components/guide-templates/WeekEarthTemplate'
-import WeekEditorialTemplate from '@/components/guide-templates/WeekEditorialTemplate'
-import WeekNeonTemplate from '@/components/guide-templates/WeekNeonTemplate'
-import WeekBloomTemplate from '@/components/guide-templates/WeekBloomTemplate'
-import WeekCareTemplate from '@/components/guide-templates/WeekCareTemplate'
-import WeekAuroraTemplate from '@/components/guide-templates/WeekAuroraTemplate'
 
-export const revalidate = 0
+const DashboardClient = nextDynamic(() => import('@/components/guide-templates/DashboardClient'))
+const AlmanacTemplate = nextDynamic(() => import('@/components/guide-templates/AlmanacTemplate'))
+const PulseTemplate = nextDynamic(() => import('@/components/guide-templates/PulseTemplate'))
+const OnyxTemplate = nextDynamic(() => import('@/components/guide-templates/OnyxTemplate'))
+const WeekTemplate = nextDynamic(() => import('@/components/guide-templates/WeekTemplate'))
+const VitalsTemplate = nextDynamic(() => import('@/components/guide-templates/VitalsTemplate'))
+const WeekBrutalTemplate = nextDynamic(() => import('@/components/guide-templates/WeekBrutalTemplate'))
+const WeekEarthTemplate = nextDynamic(() => import('@/components/guide-templates/WeekEarthTemplate'))
+const WeekEditorialTemplate = nextDynamic(() => import('@/components/guide-templates/WeekEditorialTemplate'))
+const WeekNeonTemplate = nextDynamic(() => import('@/components/guide-templates/WeekNeonTemplate'))
+const WeekBloomTemplate = nextDynamic(() => import('@/components/guide-templates/WeekBloomTemplate'))
+const WeekCareTemplate = nextDynamic(() => import('@/components/guide-templates/WeekCareTemplate'))
+const WeekAuroraTemplate = nextDynamic(() => import('@/components/guide-templates/WeekAuroraTemplate'))
+
+export const revalidate = 60
 export const dynamic = 'force-dynamic'
 
 // Public, no-login page. A coach shares this URL with the patient directly

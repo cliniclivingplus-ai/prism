@@ -4,11 +4,9 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-import Groq from 'groq-sdk'
 import { supabaseAdmin } from '@/lib/supabase'
+import { groqChatCompletion } from '@/lib/groq'
 import { BLOCK_TYPES, BLOCK_ICON_KEYS, validateBlock, type ChecklistPageBlock } from '@/lib/blocks/types'
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 // The roadmap dashboard's "Custom blocks" section — direct mirror of
 // /api/compass/checklists/[id]/edit-block, same block-palette constraint and
@@ -43,11 +41,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roa
     ])
     const allowedRecipeIds = new Set<string>((allRecipes ?? []).map((r: { id: string }) => r.id))
     const allowedImageIds = new Set<string>((allImages ?? []).map((r: { id: string }) => r.id))
+    const sampleRecipeIds = [...allowedRecipeIds].slice(0, 20)
+    const sampleImageIds = [...allowedImageIds].slice(0, 20)
 
     const patient = row.patients as unknown as { primary_concern: string | null } | null
     const context = row.overview || row.lifestyle_guidelines || patient?.primary_concern || ''
 
-    const completion = await groq.chat.completions.create({
+    const completion = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       temperature: 0.3,
       max_tokens: 900,
@@ -66,12 +66,12 @@ Block shapes:
 - checklist: {id, type, title?, items:[{text}]}
 - icon_grid: {id, type, title?, items:[{icon?, topic, text}]}
 - goal_icons: {id, type, title?, items:[{icon, label}]} — pictorial, near-wordless: icon required, label is 2-4 words only, no sentence
-- recipe_gallery: {id, type, title?, recipe_ids:[...]} — MUST only use ids from: ${[...allowedRecipeIds].join(', ') || 'none available'}
-- image_gallery: {id, type, title?, image_ids:[...]} — MUST only use ids from: ${[...allowedImageIds].join(', ') || 'none available'}
+- recipe_gallery: {id, type, title?, recipe_ids:[...]} — MUST only use valid recipe ids (e.g., ${sampleRecipeIds.join(', ') || 'none available'})
+- image_gallery: {id, type, title?, image_ids:[...]} — MUST only use valid image ids (e.g., ${sampleImageIds.join(', ') || 'none available'})
 - chart: {id, type, title?, chartType: "bar"|"donut", data:[{label, value}]} — only use numbers already present in this block, the roadmap context, or the coach's instruction itself. Never invent a number.
 - text_block: {id, type, title?, text}
 - table: {id, type, title?, headers:[...], rows:[[...cells matching headers length]]}
-- image: {id, type, image_id, caption?} — image_id MUST be one of: ${[...allowedImageIds].join(', ') || 'none available'}
+- image: {id, type, image_id, caption?} — image_id MUST be one of: ${sampleImageIds.join(', ') || 'none available'}
 
 HARD RULES: never fabricate a clinical claim or number not already grounded in the block, the roadmap context, or the instruction. Keep the same "id" field: "${target.id}". Never use an em dash (—); use a comma, period, or "and" instead. Return STRICT JSON only: {"block": {...}}.`,
         },
@@ -99,7 +99,11 @@ ${instruction.trim()}`,
 
     const updated = validateBlock(parsed.block, allowedRecipeIds, allowedImageIds)
     if (!updated) return NextResponse.json({ error: "Could not apply that edit, try rephrasing the instruction." }, { status: 422 })
-    const finalBlock = { ...updated, id: target.id } as ChecklistPageBlock
+    const finalBlock = {
+      ...updated,
+      id: target.id,
+      layout: updated.layout || target.layout || { x: 0, y: 0, w: 720, h: 140 },
+    } as ChecklistPageBlock
 
     const nextBlocks = [...blocks]
     nextBlocks[targetIndex] = finalBlock

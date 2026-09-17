@@ -108,7 +108,7 @@ export default async function PatientWorkspacePage({
   if (!ws) notFound()
 
   const { patient, compass, mrx, blood, toolStates, activity } = ws
-  const age = ageFrom(patient.date_of_birth)
+  const age = patient.age_years ?? ageFrom(patient.date_of_birth)
   const adh = compass.adherence
 
   const toolSubs = {

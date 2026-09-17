@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Plus, Loader2, Trash2, ChefHat, UploadCloud, FileText, Download, Pencil, Check, X } from 'lucide-react'
 import { RECIPE_IMPORT_TEMPLATE } from '@/lib/parseRecipeBank'
 import { splitRecipeLines } from '@/lib/recipeText'
+import { RecipeIngredientsRenderer, RecipeDirectionsRenderer } from '@/components/RecipeContentRenderer'
 
 const C = {
   green: '#538A22', greenDeep: '#2F5214', greenSoft: '#F2F9EC', greenBorder: '#C8E9A8',
@@ -472,12 +473,14 @@ export default function RecipeBankPage() {
                           </button>
                         </div>
                       </div>
-                      <ul style={{ fontSize: 12.5, color: C.muted, margin: '0 0 6px', paddingLeft: 18, listStyleType: 'disc' }}>
-                        {splitRecipeLines(r.ingredients).map((line, i) => <li key={i}>{line}</li>)}
-                      </ul>
-                      <ol style={{ fontSize: 12.5, color: C.ink, margin: 0, paddingLeft: 18, listStyleType: 'decimal' }}>
-                        {splitRecipeLines(r.steps).map((line, i) => <li key={i}>{line}</li>)}
-                      </ol>
+                      <RecipeIngredientsRenderer
+                        rawText={r.ingredients}
+                        colors={{ accent: C.green, text: C.muted }}
+                      />
+                      <RecipeDirectionsRenderer
+                        rawText={r.steps}
+                        colors={{ accent: C.green, text: C.ink }}
+                      />
                       {r.tags.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
                           {r.tags.map((t) => <span key={t} style={{ fontSize: 10.5, fontWeight: 600, color: C.greenDeep, background: C.greenSoft, border: `1px solid ${C.greenBorder}`, borderRadius: 10, padding: '2px 8px' }}>{t}</span>)}

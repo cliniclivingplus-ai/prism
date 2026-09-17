@@ -29,6 +29,8 @@ type Patient = {
   clinic_patient_id?: string
   full_name: string
   gender?: string
+  age_years?: number | null
+  date_of_birth?: string | null
   primary_concern?: string
   medical_history?: string
   assigned_nutritionist?: string
@@ -170,7 +172,14 @@ export default function PatientPage() {
                 )}
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 5, fontSize: 12.5, color: C.muted }}>
-                {patient.gender && <span style={{ textTransform: 'capitalize' }}>{patient.gender}</span>}
+                {(patient.age_years != null || patient.gender) && (
+                  <span>
+                    {[
+                      patient.age_years != null ? `${patient.age_years} yrs` : null,
+                      patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : null,
+                    ].filter(Boolean).join(' · ')}
+                  </span>
+                )}
                 {patient.primary_concern && <><span>·</span><span style={{ color: C.greenDeep, fontWeight: 600 }}>{patient.primary_concern}</span></>}
                 {patient.assigned_nutritionist && <><span>·</span><span>Coach: {patient.assigned_nutritionist}</span></>}
               </div>
@@ -249,8 +258,14 @@ export default function PatientPage() {
       <div style={{ marginTop: 22 }}>
         {tab === 'sessions' && <SessionsTab sessions={sessions} roadmaps={roadmaps} patientId={patientId} router={router} />}
         {tab === 'reports' && <ReportsTab patientId={patientId} />}
-        {tab === 'notes' && <NotesTab sessions={sessions} />}
-        {tab === 'dashboard' && <DashboardTab roadmaps={roadmaps} patientId={patientId} />}
+        {tab === 'notes' && <NotesTab sessions={sessions} onSessionUpdated={(updated) => setSessions(prev => prev.map(s => s.id === updated.id ? updated : s))} />}
+        {tab === 'dashboard' && (
+          <DashboardTab
+            roadmaps={roadmaps}
+            patientId={patientId}
+            onRoadmapDeleted={(deletedId) => setRoadmaps((prev) => prev.filter((r) => r.id !== deletedId))}
+          />
+        )}
         {tab === 'microbiome' && <MicrobiomeLinkTab patientId={patientId} />}
         {tab === 'blood' && <BloodLinkTab patientId={patientId} />}
         {tab === 'checklist' && <ChecklistTab patientId={patientId} />}
@@ -322,6 +337,59 @@ function DeleteConfirmModal({ patient, counts, onClose, onDeleted }: { patient: 
             style={{ padding: '9px 16px', borderRadius: 9, border: 'none', background: canDelete ? '#B3261E' : '#E8B4B0', color: '#fff', fontSize: 13, fontWeight: 700, cursor: canDelete && !deleting ? 'pointer' : 'not-allowed' }}
           >
             {deleting ? 'Deleting…' : 'Delete permanently'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DeleteRoadmapConfirmModal({ roadmap, onClose, onDeleted }: { roadmap: Roadmap; onClose: () => void; onDeleted: () => void }) {
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleDelete() {
+    setDeleting(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/compass/roadmaps/${roadmap.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const j = await res.json().catch(() => null)
+        setError(j?.error || 'Delete failed — try again.')
+        setDeleting(false)
+        return
+      }
+      onDeleted()
+    } catch {
+      setError('Network error — try again.')
+      setDeleting(false)
+    }
+  }
+
+  const planName = roadmap.duration_months
+    ? `${roadmap.duration_months >= 1 ? roadmap.duration_months : Math.round(roadmap.duration_months * 4)}${roadmap.duration_months >= 1 ? '-month' : '-week'} plan`
+    : 'Roadmap'
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(26,36,23,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 100 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.card, borderRadius: 16, padding: '24px 26px', maxWidth: 440, width: '100%', position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={18} /></button>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#FBEAEA', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+          <Trash2 size={20} color="#B3261E" />
+        </div>
+        <h2 style={{ fontSize: 17, fontWeight: 700, color: C.ink, margin: '0 0 6px' }}>Delete {planName}?</h2>
+        <p style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.55, margin: '0 0 16px' }}>
+          This permanently deletes this generated plan and all associated daily progress check-ins. This action cannot be undone.
+        </p>
+        {error && <p style={{ fontSize: 12.5, color: '#B3261E', margin: '0 0 12px' }}>{error}</p>}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 9, border: `1px solid ${C.line}`, background: C.card, color: C.muted, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            style={{ padding: '9px 16px', borderRadius: 9, border: 'none', background: '#B3261E', color: '#fff', fontSize: 13, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer' }}
+          >
+            {deleting ? 'Deleting…' : 'Delete plan'}
           </button>
         </div>
       </div>
@@ -416,40 +484,165 @@ function SessionsTab({ sessions, roadmaps, patientId, router }: { sessions: Sess
   )
 }
 
-function NotesTab({ sessions }: { sessions: Session[] }) {
-  const withNotes = sessions.filter(s => (s.pre_meeting_notes && s.pre_meeting_notes.trim()) || (s.post_meeting_notes && s.post_meeting_notes.trim()))
-  if (withNotes.length === 0) {
+function NotesTab({ sessions, onSessionUpdated }: { sessions: Session[]; onSessionUpdated?: (updatedSession: Session) => void }) {
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
+  const [preNotes, setPreNotes] = useState('')
+  const [postNotes, setPostNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  if (sessions.length === 0) {
     return <EmptyState icon={StickyNote} title="No notes recorded" body="Pre- and post-session notes you add on any session are collected here, so a patient's full clinical narrative stays in one place across visits." />
   }
-  const ordered = [...withNotes].sort((a, b) => new Date(b.session_date || b.created_at || 0).getTime() - new Date(a.session_date || a.created_at || 0).getTime())
+
+  const ordered = [...sessions].sort((a, b) => new Date(b.session_date || b.created_at || 0).getTime() - new Date(a.session_date || a.created_at || 0).getTime())
+
+  function startEditing(s: Session) {
+    setEditingSessionId(s.id)
+    setPreNotes(s.pre_meeting_notes || '')
+    setPostNotes(s.post_meeting_notes || '')
+    setError('')
+  }
+
+  function cancelEditing() {
+    setEditingSessionId(null)
+    setPreNotes('')
+    setPostNotes('')
+    setError('')
+  }
+
+  async function handleSave(sessionId: string) {
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/compass/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pre_meeting_notes: preNotes,
+          post_meeting_notes: postNotes,
+        }),
+      })
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => null)
+        setError(j?.error || 'Failed to save notes — try again.')
+        setSaving(false)
+        return
+      }
+
+      const updated = await res.json()
+      onSessionUpdated?.(updated)
+      setEditingSessionId(null)
+    } catch {
+      setError('Network error — try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {ordered.map(s => (
-        <div key={s.id} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px' }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: C.greenDeep, marginBottom: 10 }}>
-            {fmtDate(s.session_date || s.created_at)}
+      {ordered.map((s, index) => {
+        const isEditing = editingSessionId === s.id
+        const hasNotes = (s.pre_meeting_notes && s.pre_meeting_notes.trim()) || (s.post_meeting_notes && s.post_meeting_notes.trim())
+
+        return (
+          <div key={s.id} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isEditing || hasNotes ? 12 : 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.greenDeep }}>
+                {fmtDate(s.session_date || s.created_at)}
+                <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginLeft: 8 }}>(Session {ordered.length - index})</span>
+              </div>
+              {!isEditing && (
+                <button
+                  onClick={() => startEditing(s)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <Pencil size={13} /> {hasNotes ? 'Edit' : 'Add notes'}
+                </button>
+              )}
+            </div>
+
+            {isEditing ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+                    Before session (Pre-meeting notes)
+                  </label>
+                  <textarea
+                    value={preNotes}
+                    onChange={(e) => setPreNotes(e.target.value)}
+                    placeholder="Enter pre-session observations, goals, or preparation..."
+                    rows={3}
+                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13, color: C.ink, boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+                    After session (Post-meeting notes)
+                  </label>
+                  <textarea
+                    value={postNotes}
+                    onChange={(e) => setPostNotes(e.target.value)}
+                    placeholder="Enter post-session summary, follow-ups, or clinical notes..."
+                    rows={4}
+                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13, color: C.ink, boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical' }}
+                  />
+                </div>
+
+                {error && <p style={{ fontSize: 12, color: '#B3261E', margin: 0 }}>{error}</p>}
+
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                  <button
+                    onClick={cancelEditing}
+                    disabled={saving}
+                    style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: C.card, color: C.muted, fontSize: 12.5, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleSave(s.id)}
+                    disabled={saving}
+                    style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: C.green, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}
+                  >
+                    {saving ? 'Saving…' : 'Save notes'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {s.pre_meeting_notes?.trim() && (
+                  <div style={{ marginBottom: s.post_meeting_notes?.trim() ? 12 : 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Before session</div>
+                    <p style={{ fontSize: 13.5, color: C.ink, margin: 0, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{renderMarkdownBold(s.pre_meeting_notes)}</p>
+                  </div>
+                )}
+                {s.post_meeting_notes?.trim() && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>After session</div>
+                    <p style={{ fontSize: 13.5, color: C.ink, margin: 0, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{renderMarkdownBold(s.post_meeting_notes)}</p>
+                  </div>
+                )}
+                {!hasNotes && (
+                  <div style={{ fontSize: 13, color: C.faint, fontStyle: 'italic' }}>
+                    No notes recorded for this session yet.
+                  </div>
+                )}
+              </>
+            )}
           </div>
-          {s.pre_meeting_notes?.trim() && (
-            <div style={{ marginBottom: s.post_meeting_notes?.trim() ? 12 : 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Before session</div>
-              <p style={{ fontSize: 13.5, color: C.ink, margin: 0, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{renderMarkdownBold(s.pre_meeting_notes)}</p>
-            </div>
-          )}
-          {s.post_meeting_notes?.trim() && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>After session</div>
-              <p style={{ fontSize: 13.5, color: C.ink, margin: 0, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{renderMarkdownBold(s.post_meeting_notes)}</p>
-            </div>
-          )}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
-function DashboardTab({ roadmaps, patientId }: { roadmaps: Roadmap[]; patientId: string }) {
+function DashboardTab({ roadmaps, patientId, onRoadmapDeleted }: { roadmaps: Roadmap[]; patientId: string; onRoadmapDeleted?: (id: string) => void }) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [progressOpenId, setProgressOpenId] = useState<string | null>(null)
+  const [roadmapToDelete, setRoadmapToDelete] = useState<Roadmap | null>(null)
   // The dashboard link is the thing to actually send a patient — a public,
   // no-login page (see src/app/dashboard/[roadmapId]/page.tsx) that never
   // exposes any coach-side app access, unlike sending the downloaded HTML
@@ -487,11 +680,7 @@ function DashboardTab({ roadmaps, patientId }: { roadmaps: Roadmap[]; patientId:
               {i === 0 && <span style={{ fontSize: 10.5, fontWeight: 700, color: C.green, background: C.greenSoft, borderRadius: 20, padding: '2px 8px' }}>CURRENT</span>}
               <span style={{ fontSize: 12, color: C.faint }}>{fmtDate(r.created_at)}</span>
             </div>
-            {/* flexWrap so this 5-button group (Copy link/Edit
-                roadmap/History/Daily progress/Open dashboard) drops to a
-                second line on narrow screens instead of forcing a fixed
-                minimum width wider than the viewport, which was pushing the
-                whole page into horizontal scroll on mobile. */}
+            {/* flexWrap so this button group drops to a second line on narrow screens */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => copyLink(r)} disabled={!r.share_token || !!r.share_revoked_at}
                 title={r.share_revoked_at ? 'This share link has been revoked' : !r.share_token ? 'No share link for this roadmap yet' : 'Copy the patient link'}
@@ -529,12 +718,30 @@ function DashboardTab({ roadmaps, patientId }: { roadmaps: Roadmap[]; patientId:
                   <LayoutDashboard size={13} /> {r.share_revoked_at ? 'Link revoked' : 'No link'}
                 </span>
               )}
+              <button
+                onClick={() => setRoadmapToDelete(r)}
+                title="Delete this roadmap"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid #F3D6D6', background: '#fff', color: '#B3261E', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+              >
+                <Trash2 size={13} /> Delete
+              </button>
             </div>
           </div>
           {r.overview && <p style={{ fontSize: 13, color: C.muted, margin: '8px 0 0', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.overview}</p>}
           {progressOpenId === r.id && <DailyProgressPanel roadmapId={r.id} />}
         </div>
       ))}
+
+      {roadmapToDelete && (
+        <DeleteRoadmapConfirmModal
+          roadmap={roadmapToDelete}
+          onClose={() => setRoadmapToDelete(null)}
+          onDeleted={() => {
+            onRoadmapDeleted?.(roadmapToDelete.id)
+            setRoadmapToDelete(null)
+          }}
+        />
+      )}
     </div>
   )
 }

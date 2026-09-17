@@ -33,6 +33,7 @@ import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkd
 import ImageInsertButton from '@/components/ImageInsertButton'
 import ImagePreviewStrip from '@/components/ImagePreviewStrip'
 import { splitRecipeLines } from '@/lib/recipeText'
+import { RecipeIngredientsRenderer, RecipeDirectionsRenderer } from '@/components/RecipeContentRenderer'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { matchGuideImageDistinct } from '@/lib/pdf/matchGuideImage'
@@ -96,8 +97,8 @@ function iconForScheduleItem(text: string): LucideIcon {
 
 const PALETTE = {
   paper1: '#0D0F18', paper2: '#171B2C', paper3: '#12141F',
-  gold1: '#1A1033', gold2: '#8A2BE2',
-  dusk1: '#06070D', dusk2: '#2A0D1F',
+  gold1: '#C084FC', gold2: '#8A2BE2',
+  dusk1: '#06070D', dusk2: '#190E34',
   night1: '#06070D', night2: '#050609', night3: '#040509',
   ink: '#F1F5F9', cream: '#F1F5F9', goldAccent: '#FFB703', berry: '#FF2A85',
   line: 'rgba(255,255,255,0.12)',
@@ -329,6 +330,9 @@ export default function WeekAuroraTemplate({ shareToken, data, initialCheckins, 
   // other field here.
   const [supplementRows, setSupplementRows] = useState(data.confirmedSupplements)
   const [recipeOverrides, setRecipeOverrides] = useState(data.recipeContentOverrides)
+  useEffect(() => {
+    if (data.recipeContentOverrides) setRecipeOverrides(data.recipeContentOverrides)
+  }, [data.recipeContentOverrides])
   function updateSupplementRow(i: number, patch: Partial<GuideData['confirmedSupplements'][number]>) {
     setSupplementRows((prev) => {
       const next = prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
@@ -1243,10 +1247,10 @@ function clpToggleGroceryCat(head){
         )}
 
       {/* How to use this guide + Your why */}
-      <section id="howto" style={{ background: PALETTE.gold1, padding: '4rem 1.5rem', ...hiddenStyle('howto') }}>
+      <section id="howto" style={{ background: PALETTE.dusk2, padding: '4rem 1.5rem', ...hiddenStyle('howto') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <Eyebrow>Getting oriented</Eyebrow>
-          <SecTitle icon={<HelpCircle size={26} />} sectionId="howto" open={isSectionOpen('howto')} onToggle={() => toggleSection('howto')}>How To Use Your Plan</SecTitle>
+          <Eyebrow dark>Getting oriented</Eyebrow>
+          <SecTitle dark icon={<HelpCircle size={26} color={PALETTE.cream} />} sectionId="howto" open={isSectionOpen('howto')} onToggle={() => toggleSection('howto')}>How To Use Your Plan</SecTitle>
           <div data-section-body="howto" style={{ display: isSectionOpen('howto') ? 'block' : 'none' }}>
           <p style={{ marginTop: 16, marginBottom: 20, fontSize: '0.95rem', fontWeight: 600, color: PALETTE.berry }}>Follow → Track → Adjust</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20 }}>
@@ -1540,13 +1544,14 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                 <div>
                   <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 10 }}>
                     {weekSlotRecipes.map(({ slot, matches }) => {
+                      const visibleMatches = matches.filter(({ recipe }) => !recipeOverrides[recipe.id]?.hidden)
                       const slotId = `${week.week_number}-${slot}`
                       return (
                         <button key={slot} data-slot-trigger={slotId} onClick={() => setOpenSlot(slotId)}
                           style={{ textAlign: 'left', padding: '11px 13px', borderRadius: 12, cursor: 'pointer', border: '1px solid rgba(241,245,249,0.22)', background: 'rgba(241,245,249,0.08)' }}>
                           <div style={{ fontFamily: "'Outfit', serif", fontSize: '0.9rem', fontWeight: 500, color: PALETTE.cream }}>{SLOT_LABELS[slot]}</div>
-                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem', color: matches.length ? PALETTE.gold1 : PALETTE.cream, opacity: matches.length ? 1 : 0.5, marginTop: 4, fontWeight: 600 }}>
-                            {matches.length ? `${matches.length} recipe${matches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
+                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem', color: visibleMatches.length ? PALETTE.gold1 : PALETTE.cream, opacity: visibleMatches.length ? 1 : 0.5, marginTop: 4, fontWeight: 600 }}>
+                            {visibleMatches.length ? `${visibleMatches.length} recipe${visibleMatches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
                           </div>
                         </button>
                       )
@@ -1554,6 +1559,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                   </div>
 
                   {weekSlotRecipes.map(({ slot, matches }) => {
+                    const visibleMatches = matches.filter(({ recipe }) => !recipeOverrides[recipe.id]?.hidden)
                     const slotId = `${week.week_number}-${slot}`
                     return (
                     <div key={slot} data-slot-body={slotId} style={{ display: openSlot === slotId ? 'block' : 'none', marginTop: 16 }}>
@@ -1562,22 +1568,23 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                         ← Back to meal slots
                       </button>
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1, opacity: 0.85, display: 'block', marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</span>
-                      {matches.length > 0 ? (
+                      {visibleMatches.length > 0 ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
-                          {matches.map(({ recipe }) => {
+                          {visibleMatches.map(({ recipe }) => {
                             const recipeKey = `${week.week_number}-${slot}-${recipe.id}`
+                            const recipeName = recipeOverrides[recipe.id]?.name ?? recipe.name
                             return (
                             <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
                               style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? 'rgba(224,195,132,0.16)' : 'rgba(241,245,249,0.08)', border: `1px solid ${openRecipeId === recipeKey ? PALETTE.gold1 : 'rgba(241,245,249,0.22)'}`, borderRadius: 12, overflow: 'hidden' }}>
                               {recipe.image_url ? (
-                                <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
+                                <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
                               ) : (
                                 <div style={{ width: '100%', height: 100, background: 'rgba(241,245,249,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <ChefHat size={20} color={PALETTE.cream} opacity={0.5} />
                                 </div>
                               )}
                               <div style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                                <span style={{ color: PALETTE.cream, fontSize: '0.85rem', fontWeight: 600 }}>{recipe.name}</span>
+                                <span style={{ color: PALETTE.cream, fontSize: '0.85rem', fontWeight: 600 }}>{recipeName}</span>
                                 {openRecipeId === recipeKey ? <ChevronDown size={14} color={PALETTE.gold1} style={{ flexShrink: 0 }} /> : <ChevronRight size={14} color={PALETTE.cream} opacity={0.5} style={{ flexShrink: 0 }} />}
                               </div>
                             </button>
@@ -1588,8 +1595,9 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                         <div style={{ fontSize: '0.88rem', color: PALETTE.cream, opacity: 0.6 }}>Nothing detected for {SLOT_LABELS[slot].toLowerCase()} yet, {coachFirst} will add some.</div>
                       )}
 
-                      {matches.map(({ recipe }) => {
+                      {visibleMatches.map(({ recipe }) => {
                         const recipeKey = `${week.week_number}-${slot}-${recipe.id}`
+                        const recipeName = recipeOverrides[recipe.id]?.name ?? recipe.name
                         const facts: [string, string][] = [
                           ...(recipe.prep_time ? [['Prep', recipe.prep_time] as [string, string]] : []),
                           ...(recipe.cook_time ? [['Cook', recipe.cook_time] as [string, string]] : []),
@@ -1605,7 +1613,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                           <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 24 }}>
                             {recipe.image_url && (
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
+                                <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
                                 {facts.length > 0 && (
                                   <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                     {facts.map(([label, value]) => (
@@ -1653,7 +1661,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                             )}
                             <div>
                               {recipe.protein_label && <Eyebrow dark>{recipe.protein_label}</Eyebrow>}
-                              <h3 style={{ fontFamily: "'Outfit', serif", fontWeight: 500, fontSize: '1.4rem', color: PALETTE.cream, margin: '0 0 16px' }}>{recipe.name}</h3>
+                              <h3 style={{ fontFamily: "'Outfit', serif", fontWeight: 500, fontSize: '1.4rem', color: PALETTE.cream, margin: '0 0 16px' }}>{recipeName}</h3>
                               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Ingredients</span>
                               {editable ? (
                                 <textarea
@@ -1664,14 +1672,11 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                                   style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: '0.86rem', padding: '8px 10px', background: 'transparent', border: '1px dashed rgba(241,245,249,0.4)', borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, margin: '10px 0 20px', lineHeight: 1.5, color: PALETTE.cream }}
                                 />
                               ) : (
-                                <ul style={{ listStyle: 'none', margin: '10px 0 20px', padding: 0, display: 'grid', gap: 8 }}>
-                                  {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
-                                    <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PALETTE.cream, opacity: 0.9, fontSize: '0.86rem', lineHeight: 1.5 }}>
-                                      <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PALETTE.gold1, marginTop: 7 }} />
-                                      <span>{line}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                                <RecipeIngredientsRenderer
+                                  rawText={recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients}
+                                  colors={{ accent: PALETTE.gold1, text: PALETTE.cream }}
+                                  style={{ opacity: 0.9 }}
+                                />
                               )}
                               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Directions</span>
                               {editable ? (
@@ -1683,14 +1688,11 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                                   style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: '0.86rem', padding: '8px 10px', background: 'transparent', border: '1px dashed rgba(241,245,249,0.4)', borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, margin: '10px 0 0', lineHeight: 1.5, color: PALETTE.cream }}
                                 />
                               ) : (
-                                <ol style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 12 }}>
-                                  {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
-                                    <li key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                                      <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: 'rgba(241,245,249,0.18)', color: PALETTE.gold1, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-                                      <span style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.86rem', lineHeight: 1.55, paddingTop: 1 }}>{line}</span>
-                                    </li>
-                                  ))}
-                                </ol>
+                                <RecipeDirectionsRenderer
+                                  rawText={recipeOverrides[recipe.id]?.steps ?? recipe.steps}
+                                  colors={{ accent: PALETTE.gold1, text: PALETTE.cream }}
+                                  style={{ opacity: 0.9 }}
+                                />
                               )}
                               {!recipe.image_url && recipe.benefits && recipe.benefits.length > 0 && (
                                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(241,245,249,0.18)' }}>
@@ -1899,10 +1901,10 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
       )}
 
       {/* Track your progress */}
-      <section id="track" style={{ background: PALETTE.gold1, padding: '4rem 1.5rem', ...hiddenStyle('track') }}>
+      <section id="track" style={{ background: PALETTE.dusk2, padding: '4rem 1.5rem', ...hiddenStyle('track') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <Eyebrow>Real numbers, not a guess</Eyebrow>
-          <SecTitle icon={<CheckCircle2 size={26} />} sectionId="track" open={isSectionOpen('track')} onToggle={() => toggleSection('track')}>Track Your Progress</SecTitle>
+          <Eyebrow dark>Real numbers, not a guess</Eyebrow>
+          <SecTitle dark icon={<CheckCircle2 size={26} color={PALETTE.cream} />} sectionId="track" open={isSectionOpen('track')} onToggle={() => toggleSection('track')}>Track Your Progress</SecTitle>
           <div data-section-body="track" style={{ display: isSectionOpen('track') ? 'block' : 'none' }}>
           <p data-track-empty style={{ fontSize: '0.9rem', opacity: 0.65, marginTop: 16, display: progress.totalDaysLogged === 0 ? 'block' : 'none' }}>No check-ins logged yet, tap a goal above each day you complete it, and your progress will show up here.</p>
           <div data-track-content style={{ display: progress.totalDaysLogged === 0 ? 'none' : 'block' }}>

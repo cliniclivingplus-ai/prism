@@ -4,11 +4,9 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-import Groq from 'groq-sdk'
 import { supabaseAdmin } from '@/lib/supabase'
+import { groqChatCompletion } from '@/lib/groq'
 import { BLOCK_TYPES, BLOCK_ICON_KEYS, validateBlock, type ChecklistPageBlock } from '@/lib/blocks/types'
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 // The floating AI command box's backend — edits exactly ONE block in place
 // from a natural-language instruction, never touches any other block on
@@ -33,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const allowedRecipeIds = new Set<string>(row.recipe_ids || [])
     const allowedImageIds = new Set<string>(row.image_ids || [])
 
-    const completion = await groq.chat.completions.create({
+    const completion = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       temperature: 0.3,
       max_tokens: 900,
@@ -85,8 +83,12 @@ ${instruction.trim()}`,
 
     const updated = validateBlock(parsed.block, allowedRecipeIds, allowedImageIds)
     if (!updated) return NextResponse.json({ error: "Could not apply that edit, try rephrasing the instruction." }, { status: 422 })
-    // Preserve the original block's id regardless of what the model returned.
-    const finalBlock = { ...updated, id: target.id } as ChecklistPageBlock
+    // Preserve the original block's id and layout regardless of what the model returned.
+    const finalBlock = {
+      ...updated,
+      id: target.id,
+      layout: updated.layout || target.layout || { x: 0, y: 0, w: 720, h: 140 },
+    } as ChecklistPageBlock
 
     const nextBlocks = [...blocks]
     nextBlocks[targetIndex] = finalBlock

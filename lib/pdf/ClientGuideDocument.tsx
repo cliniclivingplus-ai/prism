@@ -86,7 +86,7 @@ export type GuideData = {
   // patient's plan. Keyed by recipe id; only overrides ingredients/steps,
   // never the recipe's name or the underlying recipe_bank row (which stays
   // shared and unedited for every other patient using the same recipe).
-  recipeContentOverrides: Record<string, { ingredients: string; steps: string }>
+  recipeContentOverrides: Record<string, { ingredients?: string; steps?: string; name?: string; protein_label?: string; eat_time?: string; prep_time?: string; cook_time?: string; difficulty?: string; health_score?: string; servings?: string; tools?: string | string[]; notes?: string | string[]; benefits?: string | string[]; hidden?: boolean }>
   dailySchedule: string // a real time-blocked day ("7:30 AM — ..."), one per line — no existing source to default from, so this starts blank until the coach writes one or clicks Ask AI
   // The "Daily Health Check-in" checklist — see lib/dailyChecklist.ts. Real,
   // stable-ID'd items grounded in confirmedSupplements/lifestyle_guidelines,
@@ -635,7 +635,12 @@ function recipesPages(data: GuideData): ReactElement[] {
             Splitting them into separate blocks (and using a fixed pixel
             width instead of '100%') avoids that mismeasurement. */}
         <View wrap={false}>
-          <Text style={shared.section}>{m.recipe.name}{m.recipe.protein_label ? ` · ${m.recipe.protein_label}` : ''}</Text>
+          {(() => {
+            const override = data.recipeContentOverrides[m.recipe.id]
+            const name = override?.name ?? m.recipe.name
+            const pLabel = override?.protein_label ?? m.recipe.protein_label
+            return <Text style={shared.section}>{name}{pLabel ? ` · ${pLabel}` : ''}</Text>
+          })()}
           {img && <Image src={img.image_url} style={{ width: 500, height: 110, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }} />}
         </View>
         <View style={shared.box} wrap={false}>

@@ -20,7 +20,7 @@ import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
   HeartPulse, Utensils, Pill, Phone, Clock, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
-  Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon, Flame,
+  Moon, Droplet, Brain, Sun, Footprints, Smartphone, Link as LinkIcon, Flame, Eye, EyeOff,
   type LucideIcon, AlertTriangle, Plus,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
@@ -32,6 +32,7 @@ import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkd
 import ImageInsertButton from '@/components/ImageInsertButton'
 import ImagePreviewStrip from '@/components/ImagePreviewStrip'
 import { splitRecipeLines } from '@/lib/recipeText'
+import { RecipeIngredientsRenderer, RecipeDirectionsRenderer } from '@/components/RecipeContentRenderer'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { matchGuideImageDistinct } from '@/lib/pdf/matchGuideImage'
@@ -42,6 +43,7 @@ import { splitIntoPeriods, joinPeriods, parseScheduleLines } from '@/lib/periodB
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import InlineEditableText from '@/components/InlineEditableText'
 import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
+import CombineRecipesButton from '@/components/CombineRecipesButton'
 import { CareServiceLinkButton, CareServiceLinkFields, isVisibleCareService } from '@/components/CareServiceLink'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
@@ -279,10 +281,16 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
 }) {
   const firstName = data.patient.full_name?.split(' ')[0] || 'there'
   const coachFirst = data.coach?.full_name?.split(' ')[0] || 'your coach'
-  // A coach's hide/show choice is made in the Classic editor and just a
-  // saved fact here, same as before — unaffected by `editable`.
-  const hiddenStyle = (id: string): CSSProperties => ((data.hiddenSections ?? []).includes(id) ? { display: 'none' } : {})
-  const isHidden = (id: string) => (data.hiddenSections ?? []).includes(id)
+  const [hiddenSections, setHiddenSections] = useState<string[]>(data.hiddenSections || [])
+  const isHidden = (id: string) => hiddenSections.includes(id)
+  function toggleSection(id: string) {
+    setHiddenSections((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      patchRoadmap({ guide_overrides: { hidden_sections: next } })
+      return next
+    })
+  }
+  const hiddenStyle = (id: string): CSSProperties => (!editable && isHidden(id) ? { display: 'none' } : {})
   const parsed = useMemo(() => parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines), [data.roadmap.nutritionist_guidelines])
 
   // Best-effort, fire-and-forget — same helper and tolerance as
@@ -301,7 +309,17 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
   // "override state seeded from the real data" pattern as everything else
   // below.
   const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
-  const months = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+  const allMonths = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
+  const months = useMemo(() => {
+    if (editable) return allMonths
+    return allMonths
+      .filter((m) => !hiddenSections.includes(`month-${m.monthNumber}`))
+      .map((m) => ({
+        ...m,
+        weeks: m.weeks.filter((w) => !hiddenSections.includes(`week-${w.week_number}`)),
+      }))
+      .filter((m) => m.weeks.length > 0)
+  }, [allMonths, hiddenSections, editable])
   // The week heading on each roadmap week card ("Week 1 · <theme>").
   function saveWeekTheme(weekNumber: number, next: string) {
     setWeeklySchedule((prev) => {
@@ -532,6 +550,9 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
   // other field here.
   const [supplementRows, setSupplementRows] = useState(data.confirmedSupplements)
   const [recipeOverrides, setRecipeOverrides] = useState(data.recipeContentOverrides)
+  useEffect(() => {
+    if (data.recipeContentOverrides) setRecipeOverrides(data.recipeContentOverrides)
+  }, [data.recipeContentOverrides])
   function updateSupplementRow(i: number, patch: Partial<GuideData['confirmedSupplements'][number]>) {
     setSupplementRows((prev) => {
       const next = prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
@@ -1411,22 +1432,39 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
             <SecTitle dark icon={<MapPin size={26} color={PALETTE.cream} />}>Your Roadmap</SecTitle>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 24 }}>
-              {months.map((m) => (
-                <button key={m.monthNumber} data-month-trigger={m.monthNumber} onClick={() => { const next = openMonth === m.monthNumber ? null : m.monthNumber; setOpenMonth(next); setOpenWeek(null); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
-                  style={{
-                    padding: '9px 18px', borderRadius: 24, cursor: 'pointer', fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.78rem', letterSpacing: '0.04em',
-                    border: `1px solid ${openMonth === m.monthNumber ? PALETTE.gold1 : 'rgba(243,236,218,0.3)'}`,
-                    background: openMonth === m.monthNumber ? PALETTE.gold1 : 'transparent', color: openMonth === m.monthNumber ? PALETTE.ink : PALETTE.cream,
-                  }}>
-                  {m.monthLabel}
-                </button>
-              ))}
+              {months.map((m) => {
+                const isMthHidden = isHidden(`month-${m.monthNumber}`)
+                return (
+                  <div key={m.monthNumber} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                    <button data-month-trigger={m.monthNumber} onClick={() => { const next = openMonth === m.monthNumber ? null : m.monthNumber; setOpenMonth(next); setOpenWeek(null); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
+                      style={{
+                        padding: '9px 18px', borderRadius: 24, cursor: 'pointer', fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.78rem', letterSpacing: '0.04em',
+                        border: `1px ${isMthHidden ? 'dashed' : 'solid'} ${openMonth === m.monthNumber ? PALETTE.gold1 : 'rgba(243,236,218,0.3)'}`,
+                        background: openMonth === m.monthNumber ? PALETTE.gold1 : 'transparent', color: openMonth === m.monthNumber ? PALETTE.ink : PALETTE.cream,
+                        opacity: isMthHidden ? 0.65 : 1,
+                      }}>
+                      {m.monthLabel} {isMthHidden && <span style={{ opacity: 0.75 }}>(Hidden)</span>}
+                    </button>
+                    {editable && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleSection(`month-${m.monthNumber}`) }}
+                        title={isMthHidden ? `Unhide Month ${m.monthNumber} for patient` : `Hide Month ${m.monthNumber} from patient`}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: isMthHidden ? PALETTE.gold1 : PALETTE.cream }}
+                      >
+                        {isMthHidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             {months.map((m) => (
               <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 28, display: openMonth === m.monthNumber ? 'block' : 'none' }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
                   {m.weeks.map((w) => {
+                    const isWkHidden = isHidden(`week-${w.week_number}`)
                     // A div in edit mode: a text field inside a <button> would
                     // toggle the week on every click into it (and on Space).
                     const WeekCard = editable ? 'div' : 'button'
@@ -1434,10 +1472,25 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                     <WeekCard key={w.week_number} data-week-trigger={w.week_number} role={editable ? 'button' : undefined} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
                       style={{
                         textAlign: 'left', padding: '12px 16px', borderRadius: 10, cursor: 'pointer', minWidth: 150,
-                        border: `1px solid ${openWeek === w.week_number ? PALETTE.gold1 : 'rgba(243,236,218,0.22)'}`,
+                        border: `1px ${isWkHidden ? 'dashed' : 'solid'} ${openWeek === w.week_number ? PALETTE.gold1 : 'rgba(243,236,218,0.22)'}`,
                         background: openWeek === w.week_number ? 'rgba(224,195,132,0.14)' : 'rgba(243,236,218,0.05)',
+                        opacity: isWkHidden ? 0.65 : 1,
                       }}>
-                      <div style={{ color: PALETTE.gold1, fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.72rem', letterSpacing: '0.05em' }}>Week {w.week_number}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                        <div style={{ color: PALETTE.gold1, fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.72rem', letterSpacing: '0.05em' }}>
+                          Week {w.week_number} {isWkHidden && <span style={{ opacity: 0.75 }}>(Hidden)</span>}
+                        </div>
+                        {editable && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleSection(`week-${w.week_number}`) }}
+                            title={isWkHidden ? `Unhide Week ${w.week_number} for patient` : `Hide Week ${w.week_number} from patient`}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: isWkHidden ? PALETTE.gold1 : PALETTE.cream }}
+                          >
+                            {isWkHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                        )}
+                      </div>
                       {editable ? (
                         <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 3 }}>
                           <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
@@ -1514,9 +1567,37 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Eyebrow dark>Picked for your plan</Eyebrow>
             <SecTitle dark icon={<ChefHat size={26} color={PALETTE.cream} />}>Your recipes</SecTitle>
-            {editable && roadmapId && (
-              <div style={{ marginTop: 8 }}>
-                <AiBulkRecipeEditButton roadmapId={roadmapId} onApply={(o) => setRecipeOverrides((prev) => ({ ...prev, ...o }))} />
+            {editable && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {roadmapId && (
+                  <AiBulkRecipeEditButton
+                    roadmapId={roadmapId}
+                    onApply={(o) => {
+                      setRecipeOverrides((prev) => {
+                        const next = { ...prev, ...o }
+                        patchRoadmap({ guide_overrides: { recipe_content_overrides: next } })
+                        return next
+                      })
+                    }}
+                  />
+                )}
+                <CombineRecipesButton
+                  recipes={data.recipeBank}
+                  recipeOverrides={recipeOverrides}
+                  manualRecipes={data.manualRecipes}
+                  weeklyManualRecipes={data.weeklyManualRecipes}
+                  weekMealMatches={weekMealMatches}
+                  onApply={(nextOverrides, nextManual, nextWeekly) => {
+                    setRecipeOverrides(nextOverrides)
+                    patchRoadmap({
+                      guide_overrides: {
+                        recipe_content_overrides: nextOverrides,
+                        manual_recipes: nextManual,
+                        weekly_manual_recipes: nextWeekly,
+                      },
+                    })
+                  }}
+                />
               </div>
             )}
             {(() => {
@@ -1526,13 +1607,14 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                 <div style={{ marginTop: 16 }}>
                   <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 10 }}>
                     {weekSlotRecipes.map(({ slot, matches }) => {
+                      const visibleMatches = matches.filter(({ recipe }) => !recipeOverrides[recipe.id]?.hidden)
                       const slotId = `${w.week_number}-${slot}`
                       return (
                         <button key={slot} data-slot-trigger={slotId} onClick={() => setOpenSlot(slotId)}
                           style={{ textAlign: 'left', padding: '11px 13px', borderRadius: 12, cursor: 'pointer', border: '1px solid rgba(243,236,218,0.22)', background: 'rgba(243,236,218,0.08)' }}>
                           <div style={{ fontFamily: "'Fraunces', serif", fontSize: '0.9rem', fontWeight: 500, color: PALETTE.cream }}>{SLOT_LABELS[slot]}</div>
-                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.72rem', color: matches.length ? PALETTE.gold1 : PALETTE.cream, opacity: matches.length ? 1 : 0.5, marginTop: 4, fontWeight: 600 }}>
-                            {matches.length ? `${matches.length} recipe${matches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
+                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.72rem', color: visibleMatches.length ? PALETTE.gold1 : PALETTE.cream, opacity: visibleMatches.length ? 1 : 0.5, marginTop: 4, fontWeight: 600 }}>
+                            {visibleMatches.length ? `${visibleMatches.length} recipe${visibleMatches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
                           </div>
                         </button>
                       )
@@ -1540,6 +1622,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                   </div>
 
                   {weekSlotRecipes.map(({ slot, matches }) => {
+                    const visibleMatches = matches.filter(({ recipe }) => !recipeOverrides[recipe.id]?.hidden)
                     const slotId = `${w.week_number}-${slot}`
                     return (
                     <div key={slot} data-slot-body={slotId} style={{ display: openSlot === slotId ? 'block' : 'none', marginTop: 16 }}>
@@ -1548,22 +1631,23 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                         ← Back to meal slots
                       </button>
                       <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1, opacity: 0.85, display: 'block', marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</span>
-                      {matches.length > 0 ? (
+                      {visibleMatches.length > 0 ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
-                          {matches.map(({ recipe }) => {
+                          {visibleMatches.map(({ recipe }) => {
                             const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                            const recipeName = recipeOverrides[recipe.id]?.name ?? recipe.name
                             return (
                             <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
                               style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? 'rgba(224,195,132,0.16)' : 'rgba(243,236,218,0.08)', border: `1px solid ${openRecipeId === recipeKey ? PALETTE.gold1 : 'rgba(243,236,218,0.22)'}`, borderRadius: 12, overflow: 'hidden' }}>
                               {recipe.image_url ? (
-                                <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
+                                <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
                               ) : (
                                 <div style={{ width: '100%', height: 100, background: 'rgba(243,236,218,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <ChefHat size={20} color={PALETTE.cream} opacity={0.5} />
                                 </div>
                               )}
                               <div style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                                <span style={{ color: PALETTE.cream, fontSize: '0.85rem', fontWeight: 600 }}>{recipe.name}</span>
+                                <span style={{ color: PALETTE.cream, fontSize: '0.85rem', fontWeight: 600 }}>{recipeName}</span>
                                 {openRecipeId === recipeKey ? <ChevronDown size={14} color={PALETTE.gold1} style={{ flexShrink: 0 }} /> : <ChevronRight size={14} color={PALETTE.cream} opacity={0.5} style={{ flexShrink: 0 }} />}
                               </div>
                             </button>
@@ -1574,8 +1658,9 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                         <div style={{ fontSize: '0.88rem', color: PALETTE.cream, opacity: 0.6 }}>Nothing detected for {SLOT_LABELS[slot].toLowerCase()} yet, {coachFirst} will add some.</div>
                       )}
 
-                      {matches.map(({ recipe }) => {
+                      {visibleMatches.map(({ recipe }) => {
                         const recipeKey = `${w.week_number}-${slot}-${recipe.id}`
+                        const recipeName = recipeOverrides[recipe.id]?.name ?? recipe.name
                         const facts: [string, string][] = [
                           ...(recipe.prep_time ? [['Prep', recipe.prep_time] as [string, string]] : []),
                           ...(recipe.cook_time ? [['Cook', recipe.cook_time] as [string, string]] : []),
@@ -1591,7 +1676,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                           <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 24 }}>
                             {recipe.image_url && (
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <img src={recipe.image_url} alt={recipe.name} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
+                                <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
                                 {facts.length > 0 && (
                                   <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                     {facts.map(([label, value]) => (
@@ -1639,7 +1724,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                             )}
                             <div>
                               {recipe.protein_label && <Eyebrow dark>{recipe.protein_label}</Eyebrow>}
-                              <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: '1.4rem', color: PALETTE.cream, margin: '0 0 16px' }}>{recipe.name}</h3>
+                              <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: '1.4rem', color: PALETTE.cream, margin: '0 0 16px' }}>{recipeName}</h3>
                               <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Ingredients</span>
                               {editable ? (
                                 <textarea
@@ -1650,14 +1735,11 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                                   style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: '0.86rem', padding: '8px 10px', background: 'transparent', border: '1px dashed rgba(243,236,218,0.4)', borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, margin: '10px 0 20px', lineHeight: 1.5, color: PALETTE.cream }}
                                 />
                               ) : (
-                                <ul style={{ listStyle: 'none', margin: '10px 0 20px', padding: 0, display: 'grid', gap: 8 }}>
-                                  {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
-                                    <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: PALETTE.cream, opacity: 0.9, fontSize: '0.86rem', lineHeight: 1.5 }}>
-                                      <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: PALETTE.gold1, marginTop: 7 }} />
-                                      <span>{line}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                                <RecipeIngredientsRenderer
+                                  rawText={recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients}
+                                  colors={{ accent: PALETTE.gold1, text: PALETTE.cream }}
+                                  style={{ opacity: 0.9 }}
+                                />
                               )}
                               <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>Directions</span>
                               {editable ? (
@@ -1669,14 +1751,11 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                                   style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: '0.86rem', padding: '8px 10px', background: 'transparent', border: '1px dashed rgba(243,236,218,0.4)', borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, margin: '10px 0 0', lineHeight: 1.5, color: PALETTE.cream }}
                                 />
                               ) : (
-                                <ol style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 12 }}>
-                                  {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
-                                    <li key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                                      <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: 'rgba(243,236,218,0.18)', color: PALETTE.gold1, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-                                      <span style={{ color: PALETTE.cream, opacity: 0.9, fontSize: '0.86rem', lineHeight: 1.55, paddingTop: 1 }}>{line}</span>
-                                    </li>
-                                  ))}
-                                </ol>
+                                <RecipeDirectionsRenderer
+                                  rawText={recipeOverrides[recipe.id]?.steps ?? recipe.steps}
+                                  colors={{ accent: PALETTE.gold1, text: PALETTE.cream }}
+                                  style={{ opacity: 0.9 }}
+                                />
                               )}
                               {!recipe.image_url && recipe.benefits && recipe.benefits.length > 0 && (
                                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(243,236,218,0.18)' }}>

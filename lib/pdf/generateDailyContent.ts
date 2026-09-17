@@ -22,45 +22,53 @@ function exampleBlock(example: string | null): string {
 // fields, so an existing roadmap regenerated later ends up identical to a
 // freshly generated one, regardless of which template (Week-family or
 // Classic/Almanac/Pulse/Onyx/Vitals) it uses.
-export async function generateDailyContent(patientFacts: string, kbContext: string) {
+export async function generateDailyContent(
+  patientFacts: string,
+  kbContext: string,
+  customLifestyle?: string,
+  customMealGuidelines?: string,
+  customMealRecipes?: string
+) {
   const scheduleExample = await getGoodExample('daily_schedule')
 
-  // Lifestyle guidelines and meal guidelines are now the clinic's own fixed
-  // standard (see standardDailyContent.ts) on every roadmap, not an
-  // AI-personalized guess — a coach can still edit, add to, or replace any
-  // line afterward (Pick/Link/Picture/Ask AI all still work per-field), but
-  // every dashboard starts from the same clinically-approved baseline
-  // instead of drifting per-patient. Only the daily schedule stays
-  // AI-generated below, since it's a real per-patient timeline (actual work
-  // hours, meal timing) that a fixed template can't represent.
-  const lifestyle_guidelines = STANDARD_LIFESTYLE_GUIDELINES
-  const meal_guidelines = STANDARD_MEAL_GUIDELINES
+  const lifestyle_guidelines = customLifestyle?.trim() || STANDARD_LIFESTYLE_GUIDELINES
+  const meal_guidelines = customMealGuidelines?.trim() || STANDARD_MEAL_GUIDELINES
 
   const scheduleRes = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     reasoning_effort: 'low',
     messages: [
-      { role: 'system', content: `Clinical nutritionist writing a patient's full daily schedule, start of day to sleep, using ONLY the facts given. This is a visual timeline the patient scans in seconds, not a paragraph — every activity is a short label, never a run-on sentence. Never name a supplement, dose, or product that is not explicitly listed in the patient facts below. Output one line per time block, no other text. Never use an em dash (—) inside an activity description; use a comma instead — the em dash character is reserved as the separator between the time and the activity. ${DIET_RULE}` },
-      { role: 'user', content: `PATIENT FACTS (use ONLY these — do not add any supplement, dose, or product not named here):
+      {
+        role: 'system',
+        content: `Clinical nutritionist writing a personalized patient's full daily schedule (start-of-day to sleep) based on their consultation transcripts, notes, lifestyle guidelines, and meal guidelines. Output a clean visual time-block schedule that the patient can scan in seconds. Output one line per time block. Never name a supplement, dose, or product that is not explicitly listed in the facts below. Never use an em dash (—) inside an activity description; use a comma instead. The em dash is reserved strictly as the separator between the time and the activity. ${DIET_RULE}`
+      },
+      {
+        role: 'user',
+        content: `PATIENT TRANSCRIPTS, NOTES & CLINICAL FACTS:
 ${patientFacts}
 
-KB:
-${kbContext || 'Use expertise.'}
+DAILY LIFESTYLE GUIDELINES FOR THIS PATIENT:
+${lifestyle_guidelines}
 
-Write this patient's full daily schedule, from wake-up to sleep, personalized to their actual condition, program, and constraints from the facts above (their real work hours, meal timing, symptoms, habits).
-Each line must be exactly: "<time> — <activity>", e.g. "7:30 AM — Wake up, drink water." or "2:00 PM — Lunch, then a 15-minute walk."
-Rules:
-- EXACTLY 12 time blocks, no more, no fewer, covering the whole day in chronological order, real clock times (e.g. "7:30 AM", "2:00 PM"), never a range
-- Under 8 words per activity — ONE primary action per line, at most one short add-on ("Lunch, then a walk," not "Lunch: 2 parts protein, 2 parts vegetables... incorporating a small serving of brown rice")
-- Specific over generic within that word limit ("Sunlight, 10 minutes" not "Get some sunlight"), but specific never means longer — cut detail before cutting the word limit
-- Never chain three or more things with commas/"and" into one activity — if a time block needs more than one action, that's a sign to split it into its own line instead (you have 12 lines; use them)
-- Ground every activity in the patient's real facts: their actual symptoms, condition, work hours, and eating patterns
-- FORBIDDEN: naming any supplement, medication, or dose (e.g. "magnesium 400mg", "vitamin D") unless that exact supplement is already named in PATIENT FACTS above — if no supplement is mentioned in the facts, write none into the schedule at all
-- If a fact describes a habit tied to a symptom or negative consequence (e.g. "consciously contracting muscles to fall asleep, contributing to morning stiffness"), the schedule must prescribe the CORRECTIVE opposite of that habit, never a rephrased version of the harmful habit itself — do not tell the patient to keep doing the thing identified as causing their problem
-- Include real anchors every day needs: wake time, meals (breakfast/lunch/dinner), hydration, movement, and a wind-down/sleep routine — personalized to this patient's condition, not a generic list
-- No explanation, no headers, no numbering, no bullet characters
+BREAKFAST, LUNCH & DINNER GUIDELINES:
+${meal_guidelines}
+${customMealRecipes ? `\nPRESCRIBED MEALS & PREPARATIONS:\n${customMealRecipes}` : ''}
 
-Return only the 12 time-block lines, one per line, nothing else.${exampleBlock(scheduleExample)}` }
+KB CONTEXT:
+${kbContext || 'Use clinical expertise.'}
+
+Write this patient's full daily schedule, from their actual start-of-day wake-up time to sleep.
+
+TIMING & PERSONALIZATION RULES:
+1. INDIVIDUAL START OF DAY: Everyone's day starts differently (e.g. early 5:00 AM risers vs 7:00 AM risers vs 9:30 AM risers vs night-shift workers). Carefully parse the patient transcripts, notes, and facts for when THIS specific patient actually wakes up, sleeps, and works. Start the schedule at their real wake-up time. DO NOT default everyone to 7:00 AM or 7:30 AM.
+2. CHRONOLOGICAL 12 TIME BLOCKS: Generate exactly 12 time blocks in strictly chronological order covering their entire waking day from wake-up to lights out (e.g., "5:30 AM — Wake up, warm water with lemon.").
+3. INTEGRATE LIFESTYLE GUIDELINES: Weave their Daily Lifestyle Guidelines (morning sunlight, movement, hydration, post-meal walks, wind-down routine) naturally into the schedule at appropriate time slots relative to their wake time.
+4. INTEGRATE BREAKFAST, LUNCH & DINNER: Weave Breakfast, Lunch, Dinner, and Snack timings naturally relative to their wake time (e.g., Breakfast 30-60 mins post-wake, Lunch mid-day, Dinner 3-4 hours before sleep). Include specific recommended items/drinks if specified (e.g. morning amla shot, herbal tea).
+5. BREVITY & GROUNDING: Under 8 words per activity line. One primary action per line with at most one short add-on. Ground every action in their real condition and habits.
+6. STRICT FORMAT: Each line must be exactly "<time> — <activity>", e.g. "6:00 AM — Wake up, drink warm water." or "1:30 PM — Lunch, followed by 15-minute walk."
+
+Return only the 12 time-block lines, one per line, nothing else.${exampleBlock(scheduleExample)}`
+      }
     ],
     temperature: 0.3,
     max_tokens: 500,

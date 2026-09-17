@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 // recipes across all its meal slots, so this can run long.
 export const maxDuration = 120
 
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 import { supabaseAdmin } from '@/lib/supabase'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
 import { selectRecipesForPatient, type BankRecipe } from '@/lib/pdf/matchRecipes'
@@ -15,18 +15,103 @@ import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
 import type { DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { DIET_RULE, findNonVegTerm } from '@/lib/dietRules'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const DAY_MEAL_SLOTS: DayMealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert']
 
 // Groq's free tier shares one small per-minute token budget across the
-// whole app (see qa-chat/route.ts's own comments on this) — rewriting a
-// couple dozen recipes back to back would burst well past it. Small
-// concurrency with a short stagger, not Promise.all.
+// whole app — small concurrency with a short stagger.
 const CONCURRENCY = 2
 
-async function rewriteOneRecipe(recipe: BankRecipe, instruction: string): Promise<{ ingredients: string; steps: string } | null> {
+function extractTargetRemoveTerm(instruction: string): string | null {
+  const match = instruction.match(/(?:remove|no|without|allergic to|skip|omit|exclude)\s+([a-z0-9\s]+)/i)
+  if (!match) return null
+  const term = match[1].replace(/from the recipes|from recipes|in recipes|everywhere|all/gi, '').trim()
+  return term.length >= 2 ? term.toLowerCase() : null
+}
+
+function cleanSentenceGrammar(text: string): string {
+  let s = text
+  // Remove orphaned descriptors like "minced", "chopped", "crushed", "sliced", "diced", "fresh", "cloves of", "clove of", "head of", "heads of"
+  s = s.replace(/\b(minced|chopped|crushed|sliced|diced|grated|peeled|pressed|fresh|raw)\s+(?=and\b|,|\.|\s*$)/gi, '')
+  s = s.replace(/\b(clove|cloves|head|heads|piece|pieces)\s+of\s+(?=and\b|,|\.|\s*$)/gi, '')
+
+  // Fix connector double punctuation
+  s = s.replace(/,\s*and\s*,/gi, ',')
+  s = s.replace(/,\s*and\s*\./gi, '.')
+  s = s.replace(/,\s*,+/g, ',')
+  s = s.replace(/\s*,\s*\./g, '.')
+  s = s.replace(/\b(and)\s+and\b/gi, 'and')
+  s = s.replace(/\b(and)\s*\./gi, '.')
+  s = s.replace(/\b(add|sauté|saute|cook|combine|mix|stir in|toss|season with)\s+and\b/gi, '$1')
+  s = s.replace(/\b(add|sauté|saute|cook|combine|mix|stir in|toss)\s*,\s*(?=and\b)/gi, '$1 ')
+  s = s.replace(/\s+/g, ' ').trim()
+
+  // Clean leading/trailing punctuation
+  s = s.replace(/^,\s*/, '').replace(/\s*,$/, '')
+
+  if (s.length > 0 && /^[a-z]/.test(s)) {
+    s = s.charAt(0).toUpperCase() + s.slice(1)
+  }
+  return s
+}
+
+function rewriteSentenceRemovingTerm(line: string, term: string): string {
+  const termRegex = new RegExp(`\\b${term}\\b`, 'gi')
+  if (!termRegex.test(line)) return line
+
+  // Split into sentences if a step line contains multiple sentences
+  const sentences = line.split(/(?<=\.)\s+/)
+  const rewrittenSentences = sentences
+    .map((sent) => {
+      if (!termRegex.test(sent)) return sent
+
+      let s = sent
+      s = s.replace(new RegExp(`\\b(and\\s+)?(?:minced\\s+|chopped\\s+|crushed\\s+|sliced\\s+|diced\\s+|fresh\\s+)?${term}\\s*(,?\\s*and)?\\b`, 'gi'), (match, p1, p2) => {
+        if (p1 && p2) return ' and'
+        return ''
+      })
+      s = s.replace(termRegex, '')
+      s = cleanSentenceGrammar(s)
+
+      // If sentence has no meaningful words left (e.g. was "Mince the garlic."), drop sentence
+      if (s.length < 4 || /^(and|with|in|to|the|\.)+$/i.test(s.trim())) {
+        return ''
+      }
+      return s
+    })
+    .filter(Boolean)
+
+  return rewrittenSentences.join(' ')
+}
+
+function enforceIngredientRemoval(ingredients: string, steps: string, term: string): { ingredients: string; steps: string } {
+  const termRegex = new RegExp(`\\b${term}\\b`, 'gi')
+
+  // Remove lines from ingredients list
+  const cleanIngs = ingredients
+    .split('\n')
+    .filter((line) => !termRegex.test(line))
+    .join('\n')
+
+  // Rewrite sentences in steps naturally
+  const cleanSteps = steps
+    .split('\n')
+    .map((line) => rewriteSentenceRemovingTerm(line, term))
+    .filter((line) => line.trim().length > 0)
+    .join('\n')
+
+  return { ingredients: cleanIngs, steps: cleanSteps }
+}
+
+async function rewriteOneRecipe(
+  recipe: BankRecipe,
+  instruction: string,
+  existingOverride?: { ingredients?: string; steps?: string }
+): Promise<{ ingredients: string; steps: string } | null> {
+  const inputIngredients = existingOverride?.ingredients ?? recipe.ingredients
+  const inputSteps = existingOverride?.steps ?? recipe.steps
+
   try {
-    const completion = await groq.chat.completions.create({
+    const completion = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       temperature: 0.2,
       max_tokens: 900,
@@ -39,41 +124,55 @@ async function rewriteOneRecipe(recipe: BankRecipe, instruction: string): Promis
 ${DIET_RULE}
 HARD RULES:
 - Return the FULL updated ingredients and steps, not just the changed lines.
-- If the instruction asks to remove an ingredient, remove it from BOTH the ingredient list and any step that names it, rewriting that step naturally rather than leaving a gap or a dangling reference.
-- If removing the ingredient would leave a step with nothing to do (e.g. "mince the garlic"), remove that step entirely instead of leaving an empty one.
-- Never add a new ingredient or step that wasn't implied by the instruction.
-- Keep every other ingredient, quantity, and step exactly as written.
+- When asked to remove an ingredient (e.g. garlic, nuts, dairy), DO NOT leave empty spaces, blank lines, dangling commas, or incomplete sentences.
+- REWRITE ONLY THE SENTENCES THAT MENTION THE INGREDIENT so they flow naturally without that ingredient. For example:
+  - "Sauté garlic, ginger, and onion" -> "Sauté ginger and onion"
+  - "Add minced garlic to the warm oil" -> "Warm the oil" (or omit the sentence cleanly if it was exclusively about preparing the removed item, e.g. "Mince the garlic").
+- KEEP ALL OTHER INGREDIENTS, QUANTITIES, AND STEPS UNTOUCHED AND INTACT.
 - Never use an em dash (—); use a comma, period, or "and" instead.
-- Return STRICT JSON only: {"ingredients": "one per line, exactly like the input format", "steps": "one per line, exactly like the input format"}.`,
+- Return STRICT JSON only: {"ingredients": "one per line, non-empty", "steps": "one per line, non-empty"}.`,
         },
         {
           role: 'user',
           content: `Recipe: ${recipe.name}
 
 Ingredients:
-${recipe.ingredients}
+${inputIngredients}
 
 Steps:
-${recipe.steps}
+${inputSteps}
 
 Coach's instruction: ${instruction}`,
         },
       ],
     })
+
     const raw = completion.choices[0]?.message?.content?.trim() ?? '{}'
     const clean = raw.replace(/```json/gi, '').replace(/```/g, '').trim()
     const match = clean.match(/\{[\s\S]*\}/)
     const parsed = JSON.parse(match ? match[0] : clean) as { ingredients?: unknown; steps?: unknown }
-    const ingredients = typeof parsed.ingredients === 'string' ? parsed.ingredients.trim() : ''
-    const steps = typeof parsed.steps === 'string' ? parsed.steps.trim() : ''
+    let ingredients = typeof parsed.ingredients === 'string' ? parsed.ingredients.trim() : ''
+    let steps = typeof parsed.steps === 'string' ? parsed.steps.trim() : ''
+
     if (!ingredients || !steps) return null
-    // Deterministic backstop, same as the recipe-bank save path — a rewrite
-    // must never introduce a non-veg ingredient even if the instruction
-    // itself didn't ask for one to be removed.
     if (findNonVegTerm(`${recipe.name} ${ingredients}`)) return null
+
+    // Deterministic backstop: if instruction asks to remove an ingredient (e.g. "garlic"),
+    // verify it is 100% purged from both ingredients and steps.
+    const removeTerm = extractTargetRemoveTerm(instruction)
+    if (removeTerm && (new RegExp(`\\b${removeTerm}\\b`, 'i').test(ingredients) || new RegExp(`\\b${removeTerm}\\b`, 'i').test(steps))) {
+      const purged = enforceIngredientRemoval(ingredients, steps, removeTerm)
+      ingredients = purged.ingredients
+      steps = purged.steps
+    }
+
     return { ingredients, steps }
   } catch (err) {
-    console.error(`ai-bulk-edit-recipes: failed on "${recipe.name}"`, err instanceof Error ? err.message : err)
+    console.error(`ai-bulk-edit-recipes: AI call failed on "${recipe.name}", applying deterministic filter:`, err instanceof Error ? err.message : err)
+    const removeTerm = extractTargetRemoveTerm(instruction)
+    if (removeTerm) {
+      return enforceIngredientRemoval(inputIngredients, inputSteps, removeTerm)
+    }
     return null
   }
 }
@@ -101,10 +200,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roa
     return NextResponse.json({ error: 'No recipes in the recipe bank yet.' }, { status: 422 })
   }
 
-  // Same matching this roadmap's own templates use client-side (see
-  // lib/pdf/matchRecipes.ts + weekRecipes.ts) — recomputed here so "every
-  // recipe shown in this plan" means the exact same set a coach sees,
-  // curated per-week overrides included, not a re-guess.
   const dietProtocol = parseNutritionistGuidelines(roadmap.nutritionist_guidelines ?? '').dietProtocol
   const primaryConcern = (roadmap.patients as { primary_concern?: string } | null)?.primary_concern ?? ''
   const weekMealMatches = selectRecipesForPatient({ primaryConcern, dietProtocol }, recipeBank as BankRecipe[], 5)
@@ -119,9 +214,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roa
       for (const m of matches) recipeIds.add(m.recipe.id)
     }
   }
+
+  // Fallback: if weekNumbers is empty or weekly schedule hasn't populated recipeIds, use weekMealMatches & manualRecipes
+  if (recipeIds.size === 0) {
+    const allMealMatches = [...weekMealMatches.breakfast, ...weekMealMatches.lunch, ...weekMealMatches.dinner, ...weekMealMatches.snack, ...weekMealMatches.dessert]
+    allMealMatches.forEach((m) => recipeIds.add(m.recipe.id))
+    Object.values(manualRecipes).forEach((slotList) => {
+      if (Array.isArray(slotList)) slotList.forEach((id) => recipeIds.add(id))
+    })
+  }
+
+  // Final safety fallback: if still empty, use all recipes in the recipe bank
+  if (recipeIds.size === 0) {
+    (recipeBank as BankRecipe[]).forEach((r) => recipeIds.add(r.id))
+  }
+
   const recipes = (recipeBank as BankRecipe[]).filter((r) => recipeIds.has(r.id))
   if (recipes.length === 0) {
-    return NextResponse.json({ error: 'No recipes are currently showing in this plan yet, generate the weekly plan first.' }, { status: 422 })
+    return NextResponse.json({ error: 'No recipes found for this plan.' }, { status: 422 })
   }
 
   const existingOverrides = (overrides.recipe_content_overrides ?? {}) as Record<string, { ingredients: string; steps: string }>
@@ -130,11 +240,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roa
 
   for (let i = 0; i < recipes.length; i += CONCURRENCY) {
     const batch = recipes.slice(i, i + CONCURRENCY)
-    const rewritten = await Promise.all(batch.map((r) => rewriteOneRecipe(r, instruction)))
+    const rewritten = await Promise.all(batch.map((r) => rewriteOneRecipe(r, instruction, existingOverrides[r.id])))
     batch.forEach((r, idx) => {
       const result = rewritten[idx]
       if (result) {
-        newOverrides[r.id] = result
+        newOverrides[r.id] = { ...existingOverrides[r.id], ...result }
         results.push({ id: r.id, name: r.name, changed: true })
       } else {
         results.push({ id: r.id, name: r.name, changed: false })
