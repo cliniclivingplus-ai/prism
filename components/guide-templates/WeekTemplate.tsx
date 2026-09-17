@@ -1030,10 +1030,14 @@ function clpToggleGroceryCat(head){
       `}</style>
 
       {/* Floating Jump to section Widget */}
-      <div data-toc-bar style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 90 }}>
+      <div data-toc-bar style={{ position: 'fixed', top: 76, right: 24, zIndex: 90 }}>
         <div style={{ position: 'relative' }}>
+          <button data-toc-trigger onClick={() => setTocOpen((v) => !v)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, fontWeight: 600, color: PALETTE.ink, background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 24, padding: '9px 16px', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', backdropFilter: 'blur(12px)' }}>
+            <Compass size={14} color={PALETTE.berry} /> Jump to section <ChevronDown size={13} style={{ transform: tocOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
           {tocOpen && (
-            <div data-toc-panel style={{ position: 'absolute', bottom: '100%', right: 0, marginBottom: 10, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(150px, 1fr))', gap: '4px 8px', background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', maxHeight: '60vh', overflowY: 'auto', minWidth: 300 }}>
+            <div data-toc-panel style={{ position: 'absolute', top: '100%', right: 0, marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(150px, 1fr))', gap: '4px 8px', background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', maxHeight: '60vh', overflowY: 'auto', minWidth: 300 }}>
               <div style={{ gridColumn: 'span 2', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, fontWeight: 700, color: PALETTE.ink, opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.04em', paddingBottom: 6, borderBottom: `1px solid ${PALETTE.line}`, marginBottom: 2 }}>
                 Jump to Section
               </div>
@@ -1045,10 +1049,6 @@ function clpToggleGroceryCat(head){
               ))}
             </div>
           )}
-          <button data-toc-trigger onClick={() => setTocOpen((v) => !v)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, fontWeight: 600, color: PALETTE.ink, background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 24, padding: '9px 16px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', backdropFilter: 'blur(12px)' }}>
-            <Compass size={14} color={PALETTE.berry} /> Jump to section <ChevronDown size={13} style={{ transform: tocOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-          </button>
         </div>
       </div>
 
