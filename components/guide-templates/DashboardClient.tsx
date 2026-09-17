@@ -1605,23 +1605,23 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     [months, weeklyManualRecipes, manualRecipes, weekMealMatches, data.recipeBank, coachFirst]
   )
 
-  const allMatches = useMemo(() => {
+  // Never reads the URL hash here — this runs during the render pass, and
+  // the server has no hash to match, so doing the lookup here would make
+  // the very first client render disagree with the server-rendered HTML (a
+  // hydration error). The hash is only ever read inside the effect below.
+  const allMatchesBase = useMemo(() => {
     const combined = [...mealMatches.breakfast, ...mealMatches.lunch, ...mealMatches.dinner, ...mealMatches.snack, ...mealMatches.dessert,
       ...allWeekSlotRecipes.flatMap((s) => s.matches)]
-    const deduped = combined.filter((m, i) => combined.findIndex((x) => x.recipe.id === m.recipe.id) === i)
-    // A coach can link a lifestyle line (see RecipeLinkInsertButton) to any
-    // recipe in the bank, not only the plan's top auto-matched picks — splice
-    // it in so its own link still opens something.
-    if (typeof window !== 'undefined') {
-      const hashMatch = window.location.hash.match(/^#recipe-(.+)$/)
-      const id = hashMatch?.[1]
-      if (id && !deduped.some((x) => x.recipe.id === id)) {
-        const recipe = data.recipeBank.find((r) => r.id === id)
-        if (recipe) deduped.push({ recipe, why: 'Linked from your daily routine.' })
-      }
-    }
-    return deduped
-  }, [mealMatches, allWeekSlotRecipes, data.recipeBank])
+    return combined.filter((m, i) => combined.findIndex((x) => x.recipe.id === m.recipe.id) === i)
+  }, [mealMatches, allWeekSlotRecipes])
+  // A coach can link a lifestyle line (see RecipeLinkInsertButton) to any
+  // recipe in the bank, not only the plan's top auto-matched picks — set by
+  // the effect below (client-only, after hydration), never during render.
+  const [linkedExtraRecipe, setLinkedExtraRecipe] = useState<RecipeMatch['recipe'] | null>(null)
+  const allMatches = useMemo(() => {
+    if (!linkedExtraRecipe || allMatchesBase.some((x) => x.recipe.id === linkedExtraRecipe.id)) return allMatchesBase
+    return [...allMatchesBase, { recipe: linkedExtraRecipe, why: 'Linked from your daily routine.' }]
+  }, [allMatchesBase, linkedExtraRecipe])
   // Same "every distinct recipe used anywhere in the plan, deduped, grouped
   // by meal type" the other 12 templates' standalone Recipes section shows
   // — built from the same allWeekSlotRecipes this file already computes.
@@ -1637,8 +1637,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   useEffect(() => {
     const m = window.location.hash.match(/^#recipe-(.+)$/)
     if (!m) return
-    if (allMatches.some((x) => x.recipe.id === m[1])) setOpenRecipeId(m[1])
-  }, [allMatches])
+    const id = m[1]
+    if (allMatchesBase.some((x) => x.recipe.id === id)) { setOpenRecipeId(id); return }
+    const recipe = data.recipeBank.find((r) => r.id === id)
+    if (recipe) { setLinkedExtraRecipe(recipe); setOpenRecipeId(id) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allMatchesBase, data.recipeBank])
   // Real ingredients from this patient's own matched recipes, categorized —
   // falls back to the generic reference list only when no recipe has been
   // matched yet, so the list is never left empty. Used as the fallback for

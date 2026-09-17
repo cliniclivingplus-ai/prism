@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
-import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
+import { selectRecipesForPatient, type BankRecipe } from '@/lib/pdf/matchRecipes'
 import { reshapeRoadmapIntoMonths, type WeeklyPlan } from '@/lib/pdf/reshapeRoadmap'
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
 import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkdownBold'
@@ -346,6 +346,55 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
   const [openDay, setOpenDay] = useState<string | null>(null)
   const [openSlot, setOpenSlot] = useState<string | null>(null)
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null)
+
+  // Every distinct recipe used anywhere in the plan, deduped, grouped by
+  // meal type — same computation the Recipes section renders below, hoisted
+  // here so the "open from a lifestyle recipe link" effect further down can
+  // find which slot a given recipe id lives under without duplicating it.
+  // Never reads the URL hash here — this runs during the render pass, and
+  // the server has no hash to match, so doing the lookup here would make
+  // the very first client render disagree with the server-rendered HTML (a
+  // hydration error). The hash is only ever read inside the effect below.
+  const allWeekNumbers = useMemo(() => months.flatMap((m) => m.weeks).map((w) => w.week_number), [months])
+  const recipesBySlot = useMemo(() => DAY_MEAL_SLOTS.map((slot) => {
+    const bySlot = allWeekNumbers.map((wn) => getSlotRecipes(wn, [slot], data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')[0])
+    const seen = new Set<string>()
+    const matches = bySlot.flatMap((s) => s?.matches ?? []).filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
+    return { slot, matches }
+  }), [allWeekNumbers, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  // A coach can link a lifestyle line (see RecipeLinkInsertButton) to any
+  // recipe in the bank, not only the plan's top auto-matched picks — set by
+  // the effect below (client-only, after hydration), never during render.
+  const [linkedExtraRecipe, setLinkedExtraRecipe] = useState<BankRecipe | null>(null)
+  const recipesBySlotWithLink = useMemo(() => {
+    if (!linkedExtraRecipe) return recipesBySlot
+    if (recipesBySlot.some((s) => s.matches.some((x) => x.recipe.id === linkedExtraRecipe.id))) return recipesBySlot
+    return recipesBySlot.map((s) => s.slot === linkedExtraRecipe.meal_type
+      ? { ...s, matches: [...s.matches, { recipe: linkedExtraRecipe, why: 'Linked from your daily routine.' }] }
+      : s)
+  }, [recipesBySlot, linkedExtraRecipe])
+
+  // Opens a recipe the coach linked to from a lifestyle line (see
+  // RecipeLinkInsertButton) when this page loads at that link's own
+  // #recipe-<id> — finds which meal slot it's under (falling back to the
+  // bank recipe's own meal_type when it isn't one of the auto-matched
+  // picks), opens that slot, opens the recipe itself, then scrolls the
+  // Recipes section into view.
+  useEffect(() => {
+    const m = window.location.hash.match(/^#recipe-(.+)$/)
+    if (!m) return
+    const id = m[1]
+    let slot = recipesBySlot.find((s) => s.matches.some((x) => x.recipe.id === id))?.slot
+    if (!slot) {
+      const recipe = data.recipeBank.find((r) => r.id === id)
+      if (recipe) { setLinkedExtraRecipe(recipe); slot = recipe.meal_type as DayMealSlot }
+    }
+    if (!slot) return
+    setOpenSlot(`all-${slot}`)
+    setOpenRecipeId(`all-${slot}-${id}`)
+    requestAnimationFrame(() => document.getElementById('recipes')?.scrollIntoView({ behavior: 'smooth' }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipesBySlot, data.recipeBank])
   const [tocOpen, setTocOpen] = useState(false)
 
   // Same real check-in-derived stats "Track your progress" shows in
@@ -1471,13 +1520,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
               </div>
             )}
             {(() => {
-              const allWeekNumbers = months.flatMap((m) => m.weeks).map((w) => w.week_number)
-              const weekSlotRecipes = DAY_MEAL_SLOTS.map((slot) => {
-                const bySlot = allWeekNumbers.map((wn) => getSlotRecipes(wn, [slot], data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')[0])
-                const seen = new Set<string>()
-                const matches = bySlot.flatMap((s) => s?.matches ?? []).filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
-                return { slot, matches }
-              })
+              const weekSlotRecipes = recipesBySlotWithLink
               const w = { week_number: 'all' as const }
               return (
                 <div style={{ marginTop: 16 }}>

@@ -27,7 +27,7 @@ import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
 import { CareServiceLinkButton, isVisibleCareService } from '@/components/CareServiceLink'
 import type { ChecklistItem } from '@/lib/dailyChecklist'
 import { parseNutritionistGuidelines } from '@/lib/pdf/parseNutritionistGuidelines'
-import { selectRecipesForPatient } from '@/lib/pdf/matchRecipes'
+import { selectRecipesForPatient, type BankRecipe } from '@/lib/pdf/matchRecipes'
 import { getSlotRecipes } from '@/lib/pdf/weekRecipes'
 import { renderMarkdownBold, splitTextAndImagesIndexed } from '@/lib/renderMarkdownBold'
 import ImageInsertButton from '@/components/ImageInsertButton'
@@ -470,6 +470,50 @@ export default function WeekNeonTemplate({ shareToken, data, initialCheckins, ed
   const [openDay, setOpenDay] = useState<string | null>(null)
   const [openSlot, setOpenSlot] = useState<string | null>(null)
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null)
+
+  // Recipes for this one week — same computation the Recipes section
+  // renders below, hoisted here so the "open from a lifestyle recipe link"
+  // effect further down can find which slot a given recipe id lives under
+  // without duplicating it. Never reads the URL hash here — this runs
+  // during the render pass, and the server has no hash to match, so doing
+  // the lookup here would make the very first client render disagree with
+  // the server-rendered HTML (a hydration error). The hash is only ever
+  // read inside the effect below.
+  const recipesBySlot = useMemo(() => getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.'),
+    [week.week_number, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  // A coach can link a lifestyle line (see RecipeLinkInsertButton) to any
+  // recipe in the bank, not only this week's top auto-matched picks — set
+  // by the effect below (client-only, after hydration), never during render.
+  const [linkedExtraRecipe, setLinkedExtraRecipe] = useState<BankRecipe | null>(null)
+  const recipesBySlotWithLink = useMemo(() => {
+    if (!linkedExtraRecipe) return recipesBySlot
+    if (recipesBySlot.some((s) => s.matches.some((x) => x.recipe.id === linkedExtraRecipe.id))) return recipesBySlot
+    return recipesBySlot.map((s) => s.slot === linkedExtraRecipe.meal_type
+      ? { ...s, matches: [...s.matches, { recipe: linkedExtraRecipe, why: 'Linked from your daily routine.' }] }
+      : s)
+  }, [recipesBySlot, linkedExtraRecipe])
+
+  // Opens a recipe the coach linked to from a lifestyle line when this page
+  // loads at that link's own #recipe-<id> — finds which meal slot it's
+  // under (falling back to the bank recipe's own meal_type when it isn't
+  // one of the auto-matched picks), expands the Recipes accordion section,
+  // opens that slot, opens the recipe itself, then scrolls into view.
+  useEffect(() => {
+    const m = window.location.hash.match(/^#recipe-(.+)$/)
+    if (!m) return
+    const id = m[1]
+    let slot = recipesBySlot.find((s) => s.matches.some((x) => x.recipe.id === id))?.slot
+    if (!slot) {
+      const recipe = data.recipeBank.find((r) => r.id === id)
+      if (recipe) { setLinkedExtraRecipe(recipe); slot = recipe.meal_type as DayMealSlot }
+    }
+    if (!slot) return
+    openSection('recipes')
+    setOpenSlot(`${week.week_number}-${slot}`)
+    setOpenRecipeId(`${week.week_number}-${slot}-${id}`)
+    requestAnimationFrame(() => document.getElementById('recipes')?.scrollIntoView({ behavior: 'smooth' }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipesBySlot, data.recipeBank])
   const [tocOpen, setTocOpen] = useState(false)
 
   // Every content section on this page is a click-to-open accordion (closed
@@ -1491,7 +1535,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
             )}
             <div data-section-body="recipes" style={{ display: isSectionOpen('recipes') ? 'block' : 'none' }}>
             {(() => {
-              const weekSlotRecipes = getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
+              const weekSlotRecipes = recipesBySlotWithLink
               return (
                 <div>
                   <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 10 }}>
