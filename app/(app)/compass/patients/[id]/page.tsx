@@ -8,6 +8,7 @@ import ReportsTab from '@/components/ReportsTab'
 import MicrobiomeLinkTab from '@/components/MicrobiomeLinkTab'
 import BloodLinkTab from '@/components/BloodLinkTab'
 import ChecklistTab from '@/components/ChecklistTab'
+import EditSessionModal from '@/components/EditSessionModal'
 
 // ── Design tokens ────────────────────────────────────────────────────
 const C = {
@@ -94,6 +95,7 @@ export default function PatientPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<TabKey>('sessions')
   const [showDelete, setShowDelete] = useState(false)
+  const [editingSessionInputs, setEditingSessionInputs] = useState<Session | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -256,9 +258,9 @@ export default function PatientPage() {
 
       {/* ── Tab panels ── */}
       <div style={{ marginTop: 22 }}>
-        {tab === 'sessions' && <SessionsTab sessions={sessions} roadmaps={roadmaps} patientId={patientId} router={router} />}
+        {tab === 'sessions' && <SessionsTab sessions={sessions} roadmaps={roadmaps} patientId={patientId} router={router} onEditInputs={(s) => setEditingSessionInputs(s)} />}
         {tab === 'reports' && <ReportsTab patientId={patientId} />}
-        {tab === 'notes' && <NotesTab sessions={sessions} onSessionUpdated={(updated) => setSessions(prev => prev.map(s => s.id === updated.id ? updated : s))} />}
+        {tab === 'notes' && <NotesTab sessions={sessions} onSessionUpdated={(updated) => setSessions(prev => prev.map(s => s.id === updated.id ? updated : s))} onEditInputs={(s) => setEditingSessionInputs(s)} />}
         {tab === 'dashboard' && (
           <DashboardTab
             roadmaps={roadmaps}
@@ -277,6 +279,15 @@ export default function PatientPage() {
           counts={counts}
           onClose={() => setShowDelete(false)}
           onDeleted={() => router.push('/compass/patients')}
+        />
+      )}
+
+      {editingSessionInputs && (
+        <EditSessionModal
+          session={editingSessionInputs}
+          patientId={patientId}
+          onClose={() => setEditingSessionInputs(null)}
+          onSaved={(updated) => setSessions(prev => prev.map(s => s.id === updated.id ? updated : s))}
         />
       )}
     </div>
@@ -431,7 +442,7 @@ function EmptyState({ icon: Icon, title, body, cta }: { icon: any; title: string
   )
 }
 
-function SessionsTab({ sessions, roadmaps, patientId, router }: { sessions: Session[]; roadmaps: Roadmap[]; patientId: string; router: ReturnType<typeof useRouter> }) {
+function SessionsTab({ sessions, roadmaps, patientId, router, onEditInputs }: { sessions: Session[]; roadmaps: Roadmap[]; patientId: string; router: ReturnType<typeof useRouter>; onEditInputs?: (s: Session) => void }) {
   if (sessions.length === 0) {
     return (
       <EmptyState
@@ -476,7 +487,17 @@ function SessionsTab({ sessions, roadmaps, patientId, router }: { sessions: Sess
                 {linkedRoadmap && <><span>·</span><span style={{ color: C.greenDeep, fontWeight: 600 }}>Roadmap generated</span></>}
               </div>
             </div>
-            <ChevronRight size={18} color={C.faint} style={{ flexShrink: 0 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => onEditInputs?.(s)}
+                title="Edit meeting transcript and session inputs"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                <Pencil size={13} /> Edit inputs
+              </button>
+              <ChevronRight size={18} color={C.faint} style={{ flexShrink: 0 }} />
+            </div>
           </button>
         )
       })}
@@ -484,7 +505,7 @@ function SessionsTab({ sessions, roadmaps, patientId, router }: { sessions: Sess
   )
 }
 
-function NotesTab({ sessions, onSessionUpdated }: { sessions: Session[]; onSessionUpdated?: (updatedSession: Session) => void }) {
+function NotesTab({ sessions, onSessionUpdated, onEditInputs }: { sessions: Session[]; onSessionUpdated?: (updatedSession: Session) => void; onEditInputs?: (s: Session) => void }) {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [preNotes, setPreNotes] = useState('')
   const [postNotes, setPostNotes] = useState('')
@@ -555,12 +576,21 @@ function NotesTab({ sessions, onSessionUpdated }: { sessions: Session[]; onSessi
                 <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginLeft: 8 }}>(Session {ordered.length - index})</span>
               </div>
               {!isEditing && (
-                <button
-                  onClick={() => startEditing(s)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                >
-                  <Pencil size={13} /> {hasNotes ? 'Edit' : 'Add notes'}
-                </button>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <button
+                    onClick={() => onEditInputs?.(s)}
+                    title="Edit transcript, summary, and notes"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 7, border: `1px solid ${C.line}`, background: '#fff', color: C.muted, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    <FileText size={12} /> Full inputs
+                  </button>
+                  <button
+                    onClick={() => startEditing(s)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    <Pencil size={13} /> {hasNotes ? 'Edit notes' : 'Add notes'}
+                  </button>
+                </div>
               )}
             </div>
 
