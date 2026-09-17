@@ -1356,23 +1356,43 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                                         <div>
                                           <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 10px' }}>{recipe.name}</h3>
                                           <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Ingredients</span>
-                                          <ul style={{ listStyle: 'none', margin: '8px 0 14px', padding: 0, display: 'grid', gap: 7 }}>
-                                            {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
-                                              <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: V.inkSoft, lineHeight: 1.45 }}>
-                                                <span style={{ flexShrink: 0, width: 4, height: 4, borderRadius: '50%', background: V.accent, marginTop: 7 }} />
-                                                <span>{line}</span>
-                                              </li>
-                                            ))}
-                                          </ul>
+                                          {editable ? (
+                                            <textarea
+                                              value={recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients}
+                                              onChange={(e) => { const v = e.target.value; setRecipeOverrides((prev) => ({ ...prev, [recipe.id]: { ingredients: v, steps: prev[recipe.id]?.steps ?? recipe.steps } })) }}
+                                              onBlur={() => setRecipeOverrides((prev) => { patchRoadmap({ guide_overrides: { recipe_content_overrides: prev } }); return prev })}
+                                              rows={6} placeholder="One ingredient per line"
+                                              style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: 12.5, padding: '7px 9px', border: `1px solid ${V.line}`, borderRadius: 10, fontFamily: 'inherit', resize: 'vertical' as const, margin: '8px 0 14px', lineHeight: 1.5, color: V.ink }}
+                                            />
+                                          ) : (
+                                            <ul style={{ listStyle: 'none', margin: '8px 0 14px', padding: 0, display: 'grid', gap: 7 }}>
+                                              {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
+                                                <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: V.inkSoft, lineHeight: 1.45 }}>
+                                                  <span style={{ flexShrink: 0, width: 4, height: 4, borderRadius: '50%', background: V.accent, marginTop: 7 }} />
+                                                  <span>{line}</span>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          )}
                                           <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Directions</span>
-                                          <ol style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 10 }}>
-                                            {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
-                                              <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                                                <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: '50%', background: V.accentSoft, color: V.accent, fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-                                                <span style={{ fontSize: 12.5, color: V.inkSoft, lineHeight: 1.5, paddingTop: 1 }}>{line}</span>
-                                              </li>
-                                            ))}
-                                          </ol>
+                                          {editable ? (
+                                            <textarea
+                                              value={recipeOverrides[recipe.id]?.steps ?? recipe.steps}
+                                              onChange={(e) => { const v = e.target.value; setRecipeOverrides((prev) => ({ ...prev, [recipe.id]: { ingredients: prev[recipe.id]?.ingredients ?? recipe.ingredients, steps: v } })) }}
+                                              onBlur={() => setRecipeOverrides((prev) => { patchRoadmap({ guide_overrides: { recipe_content_overrides: prev } }); return prev })}
+                                              rows={6} placeholder="One step per line"
+                                              style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: 12.5, padding: '7px 9px', border: `1px solid ${V.line}`, borderRadius: 10, fontFamily: 'inherit', resize: 'vertical' as const, margin: '8px 0 0', lineHeight: 1.5, color: V.ink }}
+                                            />
+                                          ) : (
+                                            <ol style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 10 }}>
+                                              {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
+                                                <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                                  <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: '50%', background: V.accentSoft, color: V.accent, fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+                                                  <span style={{ fontSize: 12.5, color: V.inkSoft, lineHeight: 1.5, paddingTop: 1 }}>{line}</span>
+                                                </li>
+                                              ))}
+                                            </ol>
+                                          )}
                                           {!recipe.image_url && recipe.benefits && recipe.benefits.length > 0 && (
                                             <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${V.line}` }}>
                                               <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Why it works</span>

@@ -1427,23 +1427,43 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                                       {recipe.protein_label && <Eyebrow>{recipe.protein_label}</Eyebrow>}
                                       <h3 style={{ fontFamily: SERIF, fontSize: '1.3rem', fontWeight: 500, color: ONYX.ink, margin: '0 0 14px' }}>{recipe.name}</h3>
                                       <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Ingredients</span>
-                                      <ul style={{ listStyle: 'none', margin: '10px 0 20px', padding: 0, display: 'grid', gap: 8 }}>
-                                        {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
-                                          <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: ONYX.inkSoft, fontSize: '0.85rem', lineHeight: 1.5 }}>
-                                            <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: ONYX.accent, marginTop: 7 }} />
-                                            <span>{line}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
+                                      {editable ? (
+                                        <textarea
+                                          value={recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients}
+                                          onChange={(e) => { const v = e.target.value; setRecipeOverrides((prev) => ({ ...prev, [recipe.id]: { ingredients: v, steps: prev[recipe.id]?.steps ?? recipe.steps } })) }}
+                                          onBlur={() => setRecipeOverrides((prev) => { patchRoadmap({ guide_overrides: { recipe_content_overrides: prev } }); return prev })}
+                                          rows={6} placeholder="One ingredient per line"
+                                          style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: '0.85rem', padding: '8px 10px', border: `1px solid ${ONYX.border}`, borderRadius: 2, fontFamily: 'inherit', resize: 'vertical' as const, margin: '10px 0 20px', lineHeight: 1.5, color: ONYX.ink, background: ONYX.bg }}
+                                        />
+                                      ) : (
+                                        <ul style={{ listStyle: 'none', margin: '10px 0 20px', padding: 0, display: 'grid', gap: 8 }}>
+                                          {splitRecipeLines(recipeOverrides[recipe.id]?.ingredients ?? recipe.ingredients).map((line, i) => (
+                                            <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', color: ONYX.inkSoft, fontSize: '0.85rem', lineHeight: 1.5 }}>
+                                              <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: ONYX.accent, marginTop: 7 }} />
+                                              <span>{line}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      )}
                                       <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Directions</span>
-                                      <ol style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 12 }}>
-                                        {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
-                                          <li key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                                            <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: ONYX.accentSoft, color: ONYX.accent, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-                                            <span style={{ color: ONYX.inkSoft, fontSize: '0.85rem', lineHeight: 1.55, paddingTop: 1 }}>{line}</span>
-                                          </li>
-                                        ))}
-                                      </ol>
+                                      {editable ? (
+                                        <textarea
+                                          value={recipeOverrides[recipe.id]?.steps ?? recipe.steps}
+                                          onChange={(e) => { const v = e.target.value; setRecipeOverrides((prev) => ({ ...prev, [recipe.id]: { ingredients: prev[recipe.id]?.ingredients ?? recipe.ingredients, steps: v } })) }}
+                                          onBlur={() => setRecipeOverrides((prev) => { patchRoadmap({ guide_overrides: { recipe_content_overrides: prev } }); return prev })}
+                                          rows={6} placeholder="One step per line"
+                                          style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: '0.85rem', padding: '8px 10px', border: `1px solid ${ONYX.border}`, borderRadius: 2, fontFamily: 'inherit', resize: 'vertical' as const, margin: '10px 0 0', lineHeight: 1.5, color: ONYX.ink, background: ONYX.bg }}
+                                        />
+                                      ) : (
+                                        <ol style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 12 }}>
+                                          {splitRecipeLines(recipeOverrides[recipe.id]?.steps ?? recipe.steps).map((line, i) => (
+                                            <li key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+                                              <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: ONYX.accentSoft, color: ONYX.accent, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+                                              <span style={{ color: ONYX.inkSoft, fontSize: '0.85rem', lineHeight: 1.55, paddingTop: 1 }}>{line}</span>
+                                            </li>
+                                          ))}
+                                        </ol>
+                                      )}
                                       {!recipe.image_url && recipe.benefits && recipe.benefits.length > 0 && (
                                         <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${ONYX.border}` }}>
                                           <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Why it works</span>

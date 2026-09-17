@@ -286,7 +286,7 @@ function parseServingsBase(servings: string | null | undefined): number {
 // when a coach actually entered them (e.g. from a Canva recipe card) — never
 // invented. The servings stepper scales the real numbers already written in
 // each ingredient line rather than showing a number with no real effect.
-function RecipeBody({ recipe, imageUrl, override }: { recipe: RecipeMatch['recipe']; imageUrl: string | null; override?: { ingredients: string; steps: string } }) {
+function RecipeBody({ recipe, imageUrl, override, editable, onSave }: { recipe: RecipeMatch['recipe']; imageUrl: string | null; override?: { ingredients: string; steps: string }; editable?: boolean; onSave?: (patch: Partial<{ ingredients: string; steps: string }>) => void }) {
   const ingredients = splitRecipeLines(override?.ingredients ?? recipe.ingredients)
   const steps = splitRecipeLines(override?.steps ?? recipe.steps)
   const tools = recipe.tools ?? []
@@ -346,15 +346,24 @@ function RecipeBody({ recipe, imageUrl, override }: { recipe: RecipeMatch['recip
 
         <div style={{ marginBottom: notes.length ? 20 : 0 }}>
           <div style={weekBoxLabel}>Directions</div>
-          <div>
-            {steps.map((line, i) => (
-              <div key={i} style={{ display: 'flex', gap: 12, position: 'relative', paddingBottom: i < steps.length - 1 ? 18 : 0 }}>
-                {i < steps.length - 1 && <div style={{ position: 'absolute', left: 12, top: 26, bottom: 0, width: 1.5, background: C.rule }} />}
-                <div style={{ width: 25, height: 25, borderRadius: '50%', background: C.accent, color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>{i + 1}</div>
-                <div style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.55, paddingTop: 3 }}>{line}</div>
-              </div>
-            ))}
-          </div>
+          {editable ? (
+            <textarea
+              value={override?.steps ?? recipe.steps}
+              onChange={(e) => onSave?.({ steps: e.target.value })}
+              rows={7} placeholder="One step per line"
+              style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: 13, padding: '8px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, lineHeight: 1.55, color: C.ink }}
+            />
+          ) : (
+            <div>
+              {steps.map((line, i) => (
+                <div key={i} style={{ display: 'flex', gap: 12, position: 'relative', paddingBottom: i < steps.length - 1 ? 18 : 0 }}>
+                  {i < steps.length - 1 && <div style={{ position: 'absolute', left: 12, top: 26, bottom: 0, width: 1.5, background: C.rule }} />}
+                  <div style={{ width: 25, height: 25, borderRadius: '50%', background: C.accent, color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>{i + 1}</div>
+                  <div style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.55, paddingTop: 3 }}>{line}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {notes.length > 0 && (
@@ -371,25 +380,39 @@ function RecipeBody({ recipe, imageUrl, override }: { recipe: RecipeMatch['recip
       </div>
 
       <div data-ing-list={recipe.id} data-ing-base={base}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div style={{ ...weekBoxLabel, marginBottom: 0 }}>Servings</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button data-serve-dec={recipe.id} onClick={() => setServingsCount((c) => Math.max(1, c - 1))}
-              style={{ width: 24, height: 24, borderRadius: '50%', border: `1px solid ${C.rule}`, background: C.bg, color: C.ink, fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-            <span data-serve-count={recipe.id} style={{ fontWeight: 700, color: C.ink, minWidth: 14, textAlign: 'center' }}>{servingsCount}</span>
-            <button data-serve-inc={recipe.id} onClick={() => setServingsCount((c) => Math.min(12, c + 1))}
-              style={{ width: 24, height: 24, borderRadius: '50%', border: `1px solid ${C.rule}`, background: C.bg, color: C.ink, fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-          </div>
-        </div>
-        <div>
-          {ingredients.map((line, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < ingredients.length - 1 ? `1px solid ${C.rule}` : 'none' }}>
-              <div style={{ width: 20, height: 20, borderRadius: 6, background: C.accentSoft, color: C.accent, fontSize: 10.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
-              <span data-ing-item={i} data-ing-raw={line} style={{ fontSize: 13, color: C.ink }}>{scaleIngredientLine(line, ratio)}</span>
+        {editable ? (
+          <>
+            <div style={{ ...weekBoxLabel, marginBottom: 12 }}>Ingredients</div>
+            <textarea
+              value={override?.ingredients ?? recipe.ingredients}
+              onChange={(e) => onSave?.({ ingredients: e.target.value })}
+              rows={9} placeholder="One ingredient per line"
+              style={{ width: '100%', boxSizing: 'border-box' as const, fontSize: 13, padding: '8px 10px', border: `1px solid ${C.rule}`, borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' as const, lineHeight: 1.55, color: C.ink }}
+            />
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ ...weekBoxLabel, marginBottom: 0 }}>Servings</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button data-serve-dec={recipe.id} onClick={() => setServingsCount((c) => Math.max(1, c - 1))}
+                  style={{ width: 24, height: 24, borderRadius: '50%', border: `1px solid ${C.rule}`, background: C.bg, color: C.ink, fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                <span data-serve-count={recipe.id} style={{ fontWeight: 700, color: C.ink, minWidth: 14, textAlign: 'center' }}>{servingsCount}</span>
+                <button data-serve-inc={recipe.id} onClick={() => setServingsCount((c) => Math.min(12, c + 1))}
+                  style={{ width: 24, height: 24, borderRadius: '50%', border: `1px solid ${C.rule}`, background: C.bg, color: C.ink, fontSize: 15, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+              </div>
             </div>
-          ))}
-        </div>
-        {base !== 1 && <div style={{ fontSize: 11, color: C.muted, fontStyle: 'italic', marginTop: 8 }}>Scaled from {base} servings.</div>}
+            <div>
+              {ingredients.map((line, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < ingredients.length - 1 ? `1px solid ${C.rule}` : 'none' }}>
+                  <div style={{ width: 20, height: 20, borderRadius: 6, background: C.accentSoft, color: C.accent, fontSize: 10.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
+                  <span data-ing-item={i} data-ing-raw={line} style={{ fontSize: 13, color: C.ink }}>{scaleIngredientLine(line, ratio)}</span>
+                </div>
+              ))}
+            </div>
+            {base !== 1 && <div style={{ fontSize: 11, color: C.muted, fontStyle: 'italic', marginTop: 8 }}>Scaled from {base} servings.</div>}
+          </>
+        )}
       </div>
     </div>
 
@@ -1281,7 +1304,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             lifestyle_guidelines: lifestyleText,
-            guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, reach_info: reachInfo, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText, daily_checklist_items: checklistItems, plate_composition: plateComposition, confirmed_supplements_override: supplementRows },
+            guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, reach_info: reachInfo, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText, daily_checklist_items: checklistItems, plate_composition: plateComposition, confirmed_supplements_override: supplementRows, recipe_content_overrides: recipeOverrides },
             weekly_schedule: editWeeks.map((w) => ({ ...w, actions: (w.actions || []).map((a) => a.trim()).filter(Boolean) })),
           }),
         }),
@@ -1845,7 +1868,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={18} /></button>
             {allMatches.map((m) => (
               <div key={m.recipe.id} data-recipe-body={m.recipe.id} style={{ display: openRecipeId === m.recipe.id ? 'block' : 'none' }}>
-                <RecipeBody recipe={m.recipe} imageUrl={combinedImages.get(m.recipe.id) ?? null} override={recipeOverrides[m.recipe.id]} />
+                <RecipeBody recipe={m.recipe} imageUrl={combinedImages.get(m.recipe.id) ?? null} override={recipeOverrides[m.recipe.id]} editable={editable}
+                  onSave={(patch) => setRecipeOverrides((prev) => ({ ...prev, [m.recipe.id]: { ingredients: prev[m.recipe.id]?.ingredients ?? m.recipe.ingredients, steps: prev[m.recipe.id]?.steps ?? m.recipe.steps, ...patch } }))} />
               </div>
             ))}
           </div>
