@@ -3,12 +3,13 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { renderMarkdownBold } from '@/lib/renderMarkdownBold'
-import { ArrowLeft, Plus, Pencil, FileText, StickyNote, LayoutDashboard, Calendar, ChevronRight, Microscope, Trash2, X, Link2, Check, Dna, FileCheck2, Droplets, History, CheckSquare } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, FileText, StickyNote, LayoutDashboard, Calendar, ChevronRight, Microscope, Trash2, X, Link2, Check, Dna, FileCheck2, Droplets, History, CheckSquare, Copy } from 'lucide-react'
 import ReportsTab from '@/components/ReportsTab'
 import MicrobiomeLinkTab from '@/components/MicrobiomeLinkTab'
 import BloodLinkTab from '@/components/BloodLinkTab'
 import ChecklistTab from '@/components/ChecklistTab'
 import EditSessionModal from '@/components/EditSessionModal'
+import CloneRoadmapModal from '@/components/CloneRoadmapModal'
 
 // ── Design tokens ────────────────────────────────────────────────────
 const C = {
@@ -96,6 +97,8 @@ export default function PatientPage() {
   const [tab, setTab] = useState<TabKey>('sessions')
   const [showDelete, setShowDelete] = useState(false)
   const [editingSessionInputs, setEditingSessionInputs] = useState<Session | null>(null)
+  const [showCloneModal, setShowCloneModal] = useState(false)
+  const [cloneSourceId, setCloneSourceId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     let alive = true
@@ -266,6 +269,10 @@ export default function PatientPage() {
             roadmaps={roadmaps}
             patientId={patientId}
             onRoadmapDeleted={(deletedId) => setRoadmaps((prev) => prev.filter((r) => r.id !== deletedId))}
+            onCloneRoadmap={(rid) => {
+              setCloneSourceId(rid)
+              setShowCloneModal(true)
+            }}
           />
         )}
         {tab === 'microbiome' && <MicrobiomeLinkTab patientId={patientId} />}
@@ -288,6 +295,17 @@ export default function PatientPage() {
           patientId={patientId}
           onClose={() => setEditingSessionInputs(null)}
           onSaved={(updated) => setSessions(prev => prev.map(s => s.id === updated.id ? updated : s))}
+        />
+      )}
+
+      {showCloneModal && (
+        <CloneRoadmapModal
+          presetSourceRoadmapId={cloneSourceId}
+          presetTargetPatientId={patientId}
+          onClose={() => {
+            setShowCloneModal(false)
+            setCloneSourceId(undefined)
+          }}
         />
       )}
     </div>
@@ -669,19 +687,11 @@ function NotesTab({ sessions, onSessionUpdated, onEditInputs }: { sessions: Sess
   )
 }
 
-function DashboardTab({ roadmaps, patientId, onRoadmapDeleted }: { roadmaps: Roadmap[]; patientId: string; onRoadmapDeleted?: (id: string) => void }) {
+function DashboardTab({ roadmaps, patientId, onRoadmapDeleted, onCloneRoadmap }: { roadmaps: Roadmap[]; patientId: string; onRoadmapDeleted?: (id: string) => void; onCloneRoadmap?: (roadmapId?: string) => void }) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [progressOpenId, setProgressOpenId] = useState<string | null>(null)
   const [roadmapToDelete, setRoadmapToDelete] = useState<Roadmap | null>(null)
-  // The dashboard link is the thing to actually send a patient — a public,
-  // no-login page (see src/app/dashboard/[roadmapId]/page.tsx) that never
-  // exposes any coach-side app access, unlike sending the downloaded HTML
-  // file itself. Copies the full absolute URL so it's paste-ready for
-  // WhatsApp/email/SMS.
-  // The share link is addressed by share_token, not by the roadmap's row id.
-  // This used to copy `/dashboard/<roadmapId>`, which is no longer a route at
-  // all in the merged app (/dashboard is the clinician roster), so every link
-  // handed to a patient was dead.
+
   function copyLink(r: Roadmap) {
     const token = r.share_revoked_at ? null : r.share_token
     if (!token) return
@@ -692,11 +702,23 @@ function DashboardTab({ roadmaps, patientId, onRoadmapDeleted }: { roadmaps: Roa
     })
   }
   if (roadmaps.length === 0) {
-    return <EmptyState icon={LayoutDashboard} title="No dashboard yet" body="Generate a dashboard from any session to build the patient's personalised plan. It'll appear here for easy reference across visits." />
+    return (
+      <EmptyState
+        icon={LayoutDashboard}
+        title="No dashboard yet"
+        body="Generate a dashboard from any session to build the patient's personalised plan, or copy from another patient's existing dashboard."
+        cta={
+          <button
+            onClick={() => onCloneRoadmap?.()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 9, border: `1px solid ${C.greenBorder}`, background: C.greenSoft, color: C.greenDeep, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+          >
+            <Copy size={14} /> Copy dashboard from another patient
+          </button>
+        }
+      />
+    )
   }
-  // A patient can accumulate a roadmap per session over time — list every
-  // one rather than only ever opening the latest, so a coach can pick the
-  // specific plan they actually want the shareable dashboard link for.
+
   const ordered = [...roadmaps].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -710,12 +732,18 @@ function DashboardTab({ roadmaps, patientId, onRoadmapDeleted }: { roadmaps: Roa
               {i === 0 && <span style={{ fontSize: 10.5, fontWeight: 700, color: C.green, background: C.greenSoft, borderRadius: 20, padding: '2px 8px' }}>CURRENT</span>}
               <span style={{ fontSize: 12, color: C.faint }}>{fmtDate(r.created_at)}</span>
             </div>
-            {/* flexWrap so this button group drops to a second line on narrow screens */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => copyLink(r)} disabled={!r.share_token || !!r.share_revoked_at}
                 title={r.share_revoked_at ? 'This share link has been revoked' : !r.share_token ? 'No share link for this roadmap yet' : 'Copy the patient link'}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12.5, fontWeight: 700, cursor: (!r.share_token || r.share_revoked_at) ? 'not-allowed' : 'pointer', opacity: (!r.share_token || r.share_revoked_at) ? 0.5 : 1 }}>
                 {copiedId === r.id ? <><Check size={13} color={C.green} /> Copied</> : <><Link2 size={13} /> Copy link</>}
+              </button>
+              <button
+                onClick={() => onCloneRoadmap?.(r.id)}
+                title="Use this dashboard as template for another patient"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+              >
+                <Copy size={13} /> Copy to another patient
               </button>
               {/* Goes straight to the coach-editing view on the exact
                   template the patient sees. live-edit itself falls back to

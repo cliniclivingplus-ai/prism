@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect, useRef, Fragment, type ReactNode } from 'react'
 import { CheckCircle2, Circle, MapPin, Utensils, Pill, ShoppingCart, HeartPulse, HelpCircle, Phone, Clock, X, ChefHat, Download, Sparkles, Star, Save, Check, Loader2, ExternalLink, Flame, CalendarCheck, Target, TrendingUp, ChevronDown, ChevronRight, Video, MessageCircle, Users, Activity, Stethoscope, Plus, Trash2, Eye, EyeOff, LinkIcon, Droplet, Sun, type IconComponent } from '@/lib/kawaii/icons'
 import { UploadCloud } from 'lucide-react'
+import CloneRoadmapModal from '@/components/CloneRoadmapModal'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import { Splash } from '@/lib/kawaii/Mascot'
 import { KAWAII } from '@/lib/kawaii/tokens'
@@ -1234,6 +1235,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // this, the only sign is brackets appearing in the textarea's raw text,
   // easy to miss. Shown for a few seconds, then clears itself.
   const [linkToast, setLinkToast] = useState<string[] | null>(null)
+  const [showCloneModal, setShowCloneModal] = useState(false)
   function autoLinkOnBlur(current: string, apply: (next: string) => void) {
     const { next, linkedPhrases } = autoLinkText(current, keywordLinkBank)
     if (linkedPhrases.length > 0) {
@@ -2459,10 +2461,14 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           )}
           {editable && (
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 16 }}>
-              {/* Addressed by share_token. These used to point at
-                  /dashboard/<roadmapId>, which stopped being a route when
-                  /dashboard became the clinician roster — so "Preview as
-                  patient" and "Download plan" both led nowhere. */}
+              <button
+                type="button"
+                onClick={() => setShowCloneModal(true)}
+                title="Copy this dashboard's structure & template for another patient with similar symptoms"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.paper, color: C.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              >
+                <Copy size={15} /> Use as template for another patient
+              </button>
               {shareToken && (
                 <a href={`/share/roadmap/${shareToken}`} target="_blank" rel="noopener noreferrer"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.paper, color: C.ink, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
@@ -3983,6 +3989,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               : <>Linked {linkToast.length} phrases: <strong>{linkToast.join(', ')}</strong></>}
           </span>
         </div>
+      )}
+      {showCloneModal && (
+        <CloneRoadmapModal
+          presetSourceRoadmapId={rid}
+          onClose={() => setShowCloneModal(false)}
+        />
       )}
     </div>
   )
