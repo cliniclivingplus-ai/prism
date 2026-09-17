@@ -2701,52 +2701,81 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             </div>
           </div>
 
-          {/* Coach — photo, name, and designation stay visible; a personal
-              quote (when the coach has entered one) sits behind a tap on
-              the photo instead of always showing, same pattern as the
-              founder's note above. */}
-          {(data.coach || editable) && (
-            <div id="coach" data-coach-trigger {...hiddenAttrs('coach')} onClick={() => !editable && coachQuote && setCoachOpen((v) => !v)}
-              style={{ ...cardStyle, display: 'flex', alignItems: 'flex-start', gap: 16, scrollMarginTop: SECTION_SCROLL_MARGIN, cursor: !editable && coachQuote ? 'pointer' : 'default', ...hiddenStyle('coach') }}>
-              {/* Deliberately editable-excluded here (unlike Pulse/Onyx) —
-                  Classic shows the coach-quote textarea unconditionally in
-                  edit mode, not behind this click, so toggling coachOpen
-                  while editable would have no visible effect anyway. */}
-              <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: data.coach?.photo_url ? `url(${data.coach.photo_url}) center/cover` : C.accentSoft, border: `1px solid ${C.rule}` }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Coach's note */}
+          {(data.coach || editable) && (() => {
+            const activeCoach = coaches.find((c) => c.id === nutritionistId) || data.coach;
+            const careTeamCoachMatch = careTeam.find((m) => m.name && activeCoach?.full_name && m.name.trim().toLowerCase() === activeCoach.full_name.trim().toLowerCase());
+            const coachBio = activeCoach?.bio || careTeamCoachMatch?.intro || '';
+            const coachName = activeCoach?.full_name || 'Your Coach';
+            const coachDesignation = activeCoach?.designation || 'Integrative Health Coach';
+            const coachPhoto = activeCoach?.photo_url || careTeamCoachMatch?.photo || '';
+            const coachFirst = coachName.split(' ')[0] ?? 'Coach';
+
+            const isPlaceholder = !coachQuote || coachQuote.includes('[First name]') || coachQuote.includes('remember what you said about');
+            const cleanQuote = isPlaceholder ? coachBio : coachQuote;
+
+            return (
+              <div id="coach" {...hiddenAttrs('coach')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('coach') }}>
                 {editable && <SectionToggle hidden={isHidden('coach')} onToggle={() => toggleSection('coach')} />}
-                {editable ? (
-                  <>
-                    <div style={editLabelStyle}>Coach</div>
-                    <select style={editInputStyle} value={nutritionistId} onChange={(e) => setNutritionistId(e.target.value)}>
-                      <option value="">Select a coach</option>
-                      {coaches.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
-                    </select>
-                    <div style={{ fontSize: 11, color: C.muted, margin: '5px 0 10px' }}>Photo, designation and bio come from the coach&apos;s own profile, updates after you save.</div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 5 }}>
+                <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
+                  <span>Coach&apos;s note</span>
+                  {editable && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <ImageInsertButton value={coachQuote} onChange={setCoachQuote} />
                       <AiEditButton roadmapId={rid} kind="text" value={coachQuote} context={aiContext} onApply={setCoachQuote} />
                     </div>
-                    <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5, fontStyle: 'italic' }} rows={2}
-                      value={coachQuote} onChange={(e) => setCoachQuote(e.target.value)}
-                      placeholder={`Personal callback quote, e.g. "${firstName}, I remember what you said about..." or leave blank.`} />
-                    <ImagePreviewStrip value={coachQuote} onChange={setCoachQuote} />
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{data.coach?.full_name}</div>
-                    <div style={{ fontSize: 12, color: C.muted }}>{data.coach?.designation}</div>
-                    {coachQuote && (
-                      <>
-                        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Tap the photo for a note from {coachFirst}</div>
-                        <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', fontSize: 13, color: C.accent, fontStyle: 'italic', marginTop: 6 }}>&ldquo;{renderMarkdownBold(coachQuote)}&rdquo;</div>
-                      </>
-                    )}
-                  </>
-                )}
+                  )}
+                </div>
+
+                {editable ? (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={editLabelStyle}>Coach</div>
+                    <select style={editInputStyle} value={nutritionistId} onChange={(e) => {
+                      const nextId = e.target.value;
+                      setNutritionistId(nextId);
+                      const selected = coaches.find(c => c.id === nextId);
+                      if (selected && selected.bio && (isPlaceholder || !coachQuote)) {
+                        setCoachQuote(selected.bio);
+                      }
+                    }}>
+                      <option value="">Select a coach</option>
+                      {coaches.map((c) => (
+                        <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
+                      ))}
+                    </select>
+                    <div style={{ fontSize: 11, color: C.muted, margin: '5px 0 10px' }}>Photo, designation and bio come from the coach&apos;s profile.</div>
+                  </div>
+                ) : null}
+
+                <div data-coach-trigger onClick={() => setCoachOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginTop: 8, cursor: 'pointer' }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: coachPhoto ? `url(${coachPhoto}) center/cover` : C.accentSoft, border: `1px solid ${C.rule}` }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{coachName}</div>
+                    <div style={{ fontSize: 12, color: C.muted }}>{coachDesignation}</div>
+                    {coachBio && <div style={{ fontSize: 11.5, color: C.muted, marginTop: 6, lineHeight: 1.4 }}>{coachBio}</div>}
+                    <div style={{ fontSize: 11.5, color: C.muted, marginTop: 4 }}>Tap here to read the note</div>
+                  </div>
+                </div>
+
+                <div data-coach-body style={{ display: (editable || coachOpen) ? 'block' : 'none', marginTop: 16 }}>
+                  {editable ? (
+                    <>
+                      <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6 }} rows={4}
+                        value={isPlaceholder ? coachBio : coachQuote} onChange={(e) => setCoachQuote(e.target.value)}
+                        placeholder={`Note from ${coachFirst}...`} />
+                      <ImagePreviewStrip value={coachQuote} onChange={setCoachQuote} />
+                    </>
+                  ) : (
+                    cleanQuote ? (
+                      cleanQuote.split('\n\n').map((para, i) => (
+                        <p key={i} style={{ ...bulletStyle, fontStyle: 'italic', color: C.accent }}>{renderMarkdownBold(para)}</p>
+                      ))
+                    ) : null
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Your care team — other providers beyond the primary coach
               (doctor, therapist, naturopath, etc.), each with their own

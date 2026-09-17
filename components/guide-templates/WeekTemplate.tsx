@@ -1212,28 +1212,35 @@ function clpToggleGroceryCat(head){
         </div>
       </section>
 
-      {/* Coach */}
-      {data.coach && (
-        <section id="coach" style={{ background: PALETTE.paper2, borderTop: `1px solid ${PALETTE.line}`, borderBottom: `1px solid ${PALETTE.line}`, padding: '3rem 1.5rem', ...hiddenStyle('coach') }}>
-          <div style={{ maxWidth: 720, margin: '0 auto' }}>
-            <Eyebrow>Your coach</Eyebrow>
-            <SecTitle icon={<MessageCircle size={26} />} sectionId="coach" open={isSectionOpen('coach')} onToggle={() => toggleSection('coach')}>Meet Your Coach</SecTitle>
-            <div data-section-body="coach" data-coach-trigger onClick={() => data.coachQuote && setCoachOpen((v) => !v)} style={{ display: isSectionOpen('coach') ? 'flex' : 'none', alignItems: 'flex-start', gap: 20, marginTop: 10, cursor: data.coachQuote ? 'pointer' : 'default' }}>
-              <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}` }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 500 }}>{data.coach.full_name}</div>
-                <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>{data.coach.designation}</div>
-                {data.coachQuote && (
-                  <>
-                    <div style={{ fontSize: '0.72rem', opacity: 0.55, marginTop: 8 }}>Tap the photo for a note from {coachFirst}</div>
-                    <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: PALETTE.berry, fontSize: '0.92rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(data.coachQuote)}&rdquo;</div>
-                  </>
-                )}
+      {/* Coach's note */}
+      {data.coach && (() => {
+        const coachBio = data.coach.bio || ''
+        const rawQuote = data.coachQuote || ''
+        const isPlaceholder = !rawQuote || rawQuote.includes('[First name]') || rawQuote.includes('remember what you said about')
+        const displayQuote = isPlaceholder ? coachBio : rawQuote
+
+        return (
+          <section id="coach" style={{ background: PALETTE.paper2, borderTop: `1px solid ${PALETTE.line}`, borderBottom: `1px solid ${PALETTE.line}`, padding: '3rem 1.5rem', ...hiddenStyle('coach') }}>
+            <div style={{ maxWidth: 720, margin: '0 auto' }}>
+              <SecTitle icon={<MessageCircle size={26} />} sectionId="coach" open={isSectionOpen('coach')} onToggle={() => toggleSection('coach')}>Coach&apos;s note</SecTitle>
+              <div data-section-body="coach" data-coach-trigger onClick={() => displayQuote && setCoachOpen((v) => !v)} style={{ display: isSectionOpen('coach') ? 'flex' : 'none', alignItems: 'flex-start', gap: 20, marginTop: 10, cursor: 'pointer' }}>
+                <div style={{ width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: data.coach.photo_url ? `url(${data.coach.photo_url}) center/cover` : PALETTE.gold1, border: `1px solid ${PALETTE.line}` }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 500 }}>{data.coach.full_name}</div>
+                  <div style={{ fontSize: '0.85rem', opacity: 0.65, marginTop: 2 }}>{data.coach.designation}</div>
+                  {coachBio && <div style={{ fontSize: '0.85rem', opacity: 0.75, marginTop: 6, lineHeight: 1.4 }}>{coachBio}</div>}
+                  {displayQuote && (
+                    <>
+                      <div style={{ fontSize: '0.72rem', opacity: 0.55, marginTop: 8 }}>Tap here for a note from {coachFirst}</div>
+                      <div data-coach-body style={{ display: coachOpen ? 'block' : 'none', marginTop: 6, fontStyle: 'italic', color: PALETTE.berry, fontSize: '0.92rem', maxWidth: 560 }}>&ldquo;{renderMarkdownBold(displayQuote)}&rdquo;</div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )
+      })()}
 
       {/* Care team */}
       {(careTeam.length > 0 || editable) && (

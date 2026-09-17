@@ -118,7 +118,14 @@ export function buildGuideData(
     },
     goalLabel,
     whyReflection: overrides.why_reflection || defaultWhyReflection(goalLabel),
-    coachQuote: overrides.coach_quote || roadmap.sessions?.case_summary?.coach_quote || '',
+    coachQuote: (() => {
+      const raw = overrides.coach_quote || roadmap.sessions?.case_summary?.coach_quote || ''
+      const bio = roadmap.patients?.nutritionists?.bio || ''
+      if (!raw || raw.includes('[First name]') || raw.includes('remember what you said about')) {
+        return bio
+      }
+      return raw
+    })(),
     founderNote: overrides.founder_note || defaultFounderNote(firstName, goalLabel),
     imageBank,
     recipeBank,
