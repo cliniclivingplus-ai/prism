@@ -1625,25 +1625,45 @@ function clpToggleGroceryCat(head){
             <SecTitle dark icon={<MapPin size={26} color={PALETTE.cream} />} sectionId="roadmap" open={isSectionOpen('roadmap')} onToggle={() => toggleSection('roadmap')}>Your Roadmap</SecTitle>
             <div data-section-body="roadmap" style={{ display: isSectionOpen('roadmap') ? 'block' : 'none' }}>
             {(allWeeks.length > 1 || editable) && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginTop: 16, marginBottom: 20 }}>
                 {(editable ? allWeeks : visibleWeeks).map((w) => {
                   const isWkHidden = isHidden(`week-${w.week_number}`)
                   const isSelected = week?.week_number === w.week_number
+                  const actionCount = w.actions?.length || (w.days ? w.days.reduce((acc, d) => acc + d.length, 0) : 0)
                   return (
-                    <div key={w.week_number} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                    <div key={w.week_number} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, width: '100%' }}>
                       <button
                         type="button"
                         onClick={() => setSelectedWeekNum(w.week_number)}
                         style={{
-                          padding: '6px 14px', borderRadius: 20, cursor: 'pointer',
-                          fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.78rem', letterSpacing: '0.04em',
-                          border: `1px ${isWkHidden ? 'dashed' : 'solid'} ${isSelected ? PALETTE.gold1 : 'rgba(243,236,218,0.3)'}`,
-                          background: isSelected ? PALETTE.gold1 : 'transparent',
-                          color: isSelected ? PALETTE.ink : PALETTE.cream,
-                          opacity: isWkHidden ? 0.65 : 1,
+                          textAlign: 'left', padding: '14px 16px', borderRadius: 14, cursor: 'pointer', width: '100%',
+                          border: `1px ${isWkHidden ? 'dashed' : 'solid'} ${isSelected ? PALETTE.gold1 : 'rgba(243,236,218,0.22)'}`,
+                          background: isSelected ? 'rgba(224,195,132,0.15)' : 'rgba(243,236,218,0.05)',
+                          color: PALETTE.cream,
+                          opacity: isWkHidden ? 0.65 : 1, transition: 'all 0.2s ease', position: 'relative'
                         }}
                       >
-                        Week {w.week_number} {isWkHidden && <span style={{ opacity: 0.75 }}>(Hidden)</span>}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{
+                              width: 22, height: 22, borderRadius: '50%',
+                              background: isSelected ? PALETTE.gold1 : 'rgba(243,236,218,0.15)',
+                              color: isSelected ? PALETTE.ink : PALETTE.gold1,
+                              fontSize: 10.5, fontWeight: 800,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                              {w.week_number}
+                            </div>
+                            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.75rem', letterSpacing: '0.04em', color: isSelected ? PALETTE.gold1 : PALETTE.cream }}>
+                              Week {w.week_number} {isWkHidden && '(Hidden)'}
+                            </span>
+                          </div>
+                          {isSelected && <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 8, background: PALETTE.gold1, color: PALETTE.ink }}>Selected</span>}
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: PALETTE.cream, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {w.focus_theme || `Week ${w.week_number} Goals`}
+                        </div>
+                        <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>{actionCount} Daily Targets</div>
                       </button>
                       {editable && (
                         <button

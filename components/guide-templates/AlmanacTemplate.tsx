@@ -1492,92 +1492,151 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
         </section>
       )}
 
-      {/* Your roadmap — real Month → Week → Recipes structure, same
-          per-week curated data Classic uses (src/lib/pdf/weekRecipes.ts).
-          Everything expands inline, in place, as part of the page — no
-          popup dialogs. */}
-      {months.length > 0 && (
-        <Fragment>
-        <section id="roadmap" style={{ background: PALETTE.dusk1, padding: '4rem 1.5rem', ...hiddenStyle('roadmap') }}>
-          <div style={{ maxWidth: 920, margin: '0 auto' }}>
-            <Eyebrow dark>Month by month</Eyebrow>
-            <SecTitle dark icon={<MapPin size={26} color={PALETTE.cream} />}>Your Roadmap</SecTitle>
+      {/* Your roadmap */}
+      {months.length > 0 && (() => {
+        const activeMthNum = openMonth ?? months[0]?.monthNumber ?? 1
+        const activeMonthObj = months.find((m) => m.monthNumber === activeMthNum) || months[0]
+        const activeWkNum = openWeek ?? activeMonthObj?.weeks[0]?.week_number ?? 1
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 24 }}>
-              {months.map((m) => {
-                const isMthHidden = isHidden(`month-${m.monthNumber}`)
-                return (
-                  <div key={m.monthNumber} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                    <button data-month-trigger={m.monthNumber} onClick={() => { const next = openMonth === m.monthNumber ? null : m.monthNumber; setOpenMonth(next); setOpenWeek(null); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
-                      style={{
-                        padding: '9px 18px', borderRadius: 24, cursor: 'pointer', fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.78rem', letterSpacing: '0.04em',
-                        border: `1px ${isMthHidden ? 'dashed' : 'solid'} ${openMonth === m.monthNumber ? PALETTE.gold1 : 'rgba(243,236,218,0.3)'}`,
-                        background: openMonth === m.monthNumber ? PALETTE.gold1 : 'transparent', color: openMonth === m.monthNumber ? PALETTE.ink : PALETTE.cream,
-                        opacity: isMthHidden ? 0.65 : 1,
-                      }}>
-                      {m.monthLabel} {isMthHidden && <span style={{ opacity: 0.75 }}>(Hidden)</span>}
-                    </button>
-                    {editable && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); toggleSection(`month-${m.monthNumber}`) }}
-                        title={isMthHidden ? `Unhide Month ${m.monthNumber} for patient` : `Hide Month ${m.monthNumber} from patient`}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: isMthHidden ? PALETTE.gold1 : PALETTE.cream }}
-                      >
-                        {isMthHidden ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+        return (
+          <section id="roadmap" style={{ background: PALETTE.dusk1, padding: '4rem 1.5rem', ...hiddenStyle('roadmap') }}>
+            <div style={{ maxWidth: 920, margin: '0 auto' }}>
+              <Eyebrow dark>Month by month</Eyebrow>
+              <SecTitle dark icon={<MapPin size={26} color={PALETTE.cream} />}>Your Roadmap</SecTitle>
 
-            {months.map((m) => (
-              <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 28, display: openMonth === m.monthNumber ? 'block' : 'none' }}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-                  {m.weeks.map((w) => {
-                    const isWkHidden = isHidden(`week-${w.week_number}`)
-                    // A div in edit mode: a text field inside a <button> would
-                    // toggle the week on every click into it (and on Space).
-                    const WeekCard = editable ? 'div' : 'button'
+              {/* Month Phase Stepper Header */}
+              {months.length > 1 && (
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${months.length}, 1fr)`, gap: 10, marginTop: 24, marginBottom: 28 }}>
+                  {months.map((m) => {
+                    const isSelected = activeMthNum === m.monthNumber
+                    const isMthHidden = isHidden(`month-${m.monthNumber}`)
+                    const goalCount = m.weeks.reduce((n, w) => n + (w.days?.length ? w.days.reduce((nn, d) => nn + d.length, 0) : (w.actions?.length ?? 0)), 0)
                     return (
-                    <WeekCard key={w.week_number} data-week-trigger={w.week_number} role={editable ? 'button' : undefined} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
-                      style={{
-                        textAlign: 'left', padding: '12px 16px', borderRadius: 10, cursor: 'pointer', minWidth: 150,
-                        border: `1px ${isWkHidden ? 'dashed' : 'solid'} ${openWeek === w.week_number ? PALETTE.gold1 : 'rgba(243,236,218,0.22)'}`,
-                        background: openWeek === w.week_number ? 'rgba(224,195,132,0.14)' : 'rgba(243,236,218,0.05)',
-                        opacity: isWkHidden ? 0.65 : 1,
-                      }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                        <div style={{ color: PALETTE.gold1, fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.72rem', letterSpacing: '0.05em' }}>
-                          Week {w.week_number} {isWkHidden && <span style={{ opacity: 0.75 }}>(Hidden)</span>}
-                        </div>
+                      <div key={m.monthNumber} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, width: '100%' }}>
+                        <button data-month-trigger={m.monthNumber} onClick={() => { setOpenMonth(m.monthNumber); setOpenWeek(m.weeks[0]?.week_number ?? null) }}
+                          style={{
+                            padding: '14px 16px', borderRadius: 14, cursor: 'pointer', textAlign: 'left', width: '100%',
+                            border: `1px ${isMthHidden ? 'dashed' : 'solid'} ${isSelected ? PALETTE.gold1 : 'rgba(243,236,218,0.3)'}`,
+                            background: isSelected ? PALETTE.gold1 : 'rgba(243,236,218,0.05)',
+                            color: isSelected ? PALETTE.ink : PALETTE.cream,
+                            opacity: isMthHidden ? 0.65 : 1, transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden'
+                          }}>
+                          {isSelected && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: PALETTE.ink }} />}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', color: isSelected ? PALETTE.ink : PALETTE.gold1 }}>PHASE 0{m.monthNumber}</span>
+                            {isSelected ? (
+                              <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: PALETTE.ink, color: PALETTE.cream }}>ACTIVE</span>
+                            ) : (
+                              <span style={{ fontSize: 10, color: 'rgba(243,236,218,0.6)' }}>W{m.weekStart}–W{m.weekEnd}</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.monthLabel}</div>
+                          <div style={{ fontSize: 11, opacity: 0.8, marginTop: 3 }}>{m.weeks.length} Weeks · {goalCount} Targets</div>
+                        </button>
                         {editable && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleSection(`week-${w.week_number}`) }}
-                            title={isWkHidden ? `Unhide Week ${w.week_number} for patient` : `Hide Week ${w.week_number} from patient`}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: isWkHidden ? PALETTE.gold1 : PALETTE.cream }}
-                          >
-                            {isWkHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                          <button type="button" onClick={(e) => { e.stopPropagation(); toggleSection(`month-${m.monthNumber}`) }}
+                            title={isMthHidden ? `Unhide Month ${m.monthNumber} for patient` : `Hide Month ${m.monthNumber} from patient`}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: isMthHidden ? PALETTE.gold1 : PALETTE.cream }}>
+                            {isMthHidden ? <EyeOff size={14} /> : <Eye size={14} />}
                           </button>
                         )}
                       </div>
-                      {editable ? (
-                        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 3 }}>
-                          <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
-                            style={{ color: PALETTE.cream, fontSize: '0.85rem' }} />
-                        </div>
-                      ) : (
-                        <div style={{ color: PALETTE.cream, fontSize: '0.85rem', marginTop: 3 }}>{w.focus_theme}</div>
-                      )}
-                    </WeekCard>
                     )
                   })}
                 </div>
+              )}
 
-                {m.weeks.map((w) => (
-                  <div key={w.week_number} data-week-body={w.week_number} style={{ display: openWeek === w.week_number ? 'block' : 'none', borderTop: '1px solid rgba(243,236,218,0.18)', paddingTop: 24 }}>
+              {/* 4-Week Connected Milestone Pathway Track */}
+              {activeMonthObj && (
+                <div style={{ marginTop: 24, marginBottom: 28 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1 }}>
+                      {activeMonthObj.monthLabel} Pathway · Weeks {activeMonthObj.weekStart}–{activeMonthObj.weekEnd}
+                    </div>
+                    <span style={{ fontSize: 11, color: 'rgba(243,236,218,0.6)' }}>Select a week to view protocol</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14 }}>
+                    {activeMonthObj.weeks.map((w) => {
+                      const isWkSelected = activeWkNum === w.week_number
+                      const isWkHidden = isHidden(`week-${w.week_number}`)
+                      const actionCount = w.actions?.length || (w.days ? w.days.reduce((acc, d) => acc + d.length, 0) : 0)
+                      const previewActions = w.actions?.slice(0, 2) ?? []
+
+                      return (
+                        <div key={w.week_number} data-week-trigger={w.week_number} onClick={() => setOpenWeek(w.week_number)}
+                          style={{
+                            border: `1px ${isWkHidden ? 'dashed' : 'solid'} ${isWkSelected ? PALETTE.gold1 : 'rgba(243,236,218,0.22)'}`,
+                            borderRadius: 16, padding: '16px 18px',
+                            background: isWkSelected ? 'rgba(224,195,132,0.15)' : 'rgba(243,236,218,0.05)',
+                            cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: isWkSelected ? '0 8px 24px rgba(0,0,0,0.25)' : 'none',
+                            position: 'relative', display: 'flex', flexDirection: 'column', opacity: isWkHidden ? 0.65 : 1,
+                          }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{
+                                width: 26, height: 26, borderRadius: '50%',
+                                background: isWkSelected ? PALETTE.gold1 : 'rgba(243,236,218,0.15)',
+                                color: isWkSelected ? PALETTE.ink : PALETTE.gold1,
+                                fontSize: 11, fontWeight: 800,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: isWkSelected ? `0 0 0 3px rgba(224,195,132,0.3)` : 'none'
+                              }}>
+                                {w.week_number}
+                              </div>
+                              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: isWkSelected ? PALETTE.gold1 : PALETTE.cream }}>
+                                WEEK {w.week_number} {isWkHidden && '(Hidden)'}
+                              </span>
+                            </div>
+                            {isWkSelected ? (
+                              <span style={{ fontSize: 10, fontWeight: 700, color: PALETTE.ink, background: PALETTE.gold1, padding: '2px 8px', borderRadius: 10 }}>
+                                Selected
+                              </span>
+                            ) : editable && (
+                              <button type="button" onClick={(e) => { e.stopPropagation(); toggleSection(`week-${w.week_number}`) }}
+                                title={isWkHidden ? `Unhide Week ${w.week_number}` : `Hide Week ${w.week_number}`}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: isWkHidden ? PALETTE.gold1 : PALETTE.cream }}>
+                                {isWkHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                              </button>
+                            )}
+                          </div>
+
+                          {editable ? (
+                            <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, marginBottom: 10 }}>
+                              <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
+                                style={{ fontSize: 13.5, fontWeight: 700, color: PALETTE.cream }} />
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: PALETTE.cream, lineHeight: 1.4, marginBottom: 10, flex: 1 }}>
+                              {w.focus_theme || `Week ${w.week_number} Goals`}
+                            </div>
+                          )}
+
+                          {previewActions.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+                              {previewActions.map((act, i) => (
+                                <div key={i} style={{ fontSize: 11, color: 'rgba(243,236,218,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  • {act}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div style={{ fontSize: 11.5, color: 'rgba(243,236,218,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid rgba(243,236,218,0.18)' }}>
+                            <span>{actionCount} daily targets</span>
+                            <span style={{ fontWeight: 700, color: PALETTE.gold1 }}>{isWkSelected ? 'Viewing ↓' : 'View Plan →'}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {months.map((m) => (
+                <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 28, display: activeMthNum === m.monthNumber ? 'block' : 'none' }}>
+                  {m.weeks.map((w) => (
+                    <div key={w.week_number} data-week-body={w.week_number} style={{ display: activeWkNum === w.week_number ? 'block' : 'none', borderTop: '1px solid rgba(243,236,218,0.18)', paddingTop: 24 }}>
                     {(w.actions?.length ?? 0) > 0 && (
                       <div style={{ marginBottom: 28 }}>
                         <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.gold1, opacity: 0.85 }}>Sunday to Saturday, this week&apos;s goals</span>
@@ -1630,6 +1689,8 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
             ))}
           </div>
         </section>
+      )
+    })()}
 
         {/* Recipes — Breakfast / Lunch / Dinner / Snacks / Desserts, every
             distinct recipe used anywhere in the plan, deduped, grouped by
@@ -1855,8 +1916,6 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
             })()}
           </div>
         </section>
-        </Fragment>
-      )}
 
       {/* Supplements — editable inline now (previously only on the Classic
           editor): each cell is an InlineEditableText, same click-to-edit

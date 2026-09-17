@@ -1294,86 +1294,147 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
         )}
 
         {/* Your roadmap */}
-        {months.length > 0 && (
-          <Card id="roadmap" hidden={isHidden('roadmap')}>
-            <Eyebrow>Month by month</Eyebrow>
-            <SecTitle icon={<MapPin size={18} />}>Your roadmap</SecTitle>
+        {months.length > 0 && (() => {
+          const activeMthNum = openMonth ?? months[0]?.monthNumber ?? 1
+          const activeMonthObj = months.find((m) => m.monthNumber === activeMthNum) || months[0]
+          const activeWkNum = openWeek ?? activeMonthObj?.weeks[0]?.week_number ?? 1
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 18 }}>
-              {months.map((m) => {
-                const isMthHidden = isHidden(`month-${m.monthNumber}`)
-                return (
-                  <div key={m.monthNumber} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                    <button data-month-trigger={m.monthNumber} onClick={() => { const next = openMonth === m.monthNumber ? null : m.monthNumber; setOpenMonth(next); setOpenWeek(null); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
-                      style={{
-                        padding: '7px 15px', borderRadius: 2, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
-                        border: `1px ${isMthHidden ? 'dashed' : 'solid'} ${openMonth === m.monthNumber ? ONYX.accent : ONYX.border}`,
-                        background: openMonth === m.monthNumber ? ONYX.accent : 'transparent', color: openMonth === m.monthNumber ? ONYX.onAccent : ONYX.inkSoft,
-                        opacity: isMthHidden ? 0.65 : 1,
-                      }}>
-                      {m.monthLabel} {isMthHidden && <span style={{ opacity: 0.75 }}>(Hidden)</span>}
-                    </button>
-                    {editable && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); toggleSection(`month-${m.monthNumber}`) }}
-                        title={isMthHidden ? `Unhide Month ${m.monthNumber} for patient` : `Hide Month ${m.monthNumber} from patient`}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: isMthHidden ? ONYX.accent : ONYX.inkSoft }}
-                      >
-                        {isMthHidden ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+          return (
+            <Card id="roadmap" hidden={isHidden('roadmap')}>
+              <Eyebrow>Month by month</Eyebrow>
+              <SecTitle icon={<MapPin size={18} />}>Your roadmap</SecTitle>
 
-            {months.map((m) => (
-              <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 22, display: openMonth === m.monthNumber ? 'block' : 'none' }}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-                  {m.weeks.map((w) => {
-                    const isWkHidden = isHidden(`week-${w.week_number}`)
-                    // A div in edit mode: a text field inside a <button> would
-                    // toggle the week on every click into it (and on Space).
-                    const WeekCard = editable ? 'div' : 'button'
+              {/* Month Phase Stepper Header */}
+              {months.length > 1 && (
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${months.length}, 1fr)`, gap: 10, marginTop: 18, marginBottom: 24 }}>
+                  {months.map((m) => {
+                    const isSelected = activeMthNum === m.monthNumber
+                    const isMthHidden = isHidden(`month-${m.monthNumber}`)
+                    const goalCount = m.weeks.reduce((n, w) => n + (w.days?.length ? w.days.reduce((nn, d) => nn + d.length, 0) : (w.actions?.length ?? 0)), 0)
                     return (
-                    <WeekCard key={w.week_number} data-week-trigger={w.week_number} role={editable ? 'button' : undefined} onClick={() => { const next = openWeek === w.week_number ? null : w.week_number; setOpenWeek(next); setOpenDay(null); setOpenSlot(null); setOpenRecipeId(null) }}
-                      style={{
-                        textAlign: 'left', padding: '11px 15px', borderRadius: 2, cursor: 'pointer', minWidth: 150,
-                        border: `1px ${isWkHidden ? 'dashed' : 'solid'} ${openWeek === w.week_number ? ONYX.accent : ONYX.border}`,
-                        background: openWeek === w.week_number ? ONYX.accentSoft : ONYX.bg,
-                        opacity: isWkHidden ? 0.65 : 1,
-                      }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                        <div style={{ color: ONYX.accentDeep, fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.04em' }}>
-                          WEEK {w.week_number} {isWkHidden && <span style={{ opacity: 0.75 }}>(Hidden)</span>}
-                        </div>
+                      <div key={m.monthNumber} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, width: '100%' }}>
+                        <button data-month-trigger={m.monthNumber} onClick={() => { setOpenMonth(m.monthNumber); setOpenWeek(m.weeks[0]?.week_number ?? null) }}
+                          style={{
+                            padding: '12px 14px', borderRadius: 4, cursor: 'pointer', textAlign: 'left', width: '100%',
+                            border: `1px ${isMthHidden ? 'dashed' : 'solid'} ${isSelected ? ONYX.accent : ONYX.border}`,
+                            background: isSelected ? ONYX.accentSoft : ONYX.bg, color: ONYX.ink, opacity: isMthHidden ? 0.65 : 1, transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden'
+                          }}>
+                          {isSelected && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: ONYX.accent }} />}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: isSelected ? ONYX.accent : ONYX.muted }}>PHASE 0{m.monthNumber}</span>
+                            {isSelected ? (
+                              <span style={{ fontSize: 9.5, fontWeight: 600, padding: '2px 7px', borderRadius: 2, background: ONYX.accent, color: ONYX.onAccent }}>ACTIVE</span>
+                            ) : (
+                              <span style={{ fontSize: 10, color: ONYX.muted }}>W{m.weekStart}–W{m.weekEnd}</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.monthLabel}</div>
+                          <div style={{ fontSize: 11, color: ONYX.muted, marginTop: 3 }}>{m.weeks.length} Weeks · {goalCount} Targets</div>
+                        </button>
                         {editable && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleSection(`week-${w.week_number}`) }}
-                            title={isWkHidden ? `Unhide Week ${w.week_number} for patient` : `Hide Week ${w.week_number} from patient`}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: isWkHidden ? ONYX.accent : ONYX.inkSoft }}
-                          >
-                            {isWkHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                          <button type="button" onClick={(e) => { e.stopPropagation(); toggleSection(`month-${m.monthNumber}`) }}
+                            title={isMthHidden ? `Unhide Month ${m.monthNumber} for patient` : `Hide Month ${m.monthNumber} from patient`}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: isMthHidden ? ONYX.accent : ONYX.inkSoft }}>
+                            {isMthHidden ? <EyeOff size={14} /> : <Eye size={14} />}
                           </button>
                         )}
                       </div>
-                      {editable ? (
-                        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 3 }}>
-                          <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
-                            style={{ color: ONYX.inkSoft, fontSize: '0.83rem' }} />
-                        </div>
-                      ) : (
-                        <div style={{ color: ONYX.inkSoft, fontSize: '0.83rem', marginTop: 3 }}>{w.focus_theme}</div>
-                      )}
-                    </WeekCard>
                     )
                   })}
                 </div>
+              )}
 
-                {m.weeks.map((w) => (
-                  <div key={w.week_number} data-week-body={w.week_number} style={{ display: openWeek === w.week_number ? 'block' : 'none', borderTop: `1px solid ${ONYX.border}`, paddingTop: 20 }}>
+              {/* 4-Week Connected Milestone Pathway Track */}
+              {activeMonthObj && (
+                <div style={{ marginTop: 18, marginBottom: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.accent }}>
+                      {activeMonthObj.monthLabel} Pathway · Weeks {activeMonthObj.weekStart}–{activeMonthObj.weekEnd}
+                    </div>
+                    <span style={{ fontSize: 11, color: ONYX.muted }}>Select a week to view protocol</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14 }}>
+                    {activeMonthObj.weeks.map((w) => {
+                      const isWkSelected = activeWkNum === w.week_number
+                      const isWkHidden = isHidden(`week-${w.week_number}`)
+                      const actionCount = w.actions?.length || (w.days ? w.days.reduce((acc, d) => acc + d.length, 0) : 0)
+                      const previewActions = w.actions?.slice(0, 2) ?? []
+
+                      return (
+                        <div key={w.week_number} data-week-trigger={w.week_number} onClick={() => setOpenWeek(w.week_number)}
+                          style={{
+                            border: `1px ${isWkHidden ? 'dashed' : 'solid'} ${isWkSelected ? ONYX.accent : ONYX.border}`,
+                            borderRadius: 6, padding: '16px 18px', background: isWkSelected ? ONYX.card : ONYX.bg,
+                            cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: isWkSelected ? '0 8px 24px rgba(0,0,0,0.25)' : 'none',
+                            position: 'relative', display: 'flex', flexDirection: 'column', opacity: isWkHidden ? 0.65 : 1,
+                          }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{
+                                width: 24, height: 24, borderRadius: '50%',
+                                background: isWkSelected ? ONYX.accent : ONYX.accentSoft,
+                                color: isWkSelected ? ONYX.onAccent : ONYX.accent,
+                                fontSize: 11, fontWeight: 700,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: isWkSelected ? `0 0 0 3px ${ONYX.accentSoft}` : 'none'
+                              }}>
+                                {w.week_number}
+                              </div>
+                              <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: isWkSelected ? ONYX.accent : ONYX.muted }}>
+                                WEEK {w.week_number} {isWkHidden && '(Hidden)'}
+                              </span>
+                            </div>
+                            {isWkSelected ? (
+                              <span style={{ fontSize: 10, fontWeight: 600, color: ONYX.accent, background: ONYX.accentSoft, padding: '2px 8px', borderRadius: 2 }}>
+                                Selected
+                              </span>
+                            ) : editable && (
+                              <button type="button" onClick={(e) => { e.stopPropagation(); toggleSection(`week-${w.week_number}`) }}
+                                title={isWkHidden ? `Unhide Week ${w.week_number}` : `Hide Week ${w.week_number}`}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: isWkHidden ? ONYX.accent : ONYX.inkSoft }}>
+                                {isWkHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                              </button>
+                            )}
+                          </div>
+
+                          {editable ? (
+                            <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, marginBottom: 10 }}>
+                              <InlineEditableText editable value={w.focus_theme || ''} placeholder="Add a heading for this week" onSave={(next) => saveWeekTheme(w.week_number, next)}
+                                style={{ fontSize: 13.5, fontWeight: 600, color: ONYX.ink }} />
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: ONYX.ink, lineHeight: 1.4, marginBottom: 10, flex: 1 }}>
+                              {w.focus_theme || `Week ${w.week_number} Goals`}
+                            </div>
+                          )}
+
+                          {previewActions.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+                              {previewActions.map((act, i) => (
+                                <div key={i} style={{ fontSize: 11, color: ONYX.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  • {act}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div style={{ fontSize: 11.5, color: ONYX.muted, display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: `1px solid ${ONYX.border}` }}>
+                            <span>{actionCount} daily targets</span>
+                            <span style={{ fontWeight: 600, color: ONYX.accent }}>{isWkSelected ? 'Viewing ↓' : 'View Plan →'}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Days breakdown accordion for active month & week */}
+              {months.map((m) => (
+                <div key={m.monthNumber} data-month-body={m.monthNumber} style={{ marginTop: 24, display: activeMthNum === m.monthNumber ? 'block' : 'none', borderTop: `1px solid ${ONYX.border}`, paddingTop: 20 }}>
+                  {m.weeks.map((w) => (
+                    <div key={w.week_number} data-week-body={w.week_number} style={{ display: activeWkNum === w.week_number ? 'block' : 'none', borderTop: `1px solid ${ONYX.border}`, paddingTop: 20 }}>
                     {(w.actions?.length ?? 0) > 0 && (
                       <div style={{ marginBottom: 24 }}>
                         <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: ONYX.accent }}>Sunday to Saturday, this week&apos;s goals</span>
@@ -1426,7 +1487,8 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
               </div>
             ))}
           </Card>
-        )}
+        )
+      })()}
 
         {/* Recipes — Breakfast / Lunch / Dinner / Snacks / Desserts, every
             distinct recipe used anywhere in the plan, deduped, grouped by

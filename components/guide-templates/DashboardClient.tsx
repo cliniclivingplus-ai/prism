@@ -3160,33 +3160,120 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               <p style={{ fontSize: 12.5, color: '#DC2626', margin: '-4px 0 14px' }}>{regenerateRoadmapError}</p>
             )}
             {months.length === 0 && <div style={{ fontSize: 13.5, color: C.muted }}>Not planned yet, check back once your coach generates your roadmap.</div>}
-            {!editable && months.length > 0 && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
-                  {months.map((m) => {
-                    const img = monthImages.get(String(m.monthNumber))
-                    const goalCount = m.weeks.reduce((n, w) => n + (w.days?.length ? w.days.reduce((nn, d) => nn + d.length, 0) : (w.actions?.length ?? 0)), 0)
-                    return (
-                      <button key={m.monthNumber} data-month-trigger={m.monthNumber} onClick={() => { setOpenMonth(m.monthNumber); setOpenWeek(null) }}
-                        style={{ textAlign: 'left', padding: 0, border: `1px solid ${C.rule}`, borderRadius: 12, overflow: 'hidden', background: C.bg, cursor: 'pointer' }}>
-                        {img ? (
-                          <img src={img} alt={m.monthLabel} style={{ width: '100%', height: 84, objectFit: 'cover', display: 'block' }} />
-                        ) : (
-                          <div style={{ width: '100%', height: 84, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <MapPin size={22} color={C.accent} />
-                          </div>
-                        )}
-                        <div style={{ padding: '10px 12px' }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{m.monthLabel}</div>
-                          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Weeks {m.weekStart}–{m.weekEnd} · {goalCount} goals</div>
+            {!editable && months.length > 0 && (() => {
+              const activeMthNum = openMonth ?? months[0]?.monthNumber ?? 1
+              const activeMonthObj = months.find((m) => m.monthNumber === activeMthNum) || months[0]
+              const activeWkNum = openWeek ?? activeMonthObj?.weeks[0]?.week_number ?? 1
+
+              return (
+                <div style={{ marginTop: 16 }}>
+                  {/* Phase Stepper Track Header */}
+                  {months.length > 1 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${months.length}, 1fr)`, gap: 10, marginBottom: 24 }}>
+                      {months.map((m) => {
+                        const isSelected = activeMthNum === m.monthNumber
+                        const goalCount = m.weeks.reduce((n, w) => n + (w.days?.length ? w.days.reduce((nn, d) => nn + d.length, 0) : (w.actions?.length ?? 0)), 0)
+                        return (
+                          <button key={m.monthNumber} onClick={() => { setOpenMonth(m.monthNumber); setOpenWeek(m.weeks[0]?.week_number ?? null) }}
+                            style={{
+                              padding: '12px 14px', borderRadius: 14, cursor: 'pointer', textAlign: 'left',
+                              border: isSelected ? `2px solid ${C.accent}` : `1px solid ${C.rule}`,
+                              background: isSelected ? C.accentSoft : C.paper,
+                              color: C.ink, transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden'
+                            }}>
+                            {isSelected && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: C.accent }} />}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+                              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', color: isSelected ? C.accent : C.muted }}>PHASE 0{m.monthNumber}</span>
+                              {isSelected ? (
+                                <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: C.accent, color: '#fff' }}>ACTIVE</span>
+                              ) : (
+                                <span style={{ fontSize: 10, color: C.muted }}>W{m.weekStart}–W{m.weekEnd}</span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.monthLabel}</div>
+                            <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{m.weeks.length} Weeks · {goalCount} Targets</div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* 4-Week Connected Milestone Pathway Track */}
+                  {activeMonthObj && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent }}>
+                          {activeMonthObj.monthLabel} Pathway · Weeks {activeMonthObj.weekStart}–{activeMonthObj.weekEnd}
                         </div>
-                      </button>
-                    )
-                  })}
+                        <span style={{ fontSize: 11, color: C.muted }}>Select a week to view protocol</span>
+                      </div>
+
+                      {/* Connected Stepper Milestone Grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 24, position: 'relative' }}>
+                        {activeMonthObj.weeks.map((w) => {
+                          const isWkSelected = activeWkNum === w.week_number
+                          const actionCount = w.actions?.length || (w.days ? w.days.reduce((acc, d) => acc + d.length, 0) : 0)
+                          const previewActions = w.actions?.slice(0, 2) ?? []
+
+                          return (
+                            <div key={w.week_number} onClick={() => setOpenWeek(w.week_number)}
+                              style={{
+                                border: isWkSelected ? `2px solid ${C.accent}` : `1px solid ${C.rule}`,
+                                borderRadius: 16, padding: '16px 18px', background: isWkSelected ? C.paper : C.bg,
+                                cursor: 'pointer', transition: 'all 0.2s ease',
+                                boxShadow: isWkSelected ? '0 8px 24px rgba(0,0,0,0.06)' : 'none',
+                                position: 'relative', display: 'flex', flexDirection: 'column',
+                              }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <div style={{
+                                    width: 26, height: 26, borderRadius: '50%',
+                                    background: isWkSelected ? C.accent : C.accentSoft,
+                                    color: isWkSelected ? '#fff' : C.accent,
+                                    fontSize: 11, fontWeight: 800,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: isWkSelected ? `0 0 0 3px ${C.accentSoft}` : 'none'
+                                  }}>
+                                    {w.week_number}
+                                  </div>
+                                  <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: isWkSelected ? C.accent : C.muted }}>
+                                    WEEK {w.week_number}
+                                  </span>
+                                </div>
+                                {isWkSelected && (
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: C.accent, background: C.accentSoft, padding: '2px 8px', borderRadius: 10 }}>
+                                    Selected
+                                  </span>
+                                )}
+                              </div>
+
+                              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, lineHeight: 1.4, marginBottom: 10, flex: 1 }}>
+                                {w.focus_theme || `Week ${w.week_number} Goals`}
+                              </div>
+
+                              {previewActions.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+                                  {previewActions.map((act, i) => (
+                                    <div key={i} style={{ fontSize: 11, color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      • {act}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div style={{ fontSize: 11.5, color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: `1px solid ${C.rule}` }}>
+                                <span>{actionCount} daily targets</span>
+                                <span style={{ fontWeight: 700, color: C.accent }}>{isWkSelected ? 'Viewing ↓' : 'View Plan →'}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 12 }}>Tap a month to see its weekly goals and check off what you&apos;ve done.</div>
-              </>
-            )}
+              )
+            })()}
             {editable && months.length > 0 && (() => {
               const currentWeek = editingWeek ?? months[0]?.weeks[0]?.week_number ?? null
               const w = months.flatMap((m) => m.weeks).find((week) => week.week_number === currentWeek)
