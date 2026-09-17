@@ -1190,6 +1190,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const [whyReflection, setWhyReflection] = useState(data.whyReflection)
   const [coachQuote, setCoachQuote] = useState(data.coachQuote)
   const [founderNote, setFounderNote] = useState(data.founderNote)
+  const [activeOrientationModal, setActiveOrientationModal] = useState<'founder' | 'coach' | 'howto' | null>(null)
   // Week-family-only extras (see WEEK_FAMILY_TEMPLATES below) — same
   // "prefilled with a real default, coach can Ask AI or type their own"
   // pattern as founderNote above. Defaults come from buildGuideData: the
@@ -2665,166 +2666,232 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           </div>
 
           {/* Orientation & Notes Grid Row: Founder's Note, Coach's Note, How to Use Your Plan */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 16 }}>
-            {/* 1. Founder's Note */}
-            <div id="founder" {...hiddenAttrs('founder')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, margin: 0, display: 'flex', flexDirection: 'column', ...hiddenStyle('founder') }}>
-              {editable && <SectionToggle hidden={isHidden('founder')} onToggle={() => toggleSection('founder')} />}
-              <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
-                <span>Founder&apos;s note</span>
-                {editable && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <ImageInsertButton value={founderNote} onChange={setFounderNote} />
-                    <AiEditButton roadmapId={rid} kind="text" value={founderNote} context={aiContext} onApply={setFounderNote} />
+          {(() => {
+            const activeCoach = coaches.find((c) => c.id === nutritionistId) || data.coach;
+            const careTeamCoachMatch = careTeam.find((m) => m.name && activeCoach?.full_name && m.name.trim().toLowerCase() === activeCoach.full_name.trim().toLowerCase());
+            const coachBio = activeCoach?.bio || careTeamCoachMatch?.intro || '';
+            const coachName = activeCoach?.full_name || 'Your Coach';
+            const coachDesignation = activeCoach?.designation || 'Integrative Health Coach';
+            const coachPhoto = activeCoach?.photo_url || careTeamCoachMatch?.photo || '';
+            const coachFirst = coachName.split(' ')[0] ?? 'Coach';
+
+            const isPlaceholder = !coachQuote || coachQuote.includes('[First name]') || coachQuote.includes('remember what you said about');
+            const cleanQuote = isPlaceholder ? coachBio : coachQuote;
+
+            return (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 16 }}>
+                  {/* 1. Founder's Note Card */}
+                  <div id="founder" {...hiddenAttrs('founder')} onClick={() => setActiveOrientationModal('founder')}
+                    style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '22px 18px', transition: 'transform 0.15s ease, box-shadow 0.15s ease', ...hiddenStyle('founder') }}>
+                    {editable && <SectionToggle hidden={isHidden('founder')} onToggle={() => toggleSection('founder')} />}
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent, marginBottom: 12 }}>Founder&apos;s Note</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `2px solid ${C.rule}`, marginBottom: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }} />
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Roshni Sanghvi</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Founder, Clinic Living Plus</div>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('founder') }}
+                      style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 20, background: C.accentSoft, color: C.accent, fontSize: 12, fontWeight: 700, border: `1px solid ${C.rule}`, cursor: 'pointer' }}>
+                      Read Intro &amp; Founder Note →
+                    </button>
+                  </div>
+
+                  {/* 2. Coach's Note Card */}
+                  <div id="coach" {...hiddenAttrs('coach')} onClick={() => setActiveOrientationModal('coach')}
+                    style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '22px 18px', transition: 'transform 0.15s ease, box-shadow 0.15s ease', ...hiddenStyle('coach') }}>
+                    {editable && <SectionToggle hidden={isHidden('coach')} onToggle={() => toggleSection('coach')} />}
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent, marginBottom: 12 }}>Coach&apos;s Note</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: coachPhoto ? `url(${coachPhoto}) center/cover` : C.accentSoft, border: `2px solid ${C.rule}`, marginBottom: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }} />
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{coachName}</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>{coachDesignation}</div>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('coach') }}
+                      style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 20, background: C.accentSoft, color: C.accent, fontSize: 12, fontWeight: 700, border: `1px solid ${C.rule}`, cursor: 'pointer' }}>
+                      Read Intro &amp; Coach Note →
+                    </button>
+                  </div>
+
+                  {/* 3. How to Use Your Plan Card */}
+                  <div id="howto" {...hiddenAttrs('howto')} onClick={() => setActiveOrientationModal('howto')}
+                    style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer', padding: '22px 18px', transition: 'transform 0.15s ease, box-shadow 0.15s ease', ...hiddenStyle('howto') }}>
+                    {editable && <SectionToggle hidden={isHidden('howto')} onToggle={() => toggleSection('howto')} />}
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent, marginBottom: 12 }}>Guide &amp; Your Why</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: C.accentSoft, border: `2px solid ${C.rule}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10, color: C.accent, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                      <HelpCircle size={30} />
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>How to Use Your Plan</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Follow → Track → Adjust</div>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setActiveOrientationModal('howto') }}
+                      style={{ marginTop: 'auto', padding: '7px 14px', borderRadius: 20, background: C.accentSoft, color: C.accent, fontSize: 12, fontWeight: 700, border: `1px solid ${C.rule}`, cursor: 'pointer' }}>
+                      View Guide &amp; Your Why →
+                    </button>
+                  </div>
+                </div>
+
+                {/* MODAL DIALOG OVERLAY */}
+                {activeOrientationModal && (
+                  <div onClick={() => setActiveOrientationModal(null)}
+                    style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                    <div onClick={(e) => e.stopPropagation()}
+                      style={{ background: C.paper, border: `1px solid ${C.rule}`, borderRadius: 20, width: '100%', maxWidth: 580, maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', padding: 24, position: 'relative' }}>
+                      
+                      {/* Close Button */}
+                      <button onClick={() => setActiveOrientationModal(null)}
+                        style={{ position: 'absolute', top: 16, right: 16, width: 32, height: 32, borderRadius: 16, border: `1px solid ${C.rule}`, background: C.bg, color: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                        <X size={16} />
+                      </button>
+
+                      {/* Modal Content: Founder */}
+                      {activeOrientationModal === 'founder' && (
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${C.rule}` }}>
+                            <div style={{ width: 64, height: 64, borderRadius: 32, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${C.rule}`, flexShrink: 0 }} />
+                            <div>
+                              <div style={{ fontSize: 17, fontWeight: 700, color: C.ink }}>Roshni Sanghvi</div>
+                              <div style={{ fontSize: 13, color: C.muted }}>Founder, Clinic Living Plus</div>
+                              <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 1.4 }}>{FOUNDER_INTRO}</div>
+                            </div>
+                          </div>
+                          
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Founder&apos;s note</div>
+                            {editable && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <ImageInsertButton value={founderNote} onChange={setFounderNote} />
+                                <AiEditButton roadmapId={rid} kind="text" value={founderNote} context={aiContext} onApply={setFounderNote} />
+                              </div>
+                            )}
+                          </div>
+
+                          {editable ? (
+                            <>
+                              <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6, fontSize: 13 }} rows={7}
+                                value={founderNote} onChange={(e) => setFounderNote(e.target.value)}
+                                placeholder="One paragraph per blank line" />
+                              <ImagePreviewStrip value={founderNote} onChange={setFounderNote} />
+                            </>
+                          ) : (
+                            founderNote.split('\n\n').map((para, i) => (
+                              <p key={i} style={{ ...bulletStyle, fontSize: 13.5, lineHeight: 1.6, color: C.ink }}>{para}</p>
+                            ))
+                          )}
+                        </div>
+                      )}
+
+                      {/* Modal Content: Coach */}
+                      {activeOrientationModal === 'coach' && (
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${C.rule}` }}>
+                            <div style={{ width: 64, height: 64, borderRadius: 32, background: coachPhoto ? `url(${coachPhoto}) center/cover` : C.accentSoft, border: `1px solid ${C.rule}`, flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 17, fontWeight: 700, color: C.ink }}>{coachName}</div>
+                              <div style={{ fontSize: 13, color: C.muted }}>{coachDesignation}</div>
+                              {coachBio && <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 1.4 }}>{coachBio}</div>}
+                            </div>
+                          </div>
+
+                          {editable && (
+                            <div style={{ marginBottom: 14 }}>
+                              <div style={editLabelStyle}>Select Coach</div>
+                              <select style={editInputStyle} value={nutritionistId} onChange={(e) => {
+                                const nextId = e.target.value;
+                                setNutritionistId(nextId);
+                                const selected = coaches.find(c => c.id === nextId);
+                                if (selected && selected.bio && (isPlaceholder || !coachQuote)) {
+                                  setCoachQuote(selected.bio);
+                                }
+                              }}>
+                                <option value="">Select a coach</option>
+                                {coaches.map((c) => (
+                                  <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Coach&apos;s note</div>
+                            {editable && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <ImageInsertButton value={coachQuote} onChange={setCoachQuote} />
+                                <AiEditButton roadmapId={rid} kind="text" value={coachQuote} context={aiContext} onApply={setCoachQuote} />
+                              </div>
+                            )}
+                          </div>
+
+                          {editable ? (
+                            <>
+                              <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.6, fontSize: 13 }} rows={5}
+                                value={isPlaceholder ? coachBio : coachQuote} onChange={(e) => setCoachQuote(e.target.value)}
+                                placeholder={`Note from ${coachFirst}...`} />
+                              <ImagePreviewStrip value={coachQuote} onChange={setCoachQuote} />
+                            </>
+                          ) : (
+                            cleanQuote ? (
+                              cleanQuote.split('\n\n').map((para, i) => (
+                                <p key={i} style={{ ...bulletStyle, fontSize: 13.5, fontStyle: 'italic', color: C.accent, lineHeight: 1.6 }}>{renderMarkdownBold(para)}</p>
+                              ))
+                            ) : null
+                          )}
+                        </div>
+                      )}
+
+                      {/* Modal Content: How to use */}
+                      {activeOrientationModal === 'howto' && (
+                        <div>
+                          <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: `1px solid ${C.rule}` }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>How to use your plan</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginTop: 4 }}>Follow → Track → Adjust</div>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 18 }}>
+                            {[
+                              { icon: HeartPulse, title: 'Why it matters', text: 'Every part of this guide was chosen for you. The more of it you use day to day, the more clearly your coach can see what’s working and fine-tune it.' },
+                              { icon: MapPin, title: 'Your goals', text: 'Your roadmap takes you month by month. Open the week you’re in to see its focus and a few small goals for each day.' },
+                              { icon: Sun, title: 'Your daily routine', text: 'The lifestyle guidelines, meals and daily schedule are the everyday habits behind those goals. Treat them as your default day, not a strict rulebook.' },
+                              { icon: Utensils, title: 'Your kitchen', text: 'The recipes and shopping list come straight from your plan, so what you buy and cook already fits it.' },
+                              { icon: CheckCircle2, title: 'Tick off and track', text: 'Tick off what you complete each day. Your progress shows you and your coach what’s working, and what to change.' },
+                              { icon: HelpCircle, title: 'Need help?', text: 'Message ' + coachFirst + ' if something doesn’t work for you.' },
+                            ].map(({ icon: Icon, title, text }) => (
+                              <div key={title} style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 12, padding: 12 }}>
+                                <div style={{ width: 30, height: 30, borderRadius: 8, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                                  <Icon size={15} color={C.accent} />
+                                </div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 2 }}>{title}</div>
+                                <div style={{ fontSize: 12, color: C.inkSoft, lineHeight: 1.45 }}>{text}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div style={{ paddingTop: 14, borderTop: `1px solid ${C.rule}` }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                              <span style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Your why</span>
+                              {editable && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <ImageInsertButton value={whyReflection} onChange={setWhyReflection} />
+                                  <AiEditButton roadmapId={rid} kind="text" value={whyReflection} context={aiContext} onApply={setWhyReflection} />
+                                </div>
+                              )}
+                            </div>
+                            {editable ? (
+                              <>
+                                <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5, fontSize: 13 }} rows={3}
+                                  value={whyReflection} onChange={(e) => setWhyReflection(e.target.value)}
+                                  placeholder="1-2 sentences on what this plan is for." />
+                                <ImagePreviewStrip value={whyReflection} onChange={setWhyReflection} />
+                              </>
+                            ) : whyReflection ? (
+                              <p style={{ ...bulletStyle, fontSize: 13, fontStyle: 'italic', color: C.inkSoft, margin: 0 }}>{renderMarkdownBold(whyReflection)}</p>
+                            ) : (
+                              <p style={{ ...bulletStyle, fontSize: 13, color: C.muted, margin: 0 }}>Not filled in yet.</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
-              </div>
-              <div data-founder-trigger onClick={() => setFounderOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginTop: 8, cursor: 'pointer' }}>
-                <div style={{ width: 48, height: 48, borderRadius: 24, flexShrink: 0, background: `url(${FOUNDER_PHOTO_URL}) center/cover`, border: `1px solid ${C.rule}` }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>Roshni Sanghvi</div>
-                  <div style={{ fontSize: 11.5, color: C.muted }}>Founder, Clinic Living Plus</div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 4, lineHeight: 1.35 }}>{FOUNDER_INTRO}</div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: C.accent, marginTop: 6 }}>{founderOpen ? 'Hide note ▲' : 'Read founder note ▼'}</div>
-                </div>
-              </div>
-              <div data-founder-body style={{ display: (editable || founderOpen) ? 'block' : 'none', marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.rule}` }}>
-                {editable ? (
-                  <>
-                    <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5, fontSize: 12.5 }} rows={5}
-                      value={founderNote} onChange={(e) => setFounderNote(e.target.value)}
-                      placeholder="One paragraph per blank line" />
-                    <ImagePreviewStrip value={founderNote} onChange={setFounderNote} />
-                  </>
-                ) : (
-                  founderNote.split('\n\n').map((para, i) => <p key={i} style={{ ...bulletStyle, fontSize: 12.5, lineHeight: 1.5 }}>{para}</p>)
-                )}
-              </div>
-            </div>
-
-            {/* 2. Coach's Note */}
-            {(data.coach || editable) && (() => {
-              const activeCoach = coaches.find((c) => c.id === nutritionistId) || data.coach;
-              const careTeamCoachMatch = careTeam.find((m) => m.name && activeCoach?.full_name && m.name.trim().toLowerCase() === activeCoach.full_name.trim().toLowerCase());
-              const coachBio = activeCoach?.bio || careTeamCoachMatch?.intro || '';
-              const coachName = activeCoach?.full_name || 'Your Coach';
-              const coachDesignation = activeCoach?.designation || 'Integrative Health Coach';
-              const coachPhoto = activeCoach?.photo_url || careTeamCoachMatch?.photo || '';
-              const coachFirst = coachName.split(' ')[0] ?? 'Coach';
-
-              const isPlaceholder = !coachQuote || coachQuote.includes('[First name]') || coachQuote.includes('remember what you said about');
-              const cleanQuote = isPlaceholder ? coachBio : coachQuote;
-
-              return (
-                <div id="coach" {...hiddenAttrs('coach')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, margin: 0, display: 'flex', flexDirection: 'column', ...hiddenStyle('coach') }}>
-                  {editable && <SectionToggle hidden={isHidden('coach')} onToggle={() => toggleSection('coach')} />}
-                  <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
-                    <span>Coach&apos;s note</span>
-                    {editable && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <ImageInsertButton value={coachQuote} onChange={setCoachQuote} />
-                        <AiEditButton roadmapId={rid} kind="text" value={coachQuote} context={aiContext} onApply={setCoachQuote} />
-                      </div>
-                    )}
-                  </div>
-
-                  {editable ? (
-                    <div style={{ marginBottom: 10 }}>
-                      <div style={editLabelStyle}>Coach</div>
-                      <select style={{ ...editInputStyle, padding: '4px 8px', fontSize: 12 }} value={nutritionistId} onChange={(e) => {
-                        const nextId = e.target.value;
-                        setNutritionistId(nextId);
-                        const selected = coaches.find(c => c.id === nextId);
-                        if (selected && selected.bio && (isPlaceholder || !coachQuote)) {
-                          setCoachQuote(selected.bio);
-                        }
-                      }}>
-                        <option value="">Select a coach</option>
-                        {coaches.map((c) => (
-                          <option key={c.id} value={c.id}>{c.full_name}{c.designation ? ` — ${c.designation}` : ''}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : null}
-
-                  <div data-coach-trigger onClick={() => setCoachOpen((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginTop: 8, cursor: 'pointer' }}>
-                    <div style={{ width: 48, height: 48, borderRadius: 24, flexShrink: 0, background: coachPhoto ? `url(${coachPhoto}) center/cover` : C.accentSoft, border: `1px solid ${C.rule}` }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>{coachName}</div>
-                      <div style={{ fontSize: 11.5, color: C.muted }}>{coachDesignation}</div>
-                      {coachBio && <div style={{ fontSize: 11, color: C.muted, marginTop: 4, lineHeight: 1.35 }}>{coachBio}</div>}
-                      <div style={{ fontSize: 11, fontWeight: 600, color: C.accent, marginTop: 6 }}>{coachOpen ? 'Hide note ▲' : `Read note from ${coachFirst} ▼`}</div>
-                    </div>
-                  </div>
-
-                  <div data-coach-body style={{ display: (editable || coachOpen) ? 'block' : 'none', marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.rule}` }}>
-                    {editable ? (
-                      <>
-                        <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.5, fontSize: 12.5 }} rows={4}
-                          value={isPlaceholder ? coachBio : coachQuote} onChange={(e) => setCoachQuote(e.target.value)}
-                          placeholder={`Note from ${coachFirst}...`} />
-                        <ImagePreviewStrip value={coachQuote} onChange={setCoachQuote} />
-                      </>
-                    ) : (
-                      cleanQuote ? (
-                        cleanQuote.split('\n\n').map((para, i) => (
-                          <p key={i} style={{ ...bulletStyle, fontSize: 12.5, fontStyle: 'italic', color: C.accent, lineHeight: 1.5 }}>{renderMarkdownBold(para)}</p>
-                        ))
-                      ) : null
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* 3. How to use your plan */}
-            <div id="howto" {...hiddenAttrs('howto')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, margin: 0, display: 'flex', flexDirection: 'column', ...hiddenStyle('howto') }}>
-              {editable && <SectionToggle hidden={isHidden('howto')} onToggle={() => toggleSection('howto')} />}
-              <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
-                <span>How to use your plan</span>
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginTop: 6, marginBottom: 8 }}>
-                Follow → Track → Adjust
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, color: C.inkSoft, lineHeight: 1.4, flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <MapPin size={14} color={C.accent} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <div><strong>Roadmap:</strong> Drill down into month &amp; week focus.</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <CheckCircle2 size={14} color={C.accent} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <div><strong>Track daily:</strong> Tick tasks &amp; log energy to see progress.</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <HelpCircle size={14} color={C.accent} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <div><strong>Coaching:</strong> Message your coach to fine-tune routines.</div>
-                </div>
-              </div>
-
-              <div id="why" style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.rule}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>Your why</span>
-                  {editable && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <ImageInsertButton value={whyReflection} onChange={setWhyReflection} />
-                      <AiEditButton roadmapId={rid} kind="text" value={whyReflection} context={aiContext} onApply={setWhyReflection} />
-                    </div>
-                  )}
-                </div>
-                {editable ? (
-                  <>
-                    <textarea style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.4, fontSize: 12 }} rows={2}
-                      value={whyReflection} onChange={(e) => setWhyReflection(e.target.value)}
-                      placeholder="1-2 sentences on what this plan is for." />
-                    <ImagePreviewStrip value={whyReflection} onChange={setWhyReflection} />
-                  </>
-                ) : whyReflection ? (
-                  <p style={{ ...bulletStyle, fontSize: 12, fontStyle: 'italic', color: C.inkSoft, margin: 0 }}>{renderMarkdownBold(whyReflection)}</p>
-                ) : (
-                  <p style={{ ...bulletStyle, fontSize: 12, color: C.muted, margin: 0 }}>Not filled in yet.</p>
-                )}
-              </div>
-            </div>
-          </div>
+              </>
+            );
+          })()}
 
           {/* Daily lifestyle / meals / schedule — was Week-family-only
               (gated on WEEK_FAMILY_TEMPLATES); now available on every
