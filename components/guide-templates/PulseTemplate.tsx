@@ -357,6 +357,54 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null)
   const [tocOpen, setTocOpen] = useState(false)
 
+  // Every distinct recipe used anywhere in the plan, deduped, grouped by
+  // meal type — same computation the Recipes section renders below, hoisted
+  // here so the "open from a lifestyle recipe link" effect further down can
+  // find which slot a given recipe id lives under without duplicating it.
+  const allWeekNumbers = useMemo(() => months.flatMap((m) => m.weeks).map((w) => w.week_number), [months])
+  const recipesBySlot = useMemo(() => {
+    const base = DAY_MEAL_SLOTS.map((slot) => {
+      const bySlot = allWeekNumbers.map((wn) => getSlotRecipes(wn, [slot], data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')[0])
+      const seen = new Set<string>()
+      const matches = bySlot.flatMap((s) => s?.matches ?? []).filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
+      return { slot, matches }
+    })
+    // A coach can link a lifestyle line (see RecipeLinkInsertButton) to any
+    // recipe in the bank, not only the plan's top auto-matched picks — an
+    // okra-water recipe linked from "Okra water in the morning" has no
+    // reason to also be one of this patient's 5 best-matched breakfasts.
+    // If the linked recipe isn't already in the matched set, splice it into
+    // its own meal-type bucket so opening the link still works.
+    if (typeof window !== 'undefined') {
+      const hashMatch = window.location.hash.match(/^#recipe-(.+)$/)
+      if (hashMatch) {
+        const id = hashMatch[1]
+        const alreadyPresent = base.some((s) => s.matches.some((x) => x.recipe.id === id))
+        if (!alreadyPresent) {
+          const recipe = data.recipeBank.find((r) => r.id === id)
+          const bucket = recipe && base.find((s) => s.slot === recipe.meal_type)
+          if (bucket) bucket.matches = [...bucket.matches, { recipe: recipe!, why: 'Linked from your daily routine.' }]
+        }
+      }
+    }
+    return base
+  }, [allWeekNumbers, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+
+  // Opens a recipe the coach linked to from a lifestyle line (see
+  // RecipeLinkInsertButton) when this page loads at that link's own
+  // #recipe-<id> — finds which meal slot it's under, opens that slot, opens
+  // the recipe itself, then scrolls the Recipes section into view.
+  useEffect(() => {
+    const m = window.location.hash.match(/^#recipe-(.+)$/)
+    if (!m) return
+    const id = m[1]
+    const hit = recipesBySlot.find((s) => s.matches.some((x) => x.recipe.id === id))
+    if (!hit) return
+    setOpenSlot(`all-${hit.slot}`)
+    setOpenRecipeId(`all-${hit.slot}-${id}`)
+    requestAnimationFrame(() => document.getElementById('recipes')?.scrollIntoView({ behavior: 'smooth' }))
+  }, [recipesBySlot])
+
   const today = todayISO()
   const progress = useMemo(() => {
     const dateSet = new Set(checkins.map((c) => c.checkin_date))
@@ -1302,13 +1350,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
             in the plan, deduped, grouped by meal type instead of by week.
             No week has to be picked anywhere for this to show something. */}
         {months.length > 0 && (() => {
-          const allWeekNumbers = months.flatMap((m) => m.weeks).map((w) => w.week_number)
-          const weekSlotRecipes = DAY_MEAL_SLOTS.map((slot) => {
-            const bySlot = allWeekNumbers.map((wn) => getSlotRecipes(wn, [slot], data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')[0])
-            const seen = new Set<string>()
-            const matches = bySlot.flatMap((s) => s?.matches ?? []).filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
-            return { slot, matches }
-          })
+          const weekSlotRecipes = recipesBySlot
           return (
             <Card id="recipes" hidden={isHidden('recipes')}>
               <Eyebrow>Picked for your plan</Eyebrow>

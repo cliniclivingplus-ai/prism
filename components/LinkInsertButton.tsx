@@ -49,8 +49,16 @@ export default function LinkInsertButton({ getTextarea, value, onChange, onLinke
 
   function openPopover() {
     const el = getTextarea()
-    const hasSelection = !!el && el.selectionStart !== el.selectionEnd
-    setSelection(hasSelection ? { start: el!.selectionStart, end: el!.selectionEnd } : null)
+    let start = el?.selectionStart ?? 0
+    let end = el?.selectionEnd ?? 0
+    // A double- or triple-click can include the trailing newline in the
+    // selection (browser-dependent) — left in, that newline lands inside
+    // the [label](url) brackets and breaks every downstream parser that
+    // splits this text back into one bullet per line.
+    while (end > start && (value[end - 1] === '\n' || value[end - 1] === '\r')) end--
+    while (start < end && (value[start] === '\n' || value[start] === '\r')) start++
+    const hasSelection = !!el && start !== end
+    setSelection(hasSelection ? { start, end } : null)
     setUrl('')
     setError('')
     setOpen(true)

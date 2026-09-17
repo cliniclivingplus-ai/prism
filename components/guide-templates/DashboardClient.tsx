@@ -21,6 +21,7 @@ import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from 
 import AiEditButton from '@/components/AiEditButton'
 import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
 import LinkInsertButton from '@/components/LinkInsertButton'
+import RecipeLinkInsertButton from '@/components/RecipeLinkInsertButton'
 import ProtocolPickerButton from '@/components/ProtocolPickerButton'
 import ImageInsertButton from '@/components/ImageInsertButton'
 import ImagePreviewStrip from '@/components/ImagePreviewStrip'
@@ -1240,6 +1241,19 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
       return next
     })
   }
+  // Collapsed by default — the recipe picker below (whole recipe bank,
+  // searchable, one checkbox list per meal slot) is the tallest thing in
+  // this editor, and a coach adjusting a week's goals shouldn't have to
+  // scroll past it every time.
+  const [openRecipeEditors, setOpenRecipeEditors] = useState<Set<number>>(new Set())
+  function toggleRecipeEditor(weekNumber: number) {
+    setOpenRecipeEditors((prev) => {
+      const next = new Set(prev)
+      if (next.has(weekNumber)) next.delete(weekNumber)
+      else next.add(weekNumber)
+      return next
+    })
+  }
   // Which single day is currently being edited, per week — showing all 7
   // days' text at once (even in a grid) either truncates every cell to
   // nothing or turns into 7 full-width blocks; showing exactly one day's 3
@@ -1594,8 +1608,20 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const allMatches = useMemo(() => {
     const combined = [...mealMatches.breakfast, ...mealMatches.lunch, ...mealMatches.dinner, ...mealMatches.snack, ...mealMatches.dessert,
       ...allWeekSlotRecipes.flatMap((s) => s.matches)]
-    return combined.filter((m, i) => combined.findIndex((x) => x.recipe.id === m.recipe.id) === i)
-  }, [mealMatches, allWeekSlotRecipes])
+    const deduped = combined.filter((m, i) => combined.findIndex((x) => x.recipe.id === m.recipe.id) === i)
+    // A coach can link a lifestyle line (see RecipeLinkInsertButton) to any
+    // recipe in the bank, not only the plan's top auto-matched picks — splice
+    // it in so its own link still opens something.
+    if (typeof window !== 'undefined') {
+      const hashMatch = window.location.hash.match(/^#recipe-(.+)$/)
+      const id = hashMatch?.[1]
+      if (id && !deduped.some((x) => x.recipe.id === id)) {
+        const recipe = data.recipeBank.find((r) => r.id === id)
+        if (recipe) deduped.push({ recipe, why: 'Linked from your daily routine.' })
+      }
+    }
+    return deduped
+  }, [mealMatches, allWeekSlotRecipes, data.recipeBank])
   // Same "every distinct recipe used anywhere in the plan, deduped, grouped
   // by meal type" the other 12 templates' standalone Recipes section shows
   // — built from the same allWeekSlotRecipes this file already computes.
@@ -1604,6 +1630,15 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     const matches = allWeekSlotRecipes.filter((s) => s.slot === slot).flatMap((s) => s.matches).filter((m) => (seen.has(m.recipe.id) ? false : (seen.add(m.recipe.id), true)))
     return { slot, matches }
   }), [allWeekSlotRecipes])
+  // Opens a recipe the coach linked to from a lifestyle line (see
+  // RecipeLinkInsertButton) when this page is loaded at that link's own
+  // #recipe-<id> — the modal above is a fixed overlay independent of scroll
+  // position, so this only needs to set which recipe is open, nothing else.
+  useEffect(() => {
+    const m = window.location.hash.match(/^#recipe-(.+)$/)
+    if (!m) return
+    if (allMatches.some((x) => x.recipe.id === m[1])) setOpenRecipeId(m[1])
+  }, [allMatches])
   // Real ingredients from this patient's own matched recipes, categorized —
   // falls back to the generic reference list only when no recipe has been
   // matched yet, so the list is never left empty. Used as the fallback for
@@ -2591,6 +2626,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                         <LinkInsertButton getTextarea={() => lifestyleTextareaRefs.current[period]} value={textOnlyValue(lifestyleByPeriod[period])}
                           onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} onLinked={addKeywordLink} />
+                        <RecipeLinkInsertButton getTextarea={() => lifestyleTextareaRefs.current[period]} value={textOnlyValue(lifestyleByPeriod[period])}
+                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} recipeBank={data.recipeBank} shareToken={shareToken} />
                         <ProtocolPickerButton value={textOnlyValue(lifestyleByPeriod[period])}
                           onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} />
                         <ImageInsertButton value={lifestyleByPeriod[period]}
@@ -2931,9 +2968,15 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   </div>
                 )}
 
-                <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 10 }}>Week {w?.week_number ?? ''} recipes</div>
-                {currentWeek != null && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${C.rule}` }}>
+                  <button type="button" onClick={() => currentWeek != null && toggleRecipeEditor(currentWeek)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: C.accent }}>
+                    {currentWeek != null && openRecipeEditors.has(currentWeek) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    Week {w?.week_number ?? ''} recipes
+                  </button>
+                </div>
+                {currentWeek != null && openRecipeEditors.has(currentWeek) && (
+                  <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                     {DAY_MEAL_SLOTS.map((slot) => {
                       // Every slot offers the whole recipe bank, not just
                       // recipes tagged with that slot's meal_type — a coach
