@@ -15,7 +15,7 @@ import { FOUNDER_PHOTO_URL, FOUNDER_INTRO } from '@/lib/founderInfo'
 import {
   HeartPulse, Utensils, Pill, Phone, Clock, CalendarCheck, HelpCircle, ChefHat, MapPin, ChevronDown, ChevronRight, X, Download,
   CheckCircle2, Circle, Sparkles, Star, ShoppingCart, Video, MessageCircle, Activity, Stethoscope, Users, Target, TrendingUp,
-  Droplet, Zap, Sun, Moon, Footprints, Wind, Link as LinkIcon, Eye, EyeOff, type LucideIcon, AlertTriangle, Plus,
+  Droplet, Zap, Sun, Moon, Footprints, Wind, Link as LinkIcon, Eye, EyeOff, type LucideIcon, AlertTriangle, Plus, Compass,
 } from 'lucide-react'
 import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { parseBullets, parseScheduleLines, splitIntoPeriods, joinPeriods } from '@/lib/periodBullets'
@@ -1029,20 +1029,26 @@ function clpToggleGroceryCat(head){
         section[id] { scroll-margin-top: 64px; }
       `}</style>
 
-      <div style={{ position: 'sticky', top: 0, zIndex: 30, background: 'rgba(247,239,224,0.92)', backdropFilter: 'blur(6px)', borderBottom: `1px solid ${PALETTE.line}`, padding: '10px 1.5rem' }}>
-        <div style={{ maxWidth: 920, margin: '0 auto', position: 'relative' }}>
+      {/* Floating Jump to section Widget */}
+      <div data-toc-bar style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 90 }}>
+        <div style={{ position: 'relative' }}>
+          {tocOpen && (
+            <div data-toc-panel style={{ position: 'absolute', bottom: '100%', right: 0, marginBottom: 10, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(150px, 1fr))', gap: '4px 8px', background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 14, padding: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', maxHeight: '60vh', overflowY: 'auto', minWidth: 300 }}>
+              <div style={{ gridColumn: 'span 2', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, fontWeight: 700, color: PALETTE.ink, opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.04em', paddingBottom: 6, borderBottom: `1px solid ${PALETTE.line}`, marginBottom: 2 }}>
+                Jump to Section
+              </div>
+              {TOC_ITEMS.filter((item) => !isHidden(item.id)).map((item, i) => (
+                <a key={`${item.id}-${i}`} data-toc-link href={`#${item.id}`} onClick={() => { setTocOpen(false); openSection(item.id) }}
+                  style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, fontWeight: 600, color: PALETTE.ink, textDecoration: 'none', padding: '7px 10px', borderRadius: 8, background: PALETTE.gold2, whiteSpace: 'nowrap' }}>
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          )}
           <button data-toc-trigger onClick={() => setTocOpen((v) => !v)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, fontWeight: 600, color: PALETTE.ink, background: PALETTE.gold1, border: `1px solid ${PALETTE.line}`, borderRadius: 20, padding: '7px 14px', cursor: 'pointer' }}>
-            Jump to section <ChevronDown size={13} style={{ transform: tocOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, fontWeight: 600, color: PALETTE.ink, background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 24, padding: '9px 16px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', backdropFilter: 'blur(12px)' }}>
+            <Compass size={14} color={PALETTE.berry} /> Jump to section <ChevronDown size={13} style={{ transform: tocOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
           </button>
-          <div data-toc-panel style={{ display: tocOpen ? 'grid' : 'none', position: 'absolute', top: '100%', left: 0, marginTop: 6, gridTemplateColumns: 'repeat(2, minmax(160px, 1fr))', gap: '2px 12px', background: PALETTE.paper1, border: `1px solid ${PALETTE.line}`, borderRadius: 12, padding: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', maxHeight: '70vh', overflowY: 'auto', zIndex: 31 }}>
-            {TOC_ITEMS.filter((item) => !isHidden(item.id)).map((item, i) => (
-              <a key={`${item.id}-${i}`} data-toc-link href={`#${item.id}`} onClick={() => { setTocOpen(false); openSection(item.id) }}
-                style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, fontWeight: 600, color: PALETTE.ink, opacity: 0.75, textDecoration: 'none', padding: '8px 9px', borderRadius: 8, whiteSpace: 'nowrap' }}>
-                {item.label}
-              </a>
-            ))}
-          </div>
         </div>
       </div>
 
