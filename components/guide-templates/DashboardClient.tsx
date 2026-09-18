@@ -3403,56 +3403,6 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     )}
                   </div>
                 )}
-
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${C.rule}` }}>
-                  <button type="button" onClick={() => currentWeek != null && toggleRecipeEditor(currentWeek)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: C.accent }}>
-                    {currentWeek != null && openRecipeEditors.has(currentWeek) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    Week {w?.week_number ?? ''} recipes
-                  </button>
-                </div>
-                {currentWeek != null && openRecipeEditors.has(currentWeek) && (
-                  <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-                    {DAY_MEAL_SLOTS.map((slot) => {
-                      // Every slot offers the whole recipe bank, not just
-                      // recipes tagged with that slot's meal_type — a coach
-                      // may reasonably want a "lunch"-tagged recipe at
-                      // breakfast, and meal_type tagging (especially on
-                      // AI-extracted recipes) isn't always a reliable filter.
-                      const allOptions = data.recipeBank
-                      const query = (recipeSearch[slot] || '').trim().toLowerCase()
-                      const options = query ? allOptions.filter((r) => r.name.toLowerCase().includes(query)) : allOptions
-                      const checkedIds = new Set(curatedSlotIds(slot, currentWeek))
-                      return (
-                        <div key={slot}>
-                          <div style={editLabelStyle}>{SLOT_LABELS[slot]}</div>
-                          {allOptions.length > 0 && (
-                            <input
-                              value={recipeSearch[slot] || ''}
-                              onChange={(e) => setRecipeSearch((prev) => ({ ...prev, [slot]: e.target.value }))}
-                              placeholder={`Search recipes…`}
-                              style={{ ...editInputStyle, marginBottom: 6, fontSize: 12.5 }}
-                            />
-                          )}
-                          <div style={{ maxHeight: 180, overflowY: 'auto', border: `1px solid ${C.rule}`, borderRadius: 8, padding: '4px 10px', background: C.paper }}>
-                            {allOptions.length === 0 && <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>No recipes in the bank yet.</div>}
-                            {allOptions.length > 0 && options.length === 0 && <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>No matches for &quot;{recipeSearch[slot]}&quot;.</div>}
-                            {options.map((r) => (
-                              <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: 12.5, color: C.ink, cursor: 'pointer' }}>
-                                <input type="checkbox" checked={checkedIds.has(r.id)} onChange={(e) => {
-                                  const base = curatedSlotIds(slot, currentWeek)
-                                  const next = e.target.checked ? [...base, r.id] : base.filter((id) => id !== r.id)
-                                  setWeeklyManualRecipes((prev) => ({ ...prev, [currentWeek]: { ...prev[currentWeek], [slot]: next } }))
-                                }} />
-                                {r.name}
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
               </div>
               )
             })()}
@@ -3460,48 +3410,95 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
 
           {/* Recipes — Breakfast / Lunch / Dinner / Snacks / Desserts, every
               distinct recipe used anywhere in the plan, deduped, grouped by
-              meal type instead of by week (previously only browsable by
-              picking a month then a week under "Your roadmap" above).
+              meal type instead of by week.
               Reuses the same recipe overlay modal (openRecipeId) that
               modal already renders for every template's matched recipes. */}
           <div id="recipes" {...hiddenAttrs('recipes')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('recipes') }}>
             {editable && <SectionToggle hidden={isHidden('recipes')} onToggle={() => toggleSection('recipes')} />}
             <div style={sectionTitleStyle}><ChefHat size={18} color={C.accent} /> Your recipes</div>
-            {editable && (
-              <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                {roadmapId && (
-                  <AiBulkRecipeEditButton
-                    roadmapId={roadmapId}
-                    onApply={(o) => {
-                      setRecipeOverrides((prev) => {
-                        const next = { ...prev, ...o }
-                        patchRoadmap({ guide_overrides: { recipe_content_overrides: next } })
-                        return next
-                      })
-                    }}
-                  />
-                )}
-                <CombineRecipesButton
-                  recipes={data.recipeBank}
-                  recipeOverrides={recipeOverrides}
-                  manualRecipes={manualRecipes}
-                  weeklyManualRecipes={weeklyManualRecipes}
-                  weekMealMatches={weekMealMatches}
-                  onApply={(nextOverrides, nextManual, nextWeekly) => {
-                    setRecipeOverrides(nextOverrides)
-                    setManualRecipes(nextManual)
-                    setWeeklyManualRecipes(nextWeekly)
-                    patchRoadmap({
-                      guide_overrides: {
-                        recipe_content_overrides: nextOverrides,
-                        manual_recipes: nextManual,
-                        weekly_manual_recipes: nextWeekly,
-                      },
-                    })
-                  }}
-                />
-              </div>
-            )}
+            {editable && (() => {
+              const selWeek = editingWeek ?? months[0]?.weeks[0]?.week_number ?? 1
+              return (
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {roadmapId && (
+                      <AiBulkRecipeEditButton
+                        roadmapId={roadmapId}
+                        onApply={(o) => {
+                          setRecipeOverrides((prev) => {
+                            const next = { ...prev, ...o }
+                            patchRoadmap({ guide_overrides: { recipe_content_overrides: next } })
+                            return next
+                          })
+                        }}
+                      />
+                    )}
+                    <CombineRecipesButton
+                      recipes={data.recipeBank}
+                      recipeOverrides={recipeOverrides}
+                      manualRecipes={manualRecipes}
+                      weeklyManualRecipes={weeklyManualRecipes}
+                      weekMealMatches={weekMealMatches}
+                      onApply={(nextOverrides, nextManual, nextWeekly) => {
+                        setRecipeOverrides(nextOverrides)
+                        setManualRecipes(nextManual)
+                        setWeeklyManualRecipes(nextWeekly)
+                        patchRoadmap({
+                          guide_overrides: {
+                            recipe_content_overrides: nextOverrides,
+                            manual_recipes: nextManual,
+                            weekly_manual_recipes: nextWeekly,
+                          },
+                        })
+                      }}
+                    />
+                    <button type="button" onClick={() => toggleRecipeEditor(selWeek)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, border: `1px solid ${C.rule}`, background: openRecipeEditors.has(selWeek) ? C.accentSoft : C.paper, color: C.accent, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                      {openRecipeEditors.has(selWeek) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      Select recipes for Week {selWeek}
+                    </button>
+                  </div>
+
+                  {openRecipeEditors.has(selWeek) && (
+                    <div style={{ padding: 12, borderRadius: 10, border: `1px solid ${C.rule}`, background: C.paper, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                      {DAY_MEAL_SLOTS.map((slot) => {
+                        const allOptions = data.recipeBank
+                        const query = (recipeSearch[slot] || '').trim().toLowerCase()
+                        const options = query ? allOptions.filter((r) => r.name.toLowerCase().includes(query)) : allOptions
+                        const checkedIds = new Set(curatedSlotIds(slot, selWeek))
+                        return (
+                          <div key={slot}>
+                            <div style={editLabelStyle}>{SLOT_LABELS[slot]}</div>
+                            {allOptions.length > 0 && (
+                              <input
+                                value={recipeSearch[slot] || ''}
+                                onChange={(e) => setRecipeSearch((prev) => ({ ...prev, [slot]: e.target.value }))}
+                                placeholder={`Search recipes…`}
+                                style={{ ...editInputStyle, marginBottom: 6, fontSize: 12.5 }}
+                              />
+                            )}
+                            <div style={{ maxHeight: 180, overflowY: 'auto', border: `1px solid ${C.rule}`, borderRadius: 8, padding: '4px 10px', background: C.paper }}>
+                              {allOptions.length === 0 && <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>No recipes in the bank yet.</div>}
+                              {allOptions.length > 0 && options.length === 0 && <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>No matches for &quot;{recipeSearch[slot]}&quot;.</div>}
+                              {options.map((r) => (
+                                <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: 12.5, color: C.ink, cursor: 'pointer' }}>
+                                  <input type="checkbox" checked={checkedIds.has(r.id)} onChange={(e) => {
+                                    const base = curatedSlotIds(slot, selWeek)
+                                    const next = e.target.checked ? [...base, r.id] : base.filter((id) => id !== r.id)
+                                    setWeeklyManualRecipes((prev) => ({ ...prev, [selWeek]: { ...prev[selWeek], [slot]: next } }))
+                                  }} />
+                                  {r.name}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             {recipesBySlot.every((s) => s.matches.filter((m) => !recipeOverrides[m.recipe.id]?.hidden).length === 0) ? (
               <p style={{ fontSize: 13, color: C.muted, marginTop: 12 }}>Not planned yet, check back once your coach generates your roadmap.</p>
             ) : (
