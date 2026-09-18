@@ -1,40 +1,77 @@
 import Groq from 'groq-sdk'
 import type { ChatCompletion, ChatCompletionCreateParamsNonStreaming } from 'groq-sdk/resources/chat/completions'
 
-// Two Groq accounts, tried in order — the org's on-demand tier has a real,
-// regularly-hit daily/per-minute token cap (see interpret/route.ts's own
-// TPM-413 history), and a roadmap generation failing outright because of it
-// is a worse outcome than briefly drawing on a second account's quota.
-// GROQ_API_KEY_2 is optional; when unset this behaves exactly like a plain
-// `new Groq(...)` call always did.
-const primary = new Groq({ apiKey: process.env.GROQ_API_KEY })
-const fallback = process.env.GROQ_API_KEY_2 ? new Groq({ apiKey: process.env.GROQ_API_KEY_2 }) : null
+// Collect all unique Groq API keys from environment variables:
+// 1. GROQ_API_KEYS (comma-separated string, e.g. "gsk_1,gsk_2,gsk_3")
+// 2. GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3, ..., GROQ_API_KEY_20
+function getGroqKeys(): string[] {
+  const keys: string[] = []
+
+  if (process.env.GROQ_API_KEYS) {
+    const list = process.env.GROQ_API_KEYS.split(',').map((k) => k.trim()).filter(Boolean)
+    keys.push(...list)
+  }
+
+  const singleKey = process.env.GROQ_API_KEY?.trim()
+  if (singleKey) keys.push(singleKey)
+
+  for (let i = 2; i <= 20; i++) {
+    const k = process.env[`GROQ_API_KEY_${i}`]?.trim()
+    if (k) keys.push(k)
+  }
+
+  return Array.from(new Set(keys))
+}
+
+function createGroqPool(): Groq[] {
+  const keys = getGroqKeys()
+  if (keys.length === 0) {
+    return [new Groq({ apiKey: process.env.GROQ_API_KEY || '' })]
+  }
+  return keys.map((key) => new Groq({ apiKey: key }))
+}
+
+let pool: Groq[] = []
+
+function getPool(): Groq[] {
+  if (pool.length === 0) {
+    pool = createGroqPool()
+  }
+  return pool
+}
 
 function isRateLimitError(err: unknown): boolean {
   const status = (err as { status?: number })?.status
-  if (status === 429) return true
+  if (status === 429 || status === 413) return true
   const message = err instanceof Error ? err.message : String(err)
-  return /rate_limit_exceeded|429/i.test(message)
+  return /rate_limit_exceeded|429|413|token_limit_exceeded|tpm/i.test(message)
 }
 
-// Same call shape as groq.chat.completions.create(...) — pass the same
-// params through unchanged. Only retries on a rate-limit error, and only
-// once (on the fallback key); any other failure (bad JSON schema, network,
-// etc.) surfaces immediately since a second key wouldn't fix it anyway.
-// Every current caller wants the non-streaming response shape (none pass
-// `stream: true`), so this is typed to that overload specifically —
-// otherwise `create`'s streaming/non-streaming union type loses `.choices`
-// on the result.
+/**
+ * Execute Groq Chat Completion with automatic multi-key pool rotation and rate-limit failover.
+ * Rotates across all configured team keys (GROQ_API_KEY, GROQ_API_KEY_2..20, or GROQ_API_KEYS).
+ */
 export async function groqChatCompletion(
   params: ChatCompletionCreateParamsNonStreaming
 ): Promise<ChatCompletion> {
-  try {
-    return await primary.chat.completions.create(params)
-  } catch (err) {
-    if (fallback && isRateLimitError(err)) {
-      console.log('Groq primary key rate-limited, retrying on GROQ_API_KEY_2:', err instanceof Error ? err.message.slice(0, 150) : err)
-      return await fallback.chat.completions.create(params)
+  const clients = getPool()
+  let lastError: unknown = null
+
+  for (let index = 0; index < clients.length; index++) {
+    const client = clients[index]
+    try {
+      return await client.chat.completions.create(params)
+    } catch (err) {
+      lastError = err
+      if (isRateLimitError(err) && index < clients.length - 1) {
+        console.warn(
+          `[Groq Key Pool] Key #${index + 1} hit rate limit (${err instanceof Error ? err.message.slice(0, 100) : err}). Automatically failing over to Key #${index + 2}...`
+        )
+        continue
+      }
+      throw err
     }
-    throw err
   }
+
+  throw lastError
 }

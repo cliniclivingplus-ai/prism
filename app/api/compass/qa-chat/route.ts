@@ -14,12 +14,10 @@ export const runtime = 'nodejs';
 // lookups before that, which can tip past 10s and get killed mid-request.
 export const maxDuration = 60;
 
-import Groq from 'groq-sdk';
+import { groqChatCompletion } from '@/lib/groq';
 import { supabaseAdmin } from '@/lib/supabase';
 import { embedText } from '@/lib/embeddings';
 import { DIET_RULE, buildPlateRule, DEFAULT_PLATE_COMPOSITION, PlateComposition, findNonVegTerm, stripDietLabels } from '@/lib/dietRules';
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const STOP_WORDS = new Set(['the', 'patient', 'is', 'are', 'was', 'with', 'and', 'has', 'have', 'been', 'their', 'they', 'this', 'that', 'from', 'for', 'not', 'but', 'can', 'also', 'more', 'very', 'some', 'into', 'over', 'after', 'what', 'when', 'how', 'why', 'about', 'should', 'would', 'could']);
 
@@ -291,7 +289,7 @@ Never use an em dash (—) anywhere in any field; use a comma, period, or "and" 
         // which only covers network/API-level failures, not blank success).
         let raw = '';
         for (let attempt = 0; attempt < 2 && !raw.trim(); attempt++) {
-          const completion = await withRetry(() => groq.chat.completions.create(summaryRequest));
+          const completion = await withRetry(() => groqChatCompletion(summaryRequest as any));
           raw = completion.choices[0]?.message?.content || '';
           if (!raw.trim()) console.log(`[qa-chat debug] summary empty content (attempt ${attempt + 1}/2), finish_reason:`, completion.choices[0]?.finish_reason);
         }
@@ -487,7 +485,7 @@ HOW TO LEAD:
         // retry doesn't cover it) — retry once more specifically for that.
         let reply = '';
         for (let attempt = 0; attempt < 2 && !reply.trim(); attempt++) {
-          const completion = await withRetry(() => groq.chat.completions.create(chatRequest));
+          const completion = await withRetry(() => groqChatCompletion(chatRequest as any));
           reply = completion.choices[0]?.message?.content || '';
           if (!reply.trim()) console.log(`[qa-chat debug] empty content (attempt ${attempt + 1}/2), finish_reason:`, completion.choices[0]?.finish_reason);
         }
@@ -547,7 +545,7 @@ HOW TO LEAD:
             reply = `I don't see a full recipe (ingredients and steps) earlier in this conversation to add — paste the recipe here and ask again.`;
           } else {
             try {
-              const extraction = await withRetry(() => groq.chat.completions.create({
+              const extraction = await withRetry(() => groqChatCompletion({
                 model: MODEL_FAST,
                 temperature: 0.2,
                 max_tokens: 1200, // was 900 — a full recipe (ingredients + steps) plus
@@ -642,7 +640,7 @@ Infer meal_type from context (a sandwich for lunch, oats for breakfast, etc.) �
               if (!roadmap) {
                 reply = `${patientName} doesn't have a generated dashboard yet, so there's nowhere to add these — generate the roadmap first, then I can add lifestyle guidelines to it.`;
               } else {
-                const extraction = await withRetry(() => groq.chat.completions.create({
+                const extraction = await withRetry(() => groqChatCompletion({
                   model: MODEL_FAST,
                   temperature: 0.2,
                   max_tokens: 700,
@@ -715,7 +713,7 @@ Each item must start with "Morning: ", "Afternoon: ", or "Evening: " followed by
 
     if (mode === 'draft') {
       try {
-        const completion = await withRetry(() => groq.chat.completions.create({
+        const completion = await withRetry(() => groqChatCompletion({
           model: MODEL_FAST,
           temperature: 0.3,
           max_tokens: 700,

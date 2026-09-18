@@ -4,12 +4,10 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 import { supabaseAdmin } from '@/lib/supabase'
 import { embedText } from '@/lib/embeddings'
 import { BLOCK_TYPES, BLOCK_ICON_KEYS, validateBlock } from '@/lib/blocks/types'
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 export async function GET(req: NextRequest) {
   const patientId = req.nextUrl.searchParams.get('patient_id')
@@ -84,7 +82,7 @@ export async function POST(req: NextRequest) {
       ? (images ?? []).map((im) => `- id: ${im.id} | label: "${im.label}" | tags: ${(im.tags || []).join(', ')}`).join('\n')
       : 'None picked.'
 
-    const completion = await groq.chat.completions.create({
+    const completion = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       temperature: 0.3,
       max_tokens: 2200,

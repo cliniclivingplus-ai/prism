@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 import { supabaseAdmin } from '@/lib/supabase'
-import Groq from 'groq-sdk'
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+import { groqChatCompletion } from '@/lib/groq'
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +12,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Extract structured data from Gemini doc ───────────────
-    const extractRes = await groq.chat.completions.create({
+    const extractRes = await groqChatCompletion({
       // 120b, not 20b: this runs automatically right after session creation, back-to-
       // back with qa-chat's own summary generation (also on 20b). Sharing one model
       // means sharing one free-tier TPM budget between two calls fired seconds apart —

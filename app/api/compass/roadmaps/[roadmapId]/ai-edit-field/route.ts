@@ -4,9 +4,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-import Groq from 'groq-sdk'
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+import { groqChatCompletion } from '@/lib/groq'
 
 // Generic "click a section, tell AI what to change" backend for the
 // Classic roadmap editor (src/app/dashboard/[roadmapId]/DashboardClient.tsx)
@@ -29,7 +27,7 @@ export async function POST(req: NextRequest) {
     if (typeof kind !== 'string' || !KIND_SHAPES[kind]) return NextResponse.json({ error: 'Unknown field kind' }, { status: 400 })
     if (typeof instruction !== 'string' || !instruction.trim()) return NextResponse.json({ error: 'instruction is required' }, { status: 400 })
 
-    const completion = await groq.chat.completions.create({
+    const completion = await groqChatCompletion({
       model: 'openai/gpt-oss-20b',
       temperature: 0.3,
       max_tokens: 900,

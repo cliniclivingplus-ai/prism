@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { groqChatCompletion } from '@/lib/groq'
 import { GROCERY_CATEGORY_ORDER, type GroceryCategory } from '@/lib/groceryList'
 
 export const dynamic = 'force-dynamic'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const MAX_ITEMS = 200
 
 // The regex-based buildGroceryList() in src/lib/groceryList.ts already turns
@@ -29,7 +28,7 @@ export async function POST(req: NextRequest) {
   const trimmed = candidates.slice(0, MAX_ITEMS)
   const inputText = trimmed.map((c) => `${c.name} (${c.category})`).join('\n')
 
-  const completion = await groq.chat.completions.create({
+  const completion = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
     temperature: 0.1,
     max_tokens: 4000,
