@@ -259,7 +259,7 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
             {recipes.map((r) => (
               <div key={r.id} style={{ border: `1px solid ${theme.line}`, borderRadius: 12, overflow: 'hidden' }}>
                 {r.image_url ? (
-                  <img src={r.image_url} alt={r.name} style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
+                  <img src={r.image_url} alt={r.name} loading="lazy" decoding="async" style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
                 ) : (
                   <div style={{ width: '100%', height: 90, background: theme.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChefHat size={18} color={theme.accent} /></div>
                 )}
@@ -282,7 +282,7 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
           {block.title && <BlockTitle theme={theme}>{block.title}</BlockTitle>}
           <div style={{ display: 'grid', gridTemplateColumns: images.length === 1 ? '1fr' : 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginTop: block.title ? 14 : 0 }}>
             {images.map((im) => (
-              <img key={im.id} src={im.image_url} alt={im.label} style={{ width: '100%', height: images.length === 1 ? 220 : 130, objectFit: 'cover', borderRadius: 12 }} />
+              <img key={im.id} src={im.image_url} alt={im.label} loading="lazy" decoding="async" style={{ width: '100%', height: images.length === 1 ? 220 : 130, objectFit: 'cover', borderRadius: 12 }} />
             ))}
           </div>
         </>
@@ -362,7 +362,7 @@ export function BlockBody({ block, recipesById, imagesById, checkedItems, onChec
       if (!img) return null
       return (
         <>
-          <img src={img.image_url} alt={block.caption || img.label} style={{ width: '100%', height: block.layout ? '100%' : 320, objectFit: 'cover', display: 'block' }} />
+          <img src={img.image_url} alt={block.caption || img.label} loading="lazy" decoding="async" style={{ width: '100%', height: block.layout ? '100%' : 320, objectFit: 'cover', display: 'block' }} />
           {block.caption && <div style={{ padding: '8px 12px', fontSize: 12, color: theme.muted }}>{block.caption}</div>}
         </>
       )

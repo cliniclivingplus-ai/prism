@@ -406,7 +406,7 @@ function RecipeBody({ recipe, imageUrl, override, editable, onSave, onImageUpdat
           <div style={{ position: 'relative', marginBottom: 14 }}>
             {displayImageUrl ? (
               <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden' }}>
-                <img src={displayImageUrl} alt={recipeName} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
+                <img src={displayImageUrl} alt={recipeName} loading="lazy" decoding="async" style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
                 <label style={{
                   position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.68)', color: '#fff',
                   padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
@@ -2320,7 +2320,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                               <button key={m.recipe.id} data-recipe-trigger={m.recipe.id} onClick={() => setOpenRecipeId(m.recipe.id)}
                                 style={{ textAlign: 'left', padding: 0, borderRadius: 12, border: `1px solid ${C.rule}`, background: C.bg, overflow: 'hidden', cursor: 'pointer' }}>
                                 {combinedImages.get(m.recipe.id) ? (
-                                  <img src={combinedImages.get(m.recipe.id) ?? undefined} alt={m.recipe.name} style={{ width: '100%', height: 72, objectFit: 'cover', display: 'block' }} />
+                                  <img src={combinedImages.get(m.recipe.id) ?? undefined} alt={m.recipe.name} loading="lazy" decoding="async" style={{ width: '100%', height: 72, objectFit: 'cover', display: 'block' }} />
                                 ) : (
                                   <div style={{ width: '100%', height: 72, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChefHat size={20} color={C.accent} /></div>
                                 )}
@@ -3052,7 +3052,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                           {images.map((img, i) => (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                            <img key={i} src={img.url} alt={img.alt} loading="lazy" decoding="async" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
                           ))}
                         </div>
                       )}
@@ -3061,7 +3061,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                             {isTrackableBullet(item)
                               ? <Circle size={11} color={C.accent} style={{ flexShrink: 0, marginTop: 4, opacity: 0.6 }} />
-                              : <Check size={11} color={C.muted} style={{ flexShrink: 0, marginTop: 4, opacity: 0.7 }} />}
+                              : <Check size={11} color={C.muted} style={{ flexShrink: 0, opacity: 0.7, marginTop: 4 }} />}
                             <span style={{ fontSize: 13, lineHeight: 1.5 }}>{renderMarkdownBold(item)}</span>
                           </div>
                         ))}
@@ -3088,7 +3088,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                           {images.map((img, i) => (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                            <img key={i} src={img.url} alt={img.alt} loading="lazy" decoding="async" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
                           ))}
                         </div>
                       )}
@@ -3526,7 +3526,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                               <button key={m.recipe.id} data-recipe-trigger={m.recipe.id} onClick={() => setOpenRecipeId(m.recipe.id)}
                                 style={{ textAlign: 'left', padding: 0, borderRadius: 12, border: `1px solid ${C.rule}`, background: C.bg, overflow: 'hidden', cursor: 'pointer' }}>
                                 {combinedImages.get(m.recipe.id) ? (
-                                  <img src={combinedImages.get(m.recipe.id) ?? undefined} alt={displayName} style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
+                                  <img src={combinedImages.get(m.recipe.id) ?? undefined} alt={displayName} loading="lazy" decoding="async" style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
                                 ) : (
                                   <div style={{ width: '100%', height: 90, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChefHat size={20} color={C.accent} /></div>
                                 )}

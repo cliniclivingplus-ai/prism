@@ -1224,7 +1224,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
 
                       <div style={{ paddingTop: 14, borderTop: `1px solid ${PALETTE.line}` }}>
                         <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', fontWeight: 500, marginBottom: 8 }}>Your why</div>
-                        {whyImage && <img src={whyImage.image_url} alt={whyImage.label} style={{ display: 'block', width: '100%', maxWidth: 340, height: 'auto', borderRadius: 12, margin: '12px auto 16px' }} />}
+                        {whyImage && <img src={whyImage.image_url} alt={whyImage.label} loading="lazy" decoding="async" style={{ display: 'block', width: '100%', maxWidth: 340, height: 'auto', borderRadius: 12, margin: '12px auto 16px' }} />}
                         {editable ? (
                           <InlineEditableText editable as="div" multiline value={whyReflection || ''} onSave={saveWhyReflection} placeholder="Not filled in yet."
                             style={{ fontSize: '0.95rem', lineHeight: 1.65 }} />
@@ -1340,7 +1340,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                         {images.map((img, i) => (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                          <img key={i} src={img.url} alt={img.alt} loading="lazy" decoding="async" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
                         ))}
                       </div>
                     )}
@@ -1388,7 +1388,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                         {images.map((img, i) => (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                          <img key={i} src={img.url} alt={img.alt} loading="lazy" decoding="async" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
                         ))}
                       </div>
                     )}
@@ -1773,7 +1773,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                             <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
                               style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? 'rgba(224,195,132,0.16)' : 'rgba(243,236,218,0.08)', border: `1px solid ${openRecipeId === recipeKey ? PALETTE.gold1 : 'rgba(243,236,218,0.22)'}`, borderRadius: 12, overflow: 'hidden' }}>
                               {recipe.image_url ? (
-                                <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
+                                <img src={recipe.image_url} alt={recipeName} loading="lazy" decoding="async" style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
                               ) : (
                                 <div style={{ width: '100%', height: 100, background: 'rgba(243,236,218,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <ChefHat size={20} color={PALETTE.cream} opacity={0.5} />
@@ -1809,7 +1809,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
                           <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 24 }}>
                             {recipe.image_url && (
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
+                                <img src={recipe.image_url} alt={recipeName} loading="lazy" decoding="async" style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
                                 {facts.length > 0 && (
                                   <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                     {facts.map(([label, value]) => (

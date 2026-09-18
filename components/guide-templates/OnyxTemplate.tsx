@@ -1192,7 +1192,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                         {images.map((img, i) => (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                          <img key={i} src={img.url} alt={img.alt} loading="lazy" decoding="async" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
                         ))}
                       </div>
                     )}
@@ -1238,7 +1238,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                         {images.map((img, i) => (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+                          <img key={i} src={img.url} alt={img.alt} loading="lazy" decoding="async" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
                         ))}
                       </div>
                     )}
@@ -1572,7 +1572,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                                     <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
                                       style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? ONYX.accentSoft : ONYX.bg, border: `1px solid ${openRecipeId === recipeKey ? ONYX.accent : ONYX.border}`, borderRadius: 2, overflow: 'hidden' }}>
                                       {recipe.image_url ? (
-                                        <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', height: 96, objectFit: 'cover', display: 'block' }} />
+                                        <img src={recipe.image_url} alt={recipeName} loading="lazy" decoding="async" style={{ width: '100%', height: 96, objectFit: 'cover', display: 'block' }} />
                                       ) : (
                                         <div style={{ width: '100%', height: 96, background: ONYX.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                           <ChefHat size={20} color={ONYX.accent} />
@@ -1608,7 +1608,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                                   <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 22 }}>
                                     {recipe.image_url && (
                                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', borderRadius: 2, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
+                                        <img src={recipe.image_url} alt={recipeName} loading="lazy" decoding="async" style={{ width: '100%', borderRadius: 2, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
                                         {facts.length > 0 && (
                                           <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                             {facts.map(([label, value]) => (

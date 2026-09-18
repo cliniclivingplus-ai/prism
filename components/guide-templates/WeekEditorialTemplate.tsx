@@ -1648,7 +1648,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                             <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
                               style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? 'rgba(224,195,132,0.16)' : 'rgba(250,247,242,0.08)', border: `1px solid ${openRecipeId === recipeKey ? PALETTE.gold1 : 'rgba(250,247,242,0.22)'}`, borderRadius: 12, overflow: 'hidden' }}>
                               {recipe.image_url ? (
-                                <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
+                                <img src={recipe.image_url} alt={recipeName} loading="lazy" decoding="async" style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
                               ) : (
                                 <div style={{ width: '100%', height: 100, background: 'rgba(250,247,242,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <ChefHat size={20} color={PALETTE.cream} opacity={0.5} />
@@ -1679,12 +1679,12 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                         ]
                         const hasExtras = facts.length > 0 || !!(recipe.tools && recipe.tools.length) || !!(recipe.notes && recipe.notes.length) || !!(recipe.benefits && recipe.benefits.length)
                         return (
-                        <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: 'rgba(250,247,242,0.06)', border: `1px solid ${PALETTE.gold1}`, borderRadius: 14, padding: '1.75rem', position: 'relative' }}>
+                        <div key={recipeKey} data-recipe-body={recipeKey} style={{ display: openRecipeId === recipeKey ? 'block' : 'none', marginTop: 14, background: 'rgba(250,247,242,0.06)', border: `1px solid ${PALETTE.gold1}`, borderRadius: 10, padding: '1.75rem', position: 'relative' }}>
                           <button onClick={() => setOpenRecipeId(null)} data-no-export style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.cream, opacity: 0.6 }}><X size={18} /></button>
                           <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 24 }}>
                             {recipe.image_url && (
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
+                                <img src={recipe.image_url} alt={recipeName} loading="lazy" decoding="async" style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
                                 {facts.length > 0 && (
                                   <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                     {facts.map(([label, value]) => (

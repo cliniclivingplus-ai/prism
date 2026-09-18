@@ -1648,7 +1648,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                             <button key={recipeKey} data-recipe-trigger={recipeKey} onClick={() => setOpenRecipeId(openRecipeId === recipeKey ? null : recipeKey)}
                               style={{ textAlign: 'left', padding: 0, cursor: 'pointer', background: openRecipeId === recipeKey ? 'rgba(224,195,132,0.16)' : 'rgba(255,253,248,0.08)', border: `1px solid ${openRecipeId === recipeKey ? PALETTE.gold1 : 'rgba(255,253,248,0.22)'}`, borderRadius: 12, overflow: 'hidden' }}>
                               {recipe.image_url ? (
-                                <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
+                                <img src={recipe.image_url} alt={recipeName} loading="lazy" decoding="async" style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
                               ) : (
                                 <div style={{ width: '100%', height: 100, background: 'rgba(255,253,248,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <ChefHat size={20} color={PALETTE.cream} opacity={0.5} />
@@ -1684,7 +1684,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
                           <div style={{ display: 'grid', gridTemplateColumns: recipe.image_url ? '1fr 1.3fr' : '1fr', gap: 24 }}>
                             {recipe.image_url && (
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <img src={recipe.image_url} alt={recipeName} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
+                                <img src={recipe.image_url} alt={recipeName} loading="lazy" decoding="async" style={{ width: '100%', borderRadius: 10, objectFit: 'cover', display: 'block', ...(hasExtras ? { maxHeight: 220 } : { flex: 1, minHeight: 260 }) }} />
                                 {facts.length > 0 && (
                                   <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                     {facts.map(([label, value]) => (
