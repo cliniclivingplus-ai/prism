@@ -2357,72 +2357,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           </div>
         </div>
       )}
-      {months.length > 0 && (
-        <div data-grocery-overlay onClick={() => { setOpenGroceryMonth(null); setOpenGroceryWeek(null) }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(44,36,24,0.55)', display: openGroceryMonth != null ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 100 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative', background: C.paper, borderRadius: 16, padding: '24px 26px', maxWidth: 620, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-            <button data-grocery-close onClick={() => { setOpenGroceryMonth(null); setOpenGroceryWeek(null) }}
-              style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={18} /></button>
-            {months.map((m) => (
-              <div key={m.monthNumber} data-grocery-month-body={m.monthNumber} style={{ display: openGroceryMonth === m.monthNumber ? 'block' : 'none' }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, paddingRight: 28, marginBottom: 4 }}>{m.monthLabel} shopping list</div>
-                <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 16 }}>Weeks {m.weekStart}–{m.weekEnd}</div>
 
-                <div data-grocery-week-list={m.monthNumber} style={{ display: openGroceryWeek == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
-                  {m.weeks.map((w: WeeklyPlan) => (
-                    <button key={w.week_number} data-grocery-week-trigger={w.week_number} onClick={() => setOpenGroceryWeek(w.week_number)}
-                      style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.bg, cursor: 'pointer' }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>Week {w.week_number}</div>
-                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{w.focus_theme}</div>
-                    </button>
-                  ))}
-                </div>
-
-                {m.weeks.map((w: WeeklyPlan) => (
-                  <div key={w.week_number} data-grocery-week-body={w.week_number} style={{ display: openGroceryWeek === w.week_number ? 'block' : 'none' }}>
-                    <button data-grocery-week-back onClick={() => setOpenGroceryWeek(null)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: C.accent, fontSize: 12.5, fontWeight: 700, padding: 0, marginBottom: 14 }}>
-                      ← Back to weeks
-                    </button>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Week {w.week_number} shopping list</div>
-                    {aiGroceryLoadingWeek === w.week_number && !aiGroceryCache[w.week_number] && (
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: C.accent, marginBottom: 8 }}><Sparkles size={12} /> Tidying up this list…</div>
-                    )}
-                    {(() => {
-                      const weekRecipes = getSlotRecipes(w.week_number).flatMap((s) => s.matches).map((m) => m.recipe)
-                      const weekCategories = aiGroceryCache[w.week_number] ?? buildGroceryList(weekRecipes)
-                      const cats = weekCategories.length > 0 ? weekCategories : (aiGroceryCache[FULL_PLAN_GROCERY_CACHE_KEY] ?? groceryCategories)
-                      return cats.length === 0 ? (
-                      <div style={{ fontSize: 12.5, color: C.muted }}>No ingredients detected yet.</div>
-                    ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
-                        {cats.map((cat) => (
-                          <div key={cat.head}>
-                            <div style={{ fontSize: 10.5, fontWeight: 700, color: C.accent, textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 4 }}>{cat.head}</div>
-                            {cat.items.map((item) => {
-                              const itemKey = `${w.week_number}:${cat.head}:${item}`
-                              const bought = boughtItems.has(itemKey)
-                              return (
-                                <div key={item} data-grocery-item={itemKey} onClick={() => toggleBought(itemKey)}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: bought ? C.muted : C.inkSoft, padding: '2px 0', cursor: 'pointer' }}>
-                                  <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={14} color={C.green} /></span>
-                                  <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={14} color={C.muted} /></span>
-                                  <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                      )
-                    })()}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       {careServices.length > 0 && (
         <div data-care-overlay onClick={() => setOpenCareService(null)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(44,36,24,0.55)', display: openCareService != null ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 100 }}>
@@ -3292,7 +3227,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
               <div style={{ ...cardStyle, background: C.bg, marginBottom: 16 }}>
                 <div style={sectionTitleStyle}>Edit this week&apos;s plan</div>
                 <p style={{ ...bulletStyle, color: C.muted, marginBottom: 14 }}>
-                  Pick a week, then edit its goals and pick its recipes right here — everything for that week in one place. Different weeks can have different goals and recipes.
+                  Pick a week, then edit its focus theme, micro goals, and daily schedule right here. Different weeks can have different goals.
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
                   {months.flatMap((m) => m.weeks).map((wk: WeeklyPlan) => {
@@ -3691,24 +3626,37 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             <div style={{ fontSize: 11.5, color: C.muted, marginTop: 8 }}>Don&apos;t start, stop, or change a dose without confirming with {coachFirst} first.</div>
           </div>
 
-          {/* Grocery list — same recipe-derived items every week (recipes
-              aren't assigned per specific week in this app), but broken out
-              per week so buying/checking off resets fresh each week instead
-              of one giant list for the whole plan. */}
+          {/* Grocery list — unified shopping list derived from all matched recipes */}
           <div id="grocery" {...hiddenAttrs('grocery')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('grocery') }}>
             {editable && <SectionToggle hidden={isHidden('grocery')} onToggle={() => toggleSection('grocery')} />}
             <div style={sectionTitleStyle}><ShoppingCart size={18} color={C.accent} /> Your shopping list</div>
-            <p style={{ ...bulletStyle, marginBottom: 12 }}>Pulled straight from the ingredients of your matched recipes. Pick a week below to see it and check items off as you buy them.</p>
-            {months.length === 0 ? (
-              <div style={{ fontSize: 13.5, color: C.muted }}>Not planned yet, check back once your coach generates your roadmap.</div>
+            <p style={{ ...bulletStyle, marginBottom: 16 }}>Pulled straight from the ingredients of your matched recipes. Check items off as you buy them.</p>
+            {groceryCategories.length === 0 ? (
+              <div style={{ fontSize: 13.5, color: C.muted }}>No ingredients detected yet. Check back once your coach adds recipes to your plan.</div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
-                {months.map((m) => (
-                  <button key={m.monthNumber} data-grocery-month-trigger={m.monthNumber} onClick={() => { setOpenGroceryMonth(m.monthNumber); setOpenGroceryWeek(null) }}
-                    style={{ textAlign: 'left', padding: '12px 14px', border: `1px solid ${C.rule}`, borderRadius: 12, background: C.bg, cursor: 'pointer' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{m.monthLabel}</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Weeks {m.weekStart}–{m.weekEnd}</div>
-                  </button>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20 }}>
+                {groceryCategories.map((cat) => (
+                  <div key={cat.head}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>{cat.head}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {cat.items.map((item) => {
+                        const itemKey = `${cat.head}:${item}`
+                        const bought = boughtItems.has(itemKey) || boughtItems.has(`1:${cat.head}:${item}`)
+                        return (
+                          <div key={item} data-grocery-item={itemKey} onClick={() => toggleBought(itemKey)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: bought ? C.muted : C.ink, cursor: 'pointer', padding: '2px 0' }}>
+                            <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}>
+                              <CheckCircle2 size={15} color={C.green} />
+                            </span>
+                            <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}>
+                              <Circle size={15} color={C.muted} />
+                            </span>
+                            <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
