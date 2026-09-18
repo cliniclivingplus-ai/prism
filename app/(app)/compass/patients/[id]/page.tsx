@@ -100,6 +100,9 @@ export default function PatientPage() {
   const [showCloneModal, setShowCloneModal] = useState(false)
   const [cloneSourceId, setCloneSourceId] = useState<string | undefined>(undefined)
 
+  const [mrxLinked, setMrxLinked] = useState<boolean | null>(null)
+  const [bloodLinked, setBloodLinked] = useState<boolean | null>(null)
+
   useEffect(() => {
     let alive = true
     async function load() {
@@ -112,15 +115,19 @@ export default function PatientPage() {
           return null
         }
       }
-      const [p, s, r] = await Promise.all([
+      const [p, s, r, mrx, blood] = await Promise.all([
         safe(`/api/patients/${patientId}`),
         safe(`/api/compass/sessions?patient_id=${patientId}`),
         safe(`/api/compass/roadmaps?patient_id=${patientId}`),
+        safe(`/api/patients/${patientId}/mrx-link`),
+        safe(`/api/patients/${patientId}/blood-link`),
       ])
       if (!alive) return
       setPatient(p && !p.error ? p : null)
       setSessions(Array.isArray(s) ? s : [])
       setRoadmaps(Array.isArray(r) ? r : [])
+      setMrxLinked(Boolean(mrx?.linked))
+      setBloodLinked(Boolean(blood?.linked))
       setLoading(false)
     }
     load()
@@ -187,6 +194,37 @@ export default function PatientPage() {
                 )}
                 {patient.primary_concern && <><span>·</span><span style={{ color: C.greenDeep, fontWeight: 600 }}>{patient.primary_concern}</span></>}
                 {patient.assigned_nutritionist && <><span>·</span><span>Coach: {patient.assigned_nutritionist}</span></>}
+              </div>
+
+              {/* Connected Data Integration Status Chips */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setTab('microbiome')}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 20,
+                    fontSize: 11.5, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease',
+                    border: `1px solid ${mrxLinked ? C.greenBorder : C.line}`,
+                    background: mrxLinked ? C.greenSoft : '#F9F8F3',
+                    color: mrxLinked ? C.greenDeep : C.muted,
+                  }}>
+                  <Dna size={13} color={mrxLinked ? C.green : C.faint} />
+                  MicrobiomeRX: {mrxLinked === null ? 'Checking…' : mrxLinked ? 'Linked (Rx Active)' : 'Not Linked +'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTab('blood')}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 20,
+                    fontSize: 11.5, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease',
+                    border: `1px solid ${bloodLinked ? '#F1C6BE' : C.line}`,
+                    background: bloodLinked ? '#FBEBE6' : '#F9F8F3',
+                    color: bloodLinked ? '#B3261E' : C.muted,
+                  }}>
+                  <Droplets size={13} color={bloodLinked ? '#B3261E' : C.faint} />
+                  Blood Report: {bloodLinked === null ? 'Checking…' : bloodLinked ? 'Linked (Trends Ready)' : 'Not Linked +'}
+                </button>
               </div>
             </div>
           </div>
@@ -275,8 +313,20 @@ export default function PatientPage() {
             }}
           />
         )}
-        {tab === 'microbiome' && <MicrobiomeLinkTab patientId={patientId} />}
-        {tab === 'blood' && <BloodLinkTab patientId={patientId} />}
+        {tab === 'microbiome' && (
+          <MicrobiomeLinkTab
+            patientId={patientId}
+            patientName={patient.full_name}
+            onLinkedChange={(l) => setMrxLinked(l)}
+          />
+        )}
+        {tab === 'blood' && (
+          <BloodLinkTab
+            patientId={patientId}
+            patientName={patient.full_name}
+            onLinkedChange={(l) => setBloodLinked(l)}
+          />
+        )}
         {tab === 'checklist' && <ChecklistTab patientId={patientId} />}
       </div>
 

@@ -85,7 +85,7 @@ function BloodSnapshotTable({ linked }: { linked: Linked }) {
 // Compass's patients — so linking is a manual, coach-driven step: search
 // Blood Panel Analyzer by name, pick the right match, confirm. Never
 // auto-matched. Exact mirror of MicrobiomeLinkTab.tsx.
-export default function BloodLinkTab({ patientId }: { patientId: string }) {
+export default function BloodLinkTab({ patientId, patientName, onLinkedChange }: { patientId: string; patientName?: string; onLinkedChange?: (linked: boolean) => void }) {
   const [loading, setLoading] = useState(true)
   const [linked, setLinked] = useState<Linked | null>(null)
   const [query, setQuery] = useState('')
@@ -100,10 +100,17 @@ export default function BloodLinkTab({ patientId }: { patientId: string }) {
     let alive = true
     fetch(`/api/patients/${patientId}/blood-link`)
       .then((r) => r.json())
-      .then((j) => { if (alive) setLinked(j.linked) })
+      .then((j) => {
+        if (!alive) return
+        setLinked(j.linked)
+        onLinkedChange?.(Boolean(j.linked))
+        if (!j.linked && patientName && !query) {
+          setQuery(patientName)
+        }
+      })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [patientId])
+  }, [patientId, patientName])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -129,6 +136,7 @@ export default function BloodLinkTab({ patientId }: { patientId: string }) {
       const j = await res.json()
       if (!res.ok) { setError(j.error || 'Could not link this patient.'); return }
       setLinked(j.linked)
+      onLinkedChange?.(true)
       setQuery('')
       setCandidates([])
     } catch { setError('Network error — try again.') }
@@ -142,6 +150,8 @@ export default function BloodLinkTab({ patientId }: { patientId: string }) {
       const res = await fetch(`/api/patients/${patientId}/blood-link`, { method: 'DELETE' })
       if (!res.ok) { setError('Could not unlink — try again.'); return }
       setLinked(null)
+      onLinkedChange?.(false)
+      if (patientName) setQuery(patientName)
     } catch { setError('Network error — try again.') }
     finally { setUnlinking(false) }
   }
