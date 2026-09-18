@@ -17,6 +17,16 @@ export const maxDuration = 280
 // it stays an explicit, confirmed coach action.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ roadmapId: string }> }) {
   const { roadmapId } = await params
+  let bodyLifestyle = ''
+  let bodyMeals = ''
+  try {
+    const body = await req.json()
+    if (typeof body?.lifestyle_guidelines === 'string') bodyLifestyle = body.lifestyle_guidelines.trim()
+    if (typeof body?.meal_guidelines === 'string') bodyMeals = body.meal_guidelines.trim()
+  } catch {
+    // optional body
+  }
+
   const { data: roadmap, error } = await supabaseAdmin
     .from('roadmaps')
     .select('session_id, patient_id, duration_months')
@@ -33,6 +43,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roa
       patient_id: roadmap.patient_id,
       duration_months: roadmap.duration_months ?? 1,
       refresh_roadmap_id: roadmapId,
+      lifestyle_guidelines: bodyLifestyle || undefined,
+      meal_guidelines: bodyMeals || undefined,
     }),
   })
   const json = await res.json().catch(() => null)

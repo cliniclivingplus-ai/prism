@@ -43,7 +43,7 @@ function extractJSON(text: string): unknown {
 
 export async function POST(req: NextRequest) {
   try {
-    const { session_id, patient_id, duration_months = 1, refresh_roadmap_id } = await req.json()
+    const { session_id, patient_id, duration_months = 1, refresh_roadmap_id, lifestyle_guidelines: bodyLifestyle, meal_guidelines: bodyMeals } = await req.json()
     if (!session_id || !patient_id) return NextResponse.json({ error: 'Missing params' }, { status: 400 })
 
     const [{ data: session }, { data: patient }, { data: reports }] = await Promise.all([
@@ -307,7 +307,38 @@ Use "you" throughout. Reference their real details. No generic health advice.` }
     // so a roadmap generated fresh and one backfilled later get identically
     // grounded content — regardless of which template (Week-family or
     // Classic/Almanac/Pulse/Onyx/Vitals) is picked.
-    const { lifestyle_guidelines, meal_guidelines, daily_schedule } = await generateDailyContent(patientFacts, kbContext)
+    const { lifestyle_guidelines: genLifestyle, meal_guidelines: genMeals, daily_schedule } = await generateDailyContent(patientFacts, kbContext)
+
+    // Resolve effective diet and lifestyle guidelines (prioritizing explicit body params,
+    // then existing roadmap overrides/stored columns if regenerating, then Step 3 AI generation).
+    let existingLifestyle = bodyLifestyle || ''
+    let existingMeals = bodyMeals || ''
+
+    if (refresh_roadmap_id && (!existingLifestyle || !existingMeals)) {
+      try {
+        const { data: existingRoadmap } = await supabaseAdmin
+          .from('roadmaps')
+          .select('lifestyle_guidelines, meal_guidelines, guide_overrides')
+          .eq('id', refresh_roadmap_id)
+          .maybeSingle()
+        if (existingRoadmap) {
+          const overrides = (existingRoadmap.guide_overrides ?? {}) as Record<string, unknown>
+          if (!existingLifestyle) {
+            existingLifestyle = (overrides.daily_lifestyle_guidelines as string) || (existingRoadmap.lifestyle_guidelines as string) || ''
+          }
+          if (!existingMeals) {
+            existingMeals = (overrides.meal_guidelines as string) || (existingRoadmap.meal_guidelines as string) || ''
+          }
+        }
+      } catch (e) {
+        console.log('Error fetching existing roadmap for diet/lifestyle alignment:', e)
+      }
+    }
+
+    const effectiveLifestyleGuidelines = existingLifestyle || genLifestyle
+    const effectiveMealGuidelines = existingMeals || genMeals
+    const lifestyle_guidelines = effectiveLifestyleGuidelines
+    const meal_guidelines = effectiveMealGuidelines
 
     // ── STEP 3E: Daily Health Check-in checklist ──────────────
     // See lib/dailyChecklist.ts — selects/rephrases from confirmed
@@ -403,15 +434,27 @@ Each bullet under a section starts with •. Specific to this patient. No generi
       return themes.slice(-MAX_THEMES_IN_PROMPT)
     }
 
-    async function generateWeeklyChunk(startWeek: number, endWeek: number, usedThemes: string[]): Promise<unknown[]> {
+    async function generateWeeklyChunk(
+      startWeek: number,
+      endWeek: number,
+      usedThemes: string[],
+      mealGuidelinesText: string,
+      lifestyleGuidelinesText: string
+    ): Promise<unknown[]> {
       const weeksInChunk = endWeek - startWeek + 1
       const res = await groqChatCompletion({
         model: 'openai/gpt-oss-120b',
         reasoning_effort: 'low',
         messages: [
-          { role: 'system', content: `Return only a valid JSON array. No markdown. Write cause and actions directly to the patient using their specific facts. Never write generic health advice. Never use an em dash (—) anywhere in the text; use a comma, period, or "and" instead. ${DIET_RULE}` },
-          { role: 'user', content: `PATIENT FACTS (the only source of truth — use these specific details):
+          { role: 'system', content: `Return only a valid JSON array. No markdown. Write cause and actions directly to the patient using their specific facts and exact diet/lifestyle guidelines. Never write generic health advice. Never use an em dash (—) anywhere in the text; use a comma, period, or "and" instead. ${DIET_RULE}` },
+          { role: 'user', content: `PATIENT FACTS (the primary clinical details):
 ${patientFacts}
+
+DIET PROTOCOL & MEAL GUIDELINES (Breakfast, Lunch, Dinner — MANDATORY SOURCE OF TRUTH: every weekly action and daily goal MUST directly extract from, align with, and enforce these exact dietary recommendations):
+${mealGuidelinesText || 'Follow balanced, anti-inflammatory whole food nutrition.'}
+
+DAILY LIFESTYLE GUIDELINES (Morning, Afternoon, Evening — MANDATORY SOURCE OF TRUTH: weekly lifestyle goals MUST directly extract from and align with these daily habits):
+${lifestyleGuidelinesText || 'Focus on hydration, circadian alignment, and wind-down.'}
 
 KB CLINICAL KNOWLEDGE:
 ${kbContext || 'Use expertise.'}
@@ -433,20 +476,20 @@ RULES FOR CAUSE:
 - Be scientific. Use medical terms but explain them. Reference their actual symptoms.
 - Never say "may", "might", "could", "typically"
 
-RULES FOR ACTIONS — a short WEEKLY SUMMARY, NOT a prescription:
+RULES FOR ACTIONS — a short WEEKLY SUMMARY directly extracting from DIET & LIFESTYLE GUIDELINES:
 - 3 short lines summarising the week's focus at a glance (this is what a month-view card shows, not what the patient works from day to day — that's "days" below)
-- Each is ONE short, concrete HEALTHY LIFESTYLE goal: movement, hydration, sleep, meal timing/composition, stress management, or a real change to their actual daily schedule
-- FORBIDDEN: naming any supplement, medication, or dose (e.g. "2 tablespoons of flaxseed", "400mg magnesium", "ferrous sulfate") — this is lifestyle guidance the patient follows day to day, not a clinical prescription. Supplement dosing belongs only in the separate clinical Supplements section, never here.
+- Every action MUST directly extract from and match the DIET PROTOCOL & MEAL GUIDELINES and DAILY LIFESTYLE GUIDELINES above (e.g. specific breakfast options, lunch ratios, dinner cut-offs, hydration, sleep timing, movement)
+- FORBIDDEN: naming any supplement, medication, or dose (e.g. "2 tablespoons of flaxseed", "400mg magnesium", "ferrous sulfate") — this is lifestyle/diet guidance the patient follows day to day, not a clinical prescription. Supplement dosing belongs only in the separate clinical Supplements section, never here.
 - Specific about timing/frequency: "a 15 minute walk after lunch daily", "lights off by 10pm", "protein at every meal" — specificity means exact timing and frequency, not a substance and quantity, and not an explanation of why
 - One short sentence only, under 12 words — no separate "why it works" clause tacked on; the reasoning lives in "cause" above, not repeated here
 - Reference their actual schedule/habits from Q&A and patient facts
 - Actions should NOT suggest "consult a doctor" or "consult a nutritionist" — she is already at LP
 
-RULES FOR "days" — 7 DIFFERENT days, each with its OWN 3 ENTIRELY NEW goals, not the same habit varied or escalated all week:
+RULES FOR "days" — 7 DIFFERENT days extracting directly from the DIET & LIFESTYLE GUIDELINES above:
 - Exactly 7 entries, one per day of THIS week, in order: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday
-- LEVER POOL — the real categories a goal can come from: (1) hydration, (2) movement/exercise, (3) sleep/wind-down, (4) meal composition (what's eaten), (5) meal timing (when/how eaten), (6) stress/breathing/mindset, (7) environment (screens, light, posture, workspace)
-- Each day's 3 goals must come from 3 DIFFERENT levers in that pool. Across the whole week, spread usage across ALL 7 levers as evenly as the week allows — do not let one lever (e.g. "swap this snack") appear as one of the 3 goals on more than 2 days total. If Sunday used meal composition + movement + sleep, Monday should draw from different levers (e.g. hydration + stress + environment), not meal composition + movement + sleep again with different specifics.
-- This is the actual bug being fixed: a previous version varied the SPECIFIC food/activity each day (different snack, different stretch) while quietly reusing the SAME lever every day (a snack swap every single day, just a different snack). That is still a repeat and is exactly what must NOT happen — a patient scanning all 7 days should see 7 visibly different KINDS of goals, not 7 variations on one recurring habit.
+- LEVER POOL — the real categories a goal can come from: (1) hydration, (2) movement/exercise, (3) sleep/wind-down, (4) meal composition (what's eaten — must match the Breakfast/Lunch/Dinner options specified above), (5) meal timing (when/how eaten — must match the meal schedule), (6) stress/breathing/mindset, (7) environment (screens, light, posture, workspace)
+- Each day's 3 goals must come from 3 DIFFERENT levers in that pool. Across the whole week, spread usage across ALL 7 levers as evenly as the week allows — do not let one lever appear as one of the 3 goals on more than 2 days total.
+- Ensure that the specific meal choices and daily lifestyle habits stated in DIET PROTOCOL & MEAL GUIDELINES and DAILY LIFESTYLE GUIDELINES are explicitly assigned across the 7 days.
 - All 21 lines still serve this week's focus_theme/cause — vary the lever and the specific goal, not the underlying clinical target
 - Same "no supplement/dose" rule as actions above
 - Each line is a plain, standalone goal, no "Day N" / "Starting today" / "Building up" framing — just the goal itself, e.g. "10 minute walk after lunch", not "Day 3, building up: 10 minute walk after lunch"
@@ -545,7 +588,13 @@ Exactly ${weeksInChunk} items, week_number ${startWeek} through ${endWeek}. Each
       weeklySchedule = []
       const usedThemes: string[] = []
       for (const { startWeek, endWeek } of chunkRanges) {
-        const chunk = await generateWeeklyChunk(startWeek, endWeek, usedThemes)
+        const chunk = await generateWeeklyChunk(
+          startWeek,
+          endWeek,
+          usedThemes,
+          effectiveMealGuidelines,
+          effectiveLifestyleGuidelines
+        )
         weeklySchedule.push(...chunk)
         for (const w of chunk) {
           const theme = (w as Record<string, unknown>).focus_theme

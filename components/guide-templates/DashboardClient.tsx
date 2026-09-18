@@ -1289,7 +1289,16 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     setRegeneratingRoadmap(true)
     setRegenerateRoadmapError('')
     try {
-      const res = await fetch(`/api/compass/roadmaps/${rid}/regenerate-roadmap`, { method: 'POST' })
+      const currentLifestyleText = joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS)
+      const currentMealsText = joinPeriods(mealsByPeriod, MEAL_PERIODS)
+      const res = await fetch(`/api/compass/roadmaps/${rid}/regenerate-roadmap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lifestyle_guidelines: currentLifestyleText,
+          meal_guidelines: currentMealsText,
+        }),
+      })
       const j = await res.json().catch(() => null)
       if (res.ok && j?.roadmap?.weekly_schedule) {
         setEditWeeks(j.roadmap.weekly_schedule)
