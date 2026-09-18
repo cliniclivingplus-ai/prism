@@ -1745,104 +1745,74 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
             )}
           </div>
           <p style={{ fontSize: 12.5, color: V.muted, marginTop: 12, marginBottom: 16 }}>
-            {editable ? 'Pulled from your matched recipes — edit any item, or add your own. Applies to every week shown.' : 'Pulled straight from the ingredients of your matched recipes. Pick a week below to see it.'}
+            {editable ? 'Pulled from your matched recipes — edit any item, or add your own.' : 'Pulled straight from the ingredients of your matched recipes. Check items off as you shop.'}
           </p>
-          {months.length === 0 ? (
-            <p style={{ fontSize: 12.5, color: V.muted }}>Not planned yet, check back once your coach generates your roadmap.</p>
-          ) : (
-            <>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {months.map((m) => (
-                  <button key={m.monthNumber} data-grocery-month-trigger={m.monthNumber} onClick={() => { const next = openGroceryMonth === m.monthNumber ? null : m.monthNumber; setOpenGroceryMonth(next); setOpenGroceryWeek(null) }}
-                    style={{ padding: '8px 16px', borderRadius: 20, cursor: 'pointer', fontSize: 12, fontWeight: 700, border: `1px solid ${openGroceryMonth === m.monthNumber ? V.accent : V.line}`, background: openGroceryMonth === m.monthNumber ? V.accent : '#fff', color: openGroceryMonth === m.monthNumber ? '#fff' : V.ink }}>
-                    {m.monthLabel}
-                  </button>
-                ))}
-              </div>
-              {months.map((m) => (
-                <div key={m.monthNumber} data-grocery-month-body={m.monthNumber} style={{ marginTop: 16, display: openGroceryMonth === m.monthNumber ? 'block' : 'none' }}>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                    {m.weeks.map((w) => (
-                      <button key={w.week_number} data-grocery-week-trigger={w.week_number} onClick={() => setOpenGroceryWeek(openGroceryWeek === w.week_number ? null : w.week_number)}
-                        style={{ padding: '7px 13px', borderRadius: 10, cursor: 'pointer', fontSize: 12, fontWeight: 700, border: `1px solid ${openGroceryWeek === w.week_number ? V.accent : V.line}`, background: openGroceryWeek === w.week_number ? V.accentSoft : 'transparent' }}>
-                        Week {w.week_number}
-                      </button>
-                    ))}
-                  </div>
-                  {m.weeks.map((w) => {
-                    const weekRecipes = getSlotRecipes(w.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
-                    const cats = buildGroceryList(weekRecipes)
-                    // A coach-edited list (groceryOverride, persisted to
-                    // guide_overrides.grocery_list_override) wins over the
-                    // computed one — same fallback chain as before, now
-                    // sourced from local state so it's live-editable.
-                    const finalCats: GroceryCategory[] = groceryOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
-                    return (
-                      <div key={w.week_number} data-grocery-week-body={w.week_number} style={{ display: openGroceryWeek === w.week_number ? 'grid' : 'none', borderTop: `1px solid ${V.line}`, paddingTop: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16 }}>
-                        {finalCats.map((cat) => (
-                          <div key={cat.head}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                              {editable ? (
-                                <InlineEditableText editable value={cat.head} onSave={(next) => saveGroceryCategoryName(finalCats, cat.head, next)}
-                                  style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }} />
-                              ) : (
-                                <span style={{ fontSize: 10.5, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{cat.head}</span>
-                              )}
-                              {editable && (
-                                <span role="button" onClick={() => removeGroceryCategory(finalCats, cat.head)} title="Remove category"
+          {(() => {
+            const allPlanRecipes = data.recipeBank.length > 0 ? data.recipeBank : []
+            const cats = buildGroceryList(allPlanRecipes)
+            const finalCats: GroceryCategory[] = groceryOverride ?? (cats.length > 0 ? cats : GROCERY_CATEGORIES)
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                {finalCats.map((cat) => (
+                  <div key={cat.head} style={{ background: V.card, borderRadius: 12, border: `1px solid ${V.line}`, padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
+                      {editable ? (
+                        <InlineEditableText editable value={cat.head} onSave={(next) => saveGroceryCategoryName(finalCats, cat.head, next)}
+                          style={{ fontSize: 11, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }} />
+                      ) : (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: V.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{cat.head}</span>
+                      )}
+                      {editable && (
+                        <span role="button" onClick={() => removeGroceryCategory(finalCats, cat.head)} title="Remove category"
+                          style={{ display: 'inline-flex', color: V.accent, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={12} /></span>
+                      )}
+                    </div>
+                    <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                      {cat.items.map((item, itemIndex) => {
+                        const itemKey = `${cat.head}:${item}`
+                        const bought = boughtItems.has(itemKey) || boughtItems.has(`1:${cat.head}:${item}`)
+                        return (
+                          <li key={itemIndex} data-grocery-item={itemKey} onClick={() => { if (!editable) toggleBought(itemKey) }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, opacity: bought ? 0.45 : 1, padding: '4px 0', cursor: editable ? 'default' : 'pointer' }}>
+                            {!editable && (
+                              <>
+                                <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={15} color={V.accent} /></span>
+                                <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={15} color={V.faint} /></span>
+                              </>
+                            )}
+                            {editable ? (
+                              <>
+                                <InlineEditableText editable value={item} onSave={(next) => saveGroceryItemText(finalCats, cat.head, itemIndex, next)}
+                                  style={{ flex: 1 }} />
+                                <span role="button" onClick={() => removeGroceryItem(finalCats, cat.head, itemIndex)} title="Remove"
                                   style={{ display: 'inline-flex', color: V.accent, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={12} /></span>
-                              )}
-                            </div>
-                            <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-                              {cat.items.map((item, itemIndex) => {
-                                const itemKey = `${w.week_number}:${cat.head}:${item}`
-                                const bought = boughtItems.has(itemKey)
-                                return (
-                                  <li key={itemIndex} data-grocery-item={itemKey} onClick={() => { if (!editable) toggleBought(itemKey) }}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, opacity: bought ? 0.45 : 1, padding: '3px 0', cursor: editable ? 'default' : 'pointer' }}>
-                                    {!editable && (
-                                      <>
-                                        <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}><CheckCircle2 size={13} color={V.accent} /></span>
-                                        <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}><Circle size={13} color={V.faint} /></span>
-                                      </>
-                                    )}
-                                    {editable ? (
-                                      <>
-                                        <InlineEditableText editable value={item} onSave={(next) => saveGroceryItemText(finalCats, cat.head, itemIndex, next)}
-                                          style={{ flex: 1 }} />
-                                        <span role="button" onClick={() => removeGroceryItem(finalCats, cat.head, itemIndex)} title="Remove"
-                                          style={{ display: 'inline-flex', color: V.accent, opacity: 0.6, cursor: 'pointer', flexShrink: 0 }}><X size={12} /></span>
-                                      </>
-                                    ) : (
-                                      <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
-                                    )}
-                                  </li>
-                                )
-                              })}
-                              {editable && (
-                                <li>
-                                  <button type="button" onClick={() => addGroceryItem(finalCats, cat.head)}
-                                    style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, padding: 0, border: 'none', background: 'none', color: V.accent, cursor: 'pointer', opacity: 0.8 }}>
-                                    + Add item
-                                  </button>
-                                </li>
-                              )}
-                            </ul>
-                          </div>
-                        ))}
-                        {editable && (
-                          <button type="button" onClick={() => addGroceryCategory(finalCats)}
-                            style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${V.line}`, background: 'none', color: V.accent, cursor: 'pointer' }}>
-                            + Add category
+                              </>
+                            ) : (
+                              <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                            )}
+                          </li>
+                        )
+                      })}
+                      {editable && (
+                        <li>
+                          <button type="button" onClick={() => addGroceryItem(finalCats, cat.head)}
+                            style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, padding: 0, border: 'none', background: 'none', color: V.accent, cursor: 'pointer', opacity: 0.8 }}>
+                            + Add item
                           </button>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
-            </>
-          )}
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                ))}
+                {editable && (
+                  <button type="button" onClick={() => addGroceryCategory(finalCats)}
+                    style={{ alignSelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '10px 16px', borderRadius: 10, border: `1px dashed ${V.line}`, background: 'none', color: V.accent, cursor: 'pointer' }}>
+                    + Add category
+                  </button>
+                )}
+              </div>
+            )
+          })()}
         </Card>
 
         {/* Services */}

@@ -148,6 +148,25 @@ const CANONICAL_ALIASES: Record<string, string> = {
   'kidney beans': 'rajma',
   'apple cider vinegar': 'apple cider vinegar',
   'acv': 'apple cider vinegar',
+  'squeezed lemon juice': 'lemon',
+  'juice of lime or lemon': 'lemon',
+  'squeezed lime juice': 'lime',
+  'chickpea': 'chickpeas',
+  'chickpea flour': 'chickpea flour',
+  'coriander': 'coriander leaves',
+  'stock bok choy': 'bok choy',
+  'natural peanut butter': 'peanut butter',
+  'frozen blueberries': 'blueberries',
+  'homemade date paste': 'dates',
+  'juicy figs': 'figs',
+  'fig': 'figs',
+  'barnyard millet': 'millet',
+  'foxtail millet': 'millet',
+  'millet flake': 'millet flakes',
+  'millet flakes': 'millet flakes',
+  'brown rice poha': 'rice poha',
+  'poha': 'rice poha',
+  'quinoa pasta': 'quinoa',
   'psyllium husk': 'psyllium husk',
   'isabgol': 'psyllium husk',
   'amla powder': 'amla',
@@ -248,7 +267,7 @@ function extractItemName(line: string): string {
 
 function splitAndJoinedItems(name: string): string[] {
   if (!name) return []
-  const parts = name.split(/\s*&\s*|\s+and\s+/i).map((p) => p.trim()).filter(Boolean)
+  const parts = name.split(/\s*&\s*|\s+and\s+|\s+or\s+/i).map((p) => p.trim()).filter(Boolean)
   return parts.length > 0 ? parts : [name]
 }
 
