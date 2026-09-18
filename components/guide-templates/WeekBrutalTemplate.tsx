@@ -380,32 +380,44 @@ export default function WeekBrutalTemplate({ shareToken, data, initialCheckins, 
   function saveLifestyleItem(label: string, itemIndex: number, next: string) {
     setLifestyleByPeriod((prev) => {
       const items = parseBullets(prev[label] || '')
-      items[itemIndex] = next
+      if (!next.trim()) {
+        items.splice(itemIndex, 1)
+      } else {
+        items[itemIndex] = next
+      }
       const updated = { ...prev, [label]: items.join('\n') }
-      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      const joined = joinPeriods(updated, LIFESTYLE_PERIODS)
+      patchRoadmap({ lifestyle_guidelines: joined, guide_overrides: { daily_lifestyle_guidelines: joined } })
       return updated
     })
   }
   function saveMealItem(label: string, itemIndex: number, next: string) {
     setMealsByPeriod((prev) => {
       const items = parseBullets(prev[label] || '')
-      items[itemIndex] = next
+      if (!next.trim()) {
+        items.splice(itemIndex, 1)
+      } else {
+        items[itemIndex] = next
+      }
       const updated = { ...prev, [label]: items.join('\n') }
-      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      const joined = joinPeriods(updated, MEAL_PERIODS)
+      patchRoadmap({ meal_guidelines: joined, guide_overrides: { meal_guidelines: joined } })
       return updated
     })
   }
   function saveLifestylePeriodText(label: string, nextText: string) {
     setLifestyleByPeriod((prev) => {
       const updated = { ...prev, [label]: nextText }
-      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      const joined = joinPeriods(updated, LIFESTYLE_PERIODS)
+      patchRoadmap({ lifestyle_guidelines: joined, guide_overrides: { daily_lifestyle_guidelines: joined } })
       return updated
     })
   }
   function saveMealPeriodText(label: string, nextText: string) {
     setMealsByPeriod((prev) => {
       const updated = { ...prev, [label]: nextText }
-      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      const joined = joinPeriods(updated, MEAL_PERIODS)
+      patchRoadmap({ meal_guidelines: joined, guide_overrides: { meal_guidelines: joined } })
       return updated
     })
   }

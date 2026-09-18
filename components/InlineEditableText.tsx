@@ -62,8 +62,7 @@ export default function InlineEditableText({
   function commit() {
     setEditing(false)
     const trimmed = draft.trim()
-    if (!trimmed) return
-    const next = reattachLinks(trimmed, value)
+    const next = trimmed ? reattachLinks(trimmed, value) : ''
     if (next !== value) onSave(next)
   }
   function cancel() {

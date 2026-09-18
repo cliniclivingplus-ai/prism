@@ -1622,6 +1622,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             lifestyle_guidelines: lifestyleText,
+            meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS),
+            daily_schedule: dailyScheduleText,
             guide_overrides: { goal_label: goalLabel, why_reflection: whyReflection, coach_quote: coachQuote, founder_note: founderNote, manual_recipes: manualRecipes, weekly_manual_recipes: weeklyManualRecipes, theme, template, care_services: careServices, next_appointment: nextAppointment, reach_info: reachInfo, care_team: careTeam, hidden_sections: hiddenSections, power_points: powerPoints, canvas_blocks: canvasBlocks, daily_lifestyle_guidelines: joinPeriods(lifestyleByPeriod, LIFESTYLE_PERIODS), meal_guidelines: joinPeriods(mealsByPeriod, MEAL_PERIODS), daily_schedule: dailyScheduleText, daily_checklist_items: checklistItems, plate_composition: plateComposition, confirmed_supplements_override: supplementRows, recipe_content_overrides: recipeOverrides },
             weekly_schedule: editWeeks.map((w) => ({ ...w, actions: (w.actions || []).map((a) => a.trim()).filter(Boolean) })),
           }),

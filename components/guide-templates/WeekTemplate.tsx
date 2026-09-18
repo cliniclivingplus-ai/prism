@@ -366,18 +366,28 @@ export default function WeekTemplate({ shareToken, data, initialCheckins, editab
   function saveLifestyleItem(label: string, itemIndex: number, next: string) {
     setLifestyleByPeriod((prev) => {
       const items = parseBullets(prev[label] || '')
-      items[itemIndex] = next
+      if (!next.trim()) {
+        items.splice(itemIndex, 1)
+      } else {
+        items[itemIndex] = next
+      }
       const updated = { ...prev, [label]: items.join('\n') }
-      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      const joined = joinPeriods(updated, LIFESTYLE_PERIODS)
+      patchRoadmap({ lifestyle_guidelines: joined, guide_overrides: { daily_lifestyle_guidelines: joined } })
       return updated
     })
   }
   function saveMealItem(label: string, itemIndex: number, next: string) {
     setMealsByPeriod((prev) => {
       const items = parseBullets(prev[label] || '')
-      items[itemIndex] = next
+      if (!next.trim()) {
+        items.splice(itemIndex, 1)
+      } else {
+        items[itemIndex] = next
+      }
       const updated = { ...prev, [label]: items.join('\n') }
-      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      const joined = joinPeriods(updated, MEAL_PERIODS)
+      patchRoadmap({ meal_guidelines: joined, guide_overrides: { meal_guidelines: joined } })
       return updated
     })
   }
@@ -388,14 +398,16 @@ export default function WeekTemplate({ shareToken, data, initialCheckins, editab
   function saveLifestylePeriodText(label: string, nextText: string) {
     setLifestyleByPeriod((prev) => {
       const updated = { ...prev, [label]: nextText }
-      patchRoadmap({ guide_overrides: { daily_lifestyle_guidelines: joinPeriods(updated, LIFESTYLE_PERIODS) } })
+      const joined = joinPeriods(updated, LIFESTYLE_PERIODS)
+      patchRoadmap({ lifestyle_guidelines: joined, guide_overrides: { daily_lifestyle_guidelines: joined } })
       return updated
     })
   }
   function saveMealPeriodText(label: string, nextText: string) {
     setMealsByPeriod((prev) => {
       const updated = { ...prev, [label]: nextText }
-      patchRoadmap({ guide_overrides: { meal_guidelines: joinPeriods(updated, MEAL_PERIODS) } })
+      const joined = joinPeriods(updated, MEAL_PERIODS)
+      patchRoadmap({ meal_guidelines: joined, guide_overrides: { meal_guidelines: joined } })
       return updated
     })
   }
@@ -1460,8 +1472,14 @@ function clpToggleGroceryCat(head){
                           <div key={index} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                             <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
                             {editable ? (
-                              <InlineEditableText editable value={text} onSave={(next) => saveLifestyleItem(label, index, next)}
-                                style={{ fontSize: '0.88rem', lineHeight: 1.5 }} />
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: 1, minWidth: 0 }}>
+                                <InlineEditableText editable value={text} onSave={(next) => saveLifestyleItem(label, index, next)}
+                                  style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
+                                <button type="button" onClick={() => saveLifestyleItem(label, index, '')} title="Remove option"
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.berry, opacity: 0.5, padding: '2px 4px', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                                  <X size={13} />
+                                </button>
+                              </div>
                             ) : (
                               <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(text)}</span>
                             )}
@@ -1519,8 +1537,14 @@ function clpToggleGroceryCat(head){
                           <div key={index} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                             <Circle size={13} color={PALETTE.berry} opacity={0.6} style={{ flexShrink: 0, marginTop: 3 }} />
                             {editable ? (
-                              <InlineEditableText editable value={text} onSave={(next) => saveMealItem(label, index, next)}
-                                style={{ fontSize: '0.88rem', lineHeight: 1.5 }} />
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: 1, minWidth: 0 }}>
+                                <InlineEditableText editable value={text} onSave={(next) => saveMealItem(label, index, next)}
+                                  style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
+                                <button type="button" onClick={() => saveMealItem(label, index, '')} title="Remove option"
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: PALETTE.berry, opacity: 0.5, padding: '2px 4px', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                                  <X size={13} />
+                                </button>
+                              </div>
                             ) : (
                               <span style={{ fontSize: '0.88rem', lineHeight: 1.5 }}>{renderMarkdownBold(text)}</span>
                             )}

@@ -12,7 +12,7 @@ export function parseBullets(text: string): string[] {
 }
 
 export function splitKV(bullet: string): { k: string | null; v: string } {
-  const m = bullet.match(/^([^:]{2,30}):\s*(.+)$/)
+  const m = bullet.match(/^([^:]{2,30}):\s*(.*)$/)
   return m ? { k: m[1].trim(), v: m[2].trim() } : { k: null, v: bullet }
 }
 
@@ -49,8 +49,12 @@ export function groupBulletsByLabel(text: string, labels: string[]): { label: st
   for (const bullet of bullets) {
     const { k, v } = splitKV(bullet)
     const explicit = k ? labels.find((l) => l.toLowerCase() === k.toLowerCase()) : undefined
+    const itemText = (explicit ? v : bullet).trim()
+    const isHeadingOnly = labels.some((l) => l.toLowerCase() === itemText.toLowerCase() || `${l.toLowerCase()}:` === itemText.toLowerCase())
+    if (isHeadingOnly || !itemText) continue
+
     const label = explicit ?? classifyByKeyword(bullet, labels) ?? labels[roundRobin++ % labels.length]
-    groups.get(label)!.push(explicit ? v : bullet)
+    groups.get(label)!.push(itemText)
   }
   return labels.filter((l) => groups.get(l)!.length > 0).map((label) => ({ label, items: groups.get(label)! }))
 }
