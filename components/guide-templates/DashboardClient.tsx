@@ -3290,6 +3290,77 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                           )
                         })}
                       </div>
+
+                      {/* Active Selected Week Protocol Detail */}
+                      {(() => {
+                        const activeWkObj = activeMonthObj.weeks.find((w) => w.week_number === activeWkNum)
+                        if (!activeWkObj) return null
+                        return (
+                          <div style={{ background: C.paper, border: `2px solid ${C.accent}`, borderRadius: 16, padding: '20px 22px', marginBottom: 16 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, paddingBottom: 12, borderBottom: `1px solid ${C.rule}`, flexWrap: 'wrap', gap: 8 }}>
+                              <div>
+                                <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.accent, marginBottom: 2 }}>
+                                  WEEK {activeWkObj.week_number} PROTOCOL
+                                </div>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>
+                                  {activeWkObj.focus_theme || `Week ${activeWkObj.week_number} Goals`}
+                                </div>
+                              </div>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: C.accent, background: C.accentSoft, padding: '4px 10px', borderRadius: 12 }}>
+                                Active Week {activeWkObj.week_number}
+                              </span>
+                            </div>
+
+                            {/* Daily Protocol Targets */}
+                            {(activeWkObj.actions?.length ?? 0) > 0 ? (
+                              <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 12 }}>
+                                  Daily Action Targets (Tap to check off)
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                  {DAY_LABELS.map((day, dayIndex) => {
+                                    const dayDate = dateForWeekDay(data.createdAt, activeWkObj.week_number, dayIndex)
+                                    const dayActions = activeWkObj.days?.[dayIndex] ?? activeWkObj.actions ?? []
+                                    return (
+                                      <div key={day} style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 12, padding: '12px 14px' }}>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                          <span>{day}</span>
+                                          <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>{dayDate}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                          {dayActions.map((action, actionIndex) => {
+                                            const checked = checkedSet.has(`${activeWkObj.week_number}:${actionIndex}:${dayDate}`)
+                                            return (
+                                              <GoalRow key={actionIndex} weekNumber={activeWkObj.week_number} actionIndex={actionIndex} date={dayDate} action={action}
+                                                checked={checked}
+                                                onToggle={() => toggle(activeWkObj.week_number, actionIndex, dayDate)} />
+                                            )
+                                          })}
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 13, color: C.muted, fontStyle: 'italic' }}>
+                                No daily targets defined for Week {activeWkObj.week_number} yet.
+                              </div>
+                            )}
+
+                            {activeWkObj.milestone?.trim() && (
+                              <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1px solid ${C.rule}` }}>
+                                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>
+                                  Weekly Success Milestone
+                                </div>
+                                <div style={{ fontSize: 13, color: C.ink, fontWeight: 600 }}>
+                                  {activeWkObj.milestone}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
                   )}
                 </div>
