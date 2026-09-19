@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { groqChatCompletion } from '@/lib/groq'
+import { groqChatCompletion, hasGroqKey } from '@/lib/groq'
 import {
   hasDietarySection,
   extractDietaryFromOperatorList,
@@ -462,7 +462,7 @@ async function parseDietaryRx(pages: Array<{ text: string; words: any[]; operato
       const opResult = extractDietaryFromOperatorList(pages)
       if (opResult && opResult.length >= 3) return { categories: sanitiseDietaryRx(opResult), method: 'operator_list' }
     }
-    if (!process.env.GROQ_API_KEY) return null
+    if (!hasGroqKey()) return null
     const groqResult = await extractDietaryViaGroq(fullText)
     if (groqResult.length >= 3) return { categories: groqResult, method: 'groq_70b' }
     return null

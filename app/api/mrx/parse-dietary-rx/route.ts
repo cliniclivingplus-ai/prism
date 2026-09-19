@@ -19,6 +19,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { hasGroqKey } from '@/lib/groq'
 import {
   hasDietarySection,
   extractDietaryFromOperatorList,
@@ -74,9 +75,9 @@ export async function POST(req: NextRequest) {
 
     // ── Strategy 2: Groq 70b fallback ─────────────────────────────
     if (!categories || categories.length < 3) {
-      if (!process.env.GROQ_API_KEY) {
+      if (!hasGroqKey()) {
         return NextResponse.json(
-          { error: 'GROQ_API_KEY not set and operator list extraction failed.' },
+          { error: 'No Groq API keys configured and operator list extraction failed.' },
           { status: 500 }
         )
       }
