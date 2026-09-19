@@ -1376,7 +1376,6 @@ function clpToggleGroceryCat(head){
                         <div>
                           <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.25rem', fontWeight: 500 }}>{coachName}</div>
                           <div style={{ fontSize: '0.85rem', opacity: 0.65 }}>{coachDesignation}</div>
-                          {coachBio && <div style={{ fontSize: '0.78rem', opacity: 0.75, marginTop: 4, lineHeight: 1.4 }}>{coachBio}</div>}
                         </div>
                       </div>
 

@@ -1104,7 +1104,6 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                           <div>
                             <div style={{ fontSize: '1.2rem', fontWeight: 700, color: PULSE.ink }}>{coachName}</div>
                             <div style={{ fontSize: '0.85rem', color: PULSE.muted }}>{coachDesignation}</div>
-                            {coachBio && <div style={{ fontSize: '0.78rem', color: PULSE.muted, marginTop: 4, lineHeight: 1.4 }}>{coachBio}</div>}
                           </div>
                         </div>
 

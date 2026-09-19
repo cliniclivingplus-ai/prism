@@ -988,7 +988,6 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
                           <div>
                             <div style={{ fontSize: '1.2rem', fontWeight: 700, color: V.ink }}>{coachName}</div>
                             <div style={{ fontSize: '0.85rem', color: V.muted }}>{coachDesignation}</div>
-                            {coachBio && <div style={{ fontSize: '0.78rem', color: V.muted, marginTop: 4, lineHeight: 1.4 }}>{coachBio}</div>}
                           </div>
                         </div>
 

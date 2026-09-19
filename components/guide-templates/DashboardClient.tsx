@@ -2732,7 +2732,6 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 17, fontWeight: 700, color: C.ink }}>{coachName}</div>
                               <div style={{ fontSize: 13, color: C.muted }}>{coachDesignation}</div>
-                              {coachBio && <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 1.4 }}>{coachBio}</div>}
                             </div>
                           </div>
 

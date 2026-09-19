@@ -1048,7 +1048,6 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
                           <div>
                             <div style={{ fontFamily: SERIF, fontSize: '1.25rem', fontWeight: 500, color: ONYX.ink }}>{coachName}</div>
                             <div style={{ fontSize: '0.85rem', color: ONYX.muted }}>{coachDesignation}</div>
-                            {coachBio && <div style={{ fontSize: '0.78rem', color: ONYX.muted, marginTop: 4, lineHeight: 1.4 }}>{coachBio}</div>}
                           </div>
                         </div>
 
