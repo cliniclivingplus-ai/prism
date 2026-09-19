@@ -2005,8 +2005,60 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     if (recipe) { setLinkedExtraRecipe(recipe); setOpenRecipeId(id) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allMatchesBase, data.recipeBank])
+  const [groceryOverride, setGroceryOverride] = useState<GroceryCategory[] | null>(data.groceryListOverride ?? null)
+  const [openGroceryCats, setOpenGroceryCats] = useState<Set<string>>(new Set())
+  const toggleGroceryCat = (head: string) =>
+    setOpenGroceryCats((prev) => {
+      const next = new Set(prev)
+      if (next.has(head)) next.delete(head); else next.add(head)
+      return next
+    })
+
+  const [aiGroceryTidying, setAiGroceryTidying] = useState(false)
+  async function tidyGroceryWithAi() {
+    if (aiGroceryTidying) return
+    setAiGroceryTidying(true)
+    try {
+      const candidateItems = patientGroceryCategories.flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
+      if (candidateItems.length === 0) return
+      const r = await fetch('/api/share/grocery-list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: candidateItems }) })
+      if (!r.ok) return
+      const j = await r.json()
+      if (Array.isArray(j?.categories) && j.categories.length > 0) {
+        setGroceryOverride(j.categories)
+        setAiGroceryCache((prev) => ({ ...prev, [FULL_PLAN_GROCERY_CACHE_KEY]: j.categories }))
+        if (roadmapId) {
+          fetch(`/api/compass/roadmaps/${roadmapId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guide_overrides: { grocery_list_override: j.categories } }),
+          }).catch(() => {})
+        }
+      }
+    } catch {
+      /* fallback */
+    } finally {
+      setAiGroceryTidying(false)
+    }
+  }
+
+  function resetGroceryList() {
+    setGroceryOverride(null)
+    setAiGroceryCache((prev) => {
+      const next = { ...prev }
+      delete next[FULL_PLAN_GROCERY_CACHE_KEY]
+      return next
+    })
+    if (roadmapId) {
+      fetch(`/api/compass/roadmaps/${roadmapId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guide_overrides: { grocery_list_override: null } }),
+      }).catch(() => {})
+    }
+  }
+
   // Real ingredients from this patient's own matched recipes, categorized —
-  // falls back to the generic reference list only when no recipe has been
   const patientGroceryCategories = useMemo(() => {
     const visibleRecipes = allMatches
       .filter((m) => !recipeOverrides[m.recipe.id]?.hidden)
@@ -2017,7 +2069,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     return buildGroceryList(visibleRecipes)
   }, [allMatches, recipeOverrides])
 
-  const groceryCategories = aiGroceryCache[FULL_PLAN_GROCERY_CACHE_KEY] ?? (patientGroceryCategories.length > 0 ? patientGroceryCategories : GROCERY_CATEGORIES)
+  const groceryCategories = groceryOverride ?? aiGroceryCache[FULL_PLAN_GROCERY_CACHE_KEY] ?? (patientGroceryCategories.length > 0 ? patientGroceryCategories : GROCERY_CATEGORIES)
 
   // Automatically trigger AI deduplication pass for the unified full plan grocery list
   useEffect(() => {
@@ -3688,35 +3740,73 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           {/* Grocery list — unified shopping list derived from all matched recipes */}
           <div id="grocery" {...hiddenAttrs('grocery')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('grocery') }}>
             {editable && <SectionToggle hidden={isHidden('grocery')} onToggle={() => toggleSection('grocery')} />}
-            <div style={sectionTitleStyle}><ShoppingCart size={18} color={C.accent} /> Your shopping list</div>
-            <p style={{ ...bulletStyle, marginBottom: 16 }}>Pulled straight from the ingredients of your matched recipes. Check items off as you buy them.</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+              <div style={sectionTitleStyle}><ShoppingCart size={18} color={C.accent} /> Your shopping list</div>
+              {editable && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {groceryOverride && (
+                    <button type="button" onClick={resetGroceryList}
+                      style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 10px', borderRadius: 8, border: `1px solid ${C.rule}`, background: C.bg, color: C.muted, cursor: 'pointer' }}>
+                      Reset auto list
+                    </button>
+                  )}
+                  <button type="button" onClick={tidyGroceryWithAi} disabled={aiGroceryTidying}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '5px 12px', borderRadius: 8, border: `1px solid ${C.accent}`, background: C.accentSoft, color: C.accent, cursor: aiGroceryTidying ? 'not-allowed' : 'pointer' }}>
+                    <Sparkles size={13} /> {aiGroceryTidying ? 'Cleaning up with AI…' : 'Clean up with AI'}
+                  </button>
+                </div>
+              )}
+            </div>
+            <p style={{ ...bulletStyle, marginBottom: 16 }}>Pulled straight from the ingredients of your matched recipes. Tap a category below to see its items.</p>
             {groceryCategories.length === 0 ? (
               <div style={{ fontSize: 13.5, color: C.muted }}>No ingredients detected yet. Check back once your coach adds recipes to your plan.</div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20 }}>
-                {groceryCategories.map((cat) => (
-                  <div key={cat.head}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>{cat.head}</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {cat.items.map((item) => {
-                        const itemKey = `${cat.head}:${item}`
-                        const bought = boughtItems.has(itemKey) || boughtItems.has(`1:${cat.head}:${item}`)
-                        return (
-                          <div key={item} data-grocery-item={itemKey} onClick={() => toggleBought(itemKey)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: bought ? C.muted : C.ink, cursor: 'pointer', padding: '2px 0' }}>
-                            <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}>
-                              <CheckCircle2 size={15} color={C.green} />
-                            </span>
-                            <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}>
-                              <Circle size={15} color={C.muted} />
-                            </span>
-                            <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+                  <button type="button" onClick={() => {
+                    if (openGroceryCats.size === groceryCategories.length) setOpenGroceryCats(new Set())
+                    else setOpenGroceryCats(new Set(groceryCategories.map((c) => c.head)))
+                  }} style={{ fontSize: 11.5, fontWeight: 600, color: C.accent, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    {openGroceryCats.size === groceryCategories.length ? 'Collapse all' : 'Expand all'}
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+                  {groceryCategories.map((cat) => {
+                    const isOpen = openGroceryCats.has(cat.head)
+                    return (
+                      <div key={cat.head} style={{ border: `1px solid ${C.rule}`, borderRadius: 10, padding: '10px 12px', background: isOpen ? C.paper : C.bg, transition: 'all 0.15s ease' }}>
+                        <div onClick={() => toggleGroceryCat(cat.head)}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 11.5, fontWeight: 700, color: C.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{cat.head}</span>
+                            <span style={{ fontSize: 10.5, fontWeight: 600, color: C.muted, background: C.rule, padding: '1px 6px', borderRadius: 10 }}>{cat.items.length}</span>
                           </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ))}
+                          <ChevronDown size={15} color={C.muted} style={{ transition: 'transform 0.2s ease', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
+                        </div>
+                        {isOpen && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.rule}` }}>
+                            {cat.items.map((item) => {
+                              const itemKey = `${cat.head}:${item}`
+                              const bought = boughtItems.has(itemKey) || boughtItems.has(`1:${cat.head}:${item}`)
+                              return (
+                                <div key={item} data-grocery-item={itemKey} onClick={() => toggleBought(itemKey)}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: bought ? C.muted : C.ink, cursor: 'pointer', padding: '3px 0' }}>
+                                  <span data-grocery-icon-done style={{ display: bought ? 'inline-flex' : 'none', flexShrink: 0 }}>
+                                    <CheckCircle2 size={15} color={C.green} />
+                                  </span>
+                                  <span data-grocery-icon-undone style={{ display: bought ? 'none' : 'inline-flex', flexShrink: 0 }}>
+                                    <Circle size={15} color={C.muted} />
+                                  </span>
+                                  <span data-grocery-item-text style={{ textDecoration: bought ? 'line-through' : 'none' }}>{item}</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>

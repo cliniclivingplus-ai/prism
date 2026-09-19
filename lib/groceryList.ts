@@ -213,6 +213,9 @@ const CANONICAL_ALIASES: Record<string, string> = {
   'broccoli floret': 'broccoli',
   'broccoli florets': 'broccoli',
   'broccoli stem': 'broccoli',
+  'broccoli microgreen': 'broccoli',
+  'broccoli sprouts': 'broccoli',
+  'half a of broccoli cut': 'broccoli',
   'mashed avocado': 'avocado',
   'green apple': 'apple',
   'homemade applesauce': 'apple',
@@ -228,6 +231,34 @@ const CANONICAL_ALIASES: Record<string, string> = {
   'red amaranth': 'red amaranth',
   'wholemeal bread': 'wholemeal bread',
   'whole wheat bread': 'wholemeal bread',
+  'black pepper corn': 'black pepper',
+  'black peppercorn': 'black pepper',
+  'black peppercorns': 'black pepper',
+  'black peppercorns for': 'black pepper',
+  'beet': 'beetroot',
+  'beetroot': 'beetroot',
+  'beet hummus': 'beetroot',
+  'ash gourd': 'ash gourd',
+  'ashgourd': 'ash gourd',
+  'bottle gourd': 'bottle gourd',
+  'bottlegourd': 'bottle gourd',
+  'baby corn': 'corn',
+  'baby potato': 'potato',
+  'baking potato': 'potato',
+  'amount of potato': 'potato',
+  'baby sweet corn': 'corn',
+  'baby carrot': 'carrots',
+  'carrots': 'carrots',
+  'air fried onion': 'scallion',
+  'bok choy greens': 'bok choy',
+  'full of bok choy': 'bok choy',
+  'brussels sprouts': 'brussels sprouts',
+  'brussel sprout': 'brussels sprouts',
+  'green cabbage': 'cabbage',
+  'cilantro lime rice': 'rice',
+  'date pulp': 'dates',
+  'cranberry': 'cranberries',
+  'apricot': 'apricots',
 }
 
 const UNIT_ALT = 'cups?|tbsps?|tbsp\\.?|tablespoons?|tsps?|tsp\\.?|teaspoons?|grams?|g|kg|mg|ml|milliliters?|l|liters?|oz\\.?|ounces?|lbs?|lb\\.?|pounds?|cloves?|inch(?:es)?|pinch(?:es)?|handfuls?|handful|slices?|slice|pieces?|piece|bunch(?:es)?|stalks?|stalk|sprigs?|sprig|cans?|can|packets?|packet|jars?|jar|tins?|tin|boxes?|box|pods?|pod|stems?|stem|discs?|disc|chunks?|chunk|size|head|heads|leaves|leaf|roots?|root|drizzles?|splash(?:es)?|dash(?:es)?|each|bowls?|plates?|portions?|scoops?'
@@ -235,10 +266,10 @@ const LEADING_QTY = /^(?:[\d½¼¾⅓⅔]+(?:\/[\d½¼¾⅓⅔]+)?(?:\.\d+)?(?:\
 const LEADING_MULT = /^[x×]\s*/i
 const LEADING_UNIT = new RegExp(`^(?:${UNIT_ALT})\\.?\\s+`, 'i')
 const LEADING_OF = /^(?:of|from|a|an|the|disc of)\s+/i
-const TRAILING_QTY_UNIT = new RegExp(`\\s+[\\d½¼¾⅓⅔]+(\\s*[\\-/.]\\s*[\\d½¼¾⅓⅔]+)*(?:\\s+(?:${UNIT_ALT})\\.?)*\\s*$`, 'i')
+const TRAILING_QTY_UNIT = new RegExp(`\\s+(?:[\\d½¼¾⅓⅔]+(?:[\\-/.]\\s*[\\d½¼¾⅓⅔]+)*(?:\\s*(?:${UNIT_ALT})\\.?)?|(?:${UNIT_ALT})\\.?)\\s*$`, 'i')
 const ALL_CAPS_HEADER = /^[A-Z][A-Z\s\-]+$/
 
-const INSTRUCTION_START = /^(?:(?:lightly|gently|quickly|slowly|carefully|thoroughly|briefly)\s+)?(add|cook|heat|mix|boil|simmer|saut[eé]?|roast|bake|garnish|drain|rinse|soak|transfer|grind|blend|crackle|temper|roll|cover|crush|whisk|fold|marinate|sprinkle|dry\s+roast|pressure\s+cook|preheat|pre-heat|combine|toast|plate|serve|repeat|once|then|now|next|let|top|place|layer|drizzle|pour|squeeze|arrange|wrap|divide|spread|dust|knead|rest|chill|freeze|refrigerate|reserve|discard|remove|allow|continue|dip|coat|brush|flip|press|shape|stuff|reduce|cool|halve|in\s+a|in\s+the|for\s+(?:the|garnish|serving|topping|storage|later|tempering|dusting|longer))\b/i
+const INSTRUCTION_START = /^(?:(?:lightly|gently|quickly|slowly|carefully|thoroughly|briefly)\s+)?(add|cook|heat|mix|boil|simmer|saut[eé]?|roast|bake|garnish|drain|rinse|soak|transfer|grind|blend|blended|crackle|temper|roll|cover|crush|whisk|fold|marinate|sprinkle|dry\s+roast|pressure\s+cook|preheat|pre-heat|combine|toast|plate|serve|repeat|once|then|now|next|let|top|place|layer|drizzle|pour|squeeze|arrange|wrap|divide|spread|dust|knead|rest|chill|freeze|refrigerate|reserve|discard|remove|allow|continue|dip|coat|brush|flip|press|shape|stuff|reduce|cool|halve|about|amount|batch|full\s+of|half\s+a\s+of|in\s+a|in\s+the|for\s+(?:the|garnish|serving|topping|storage|later|tempering|dusting|longer))\b/i
 const MID_LINE_INSTRUCTION = /\b(?:let\s+the|once\s+\w|then\s+\w|now\s+\w|next\s+\w|pressure\s+cook|dry\s+roast|marinate|refrigerate|preheat|garnish\s+with|transfer\s+to|combine\s+and|mix\s+well|whisk\s+together|fold\s+in|set\s+aside|allow\s+to|for\s+(?:topping|garnish|garnishing|serving|dusting|later|storage))\b/i
 const ENDS_LIKE_A_SENTENCE = /[.!]\s*$/
 const COLUMN_GAP = /\s{2,}/
@@ -267,7 +298,7 @@ function stripLeakedInstructionText(line: string): string {
   return line
 }
 
-const KEEP_PLURAL = new Set(['oats', 'peas', 'greens', 'sprouts', 'seeds', 'nuts', 'beans', 'lentils', 'noodles', 'tortillas', 'chickpeas', 'breadcrumbs', 'walnuts', 'almonds', 'grapes'])
+const KEEP_PLURAL = new Set(['oats', 'peas', 'greens', 'sprouts', 'seeds', 'nuts', 'beans', 'lentils', 'noodles', 'tortillas', 'chickpeas', 'breadcrumbs', 'walnuts', 'almonds', 'grapes', 'carrots', 'cranberries', 'apricots'])
 
 function singularizeWord(word: string): string {
   const lower = word.toLowerCase()
@@ -285,8 +316,12 @@ function extractItemName(line: string): string {
   if (s.includes(':')) s = s.slice(s.lastIndexOf(':') + 1).trim()
   s = stripLeakedInstructionText(s)
   if (!s) return ''
-  // Strip non-alphanumeric bullet/symbol characters at the start
-  s = s.replace(/^[^\w\d½¼¾⅓⅔]+/i, '').trim()
+
+  // Replace any non-standard bullet symbols everywhere in string
+  s = s.replace(/[◆\uFFFD•▪★▲■◦]+/g, ' ').trim()
+  // Clean unmatched outer parentheses/brackets/quotes
+  s = s.replace(/^[()\[\]{}"'\s]+|[()\[\]{}"'\s]+$/g, '').trim()
+
   if (!s) return ''
   if (VAGUE_REFERENCE.test(s)) return ''
   s = s.replace(/\s+/g, ' ').trim()
@@ -299,9 +334,11 @@ function extractItemName(line: string): string {
   let prev = ''
   while (prev !== s) {
     prev = s
-    s = s.replace(/^(?:juice\s+(?:from|of)\s+)+/i, '').trim()
+    s = s.replace(/^(?:juice\s+(?:from|of)\s+|and\s+|with\s+|or\s+|in\s+|for\s+|about\s+|amount\s+of\s+|batch\s+of\s+|full\s+of\s+|half\s+a\s+of\s+|blend\s+|blended\s+|try\s+|add\s+a\s+|add\s+)+/i, '').trim()
+    s = s.replace(/\s+(?:if\s+its?\s+suits?\s+you|for\s+taste|to\s+taste|try|for)$/i, '').trim()
     s = s.replace(LEADING_QTY, '').replace(LEADING_MULT, '').replace(LEADING_UNIT, '').replace(LEADING_OF, '').trim()
     s = s.replace(/^[^\w\d½¼¾⅓⅔]+/i, '').trim()
+    s = s.replace(/^[()\[\]{}"'\s]+|[()\[\]{}"'\s]+$/g, '').trim()
   }
   s = s.replace(TRAILING_QTY_UNIT, '')
 
