@@ -3420,7 +3420,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                                   <input type="checkbox" checked={checkedIds.has(r.id)} onChange={(e) => {
                                     const base = curatedSlotIds(slot, selWeek)
                                     const next = e.target.checked ? [...base, r.id] : base.filter((id) => id !== r.id)
-                                    setWeeklyManualRecipes((prev) => ({ ...prev, [selWeek]: { ...prev[selWeek], [slot]: next } }))
+                                    const deduped = Array.from(new Set(next))
+                                    setWeeklyManualRecipes((prev) => ({ ...prev, [selWeek]: { ...prev[selWeek], [slot]: deduped } }))
+                                    setManualRecipes((prev) => ({ ...prev, [slot]: deduped }))
                                   }} />
                                   {r.name}
                                 </label>
@@ -3466,18 +3468,41 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                           {visible.map((m) => {
                             const displayName = recipeOverrides[m.recipe.id]?.name ?? m.recipe.name
                             return (
-                              <button key={m.recipe.id} data-recipe-trigger={m.recipe.id} onClick={() => setOpenRecipeId(m.recipe.id)}
-                                style={{ textAlign: 'left', padding: 0, borderRadius: 12, border: `1px solid ${C.rule}`, background: C.bg, overflow: 'hidden', cursor: 'pointer' }}>
-                                {combinedImages.get(m.recipe.id) ? (
-                                  <img src={combinedImages.get(m.recipe.id) ?? undefined} alt={displayName} loading="lazy" decoding="async" style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
-                                ) : (
-                                  <div style={{ width: '100%', height: 90, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChefHat size={20} color={C.accent} /></div>
+                              <div key={m.recipe.id} style={{ position: 'relative' }}>
+                                <button data-recipe-trigger={m.recipe.id} onClick={() => setOpenRecipeId(m.recipe.id)}
+                                  style={{ width: '100%', textAlign: 'left', padding: 0, borderRadius: 12, border: `1px solid ${C.rule}`, background: C.bg, overflow: 'hidden', cursor: 'pointer' }}>
+                                  {combinedImages.get(m.recipe.id) ? (
+                                    <img src={combinedImages.get(m.recipe.id) ?? undefined} alt={displayName} loading="lazy" decoding="async" style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
+                                  ) : (
+                                    <div style={{ width: '100%', height: 90, background: C.accentSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChefHat size={20} color={C.accent} /></div>
+                                  )}
+                                  <div style={{ padding: '8px 10px' }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>{displayName}</div>
+                                    {m.recipe.protein_label && <div style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{m.recipe.protein_label}</div>}
+                                  </div>
+                                </button>
+                                {editable && (
+                                  <button
+                                    type="button"
+                                    title="Deselect recipe"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      const selWeek = editingWeek ?? months[0]?.weeks[0]?.week_number ?? 1
+                                      const base = curatedSlotIds(slot, selWeek)
+                                      const next = base.filter((id) => id !== m.recipe.id)
+                                      setWeeklyManualRecipes((prev) => ({ ...prev, [selWeek]: { ...prev[selWeek], [slot]: next } }))
+                                      setManualRecipes((prev) => ({ ...prev, [slot]: next }))
+                                    }}
+                                    style={{
+                                      position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%',
+                                      background: 'rgba(255,255,255,0.92)', border: `1px solid ${C.rule}`, color: '#c53030',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 2
+                                    }}
+                                  >
+                                    <X size={13} />
+                                  </button>
                                 )}
-                                <div style={{ padding: '8px 10px' }}>
-                                  <div style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>{displayName}</div>
-                                  {m.recipe.protein_label && <div style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{m.recipe.protein_label}</div>}
-                                </div>
-                              </button>
+                              </div>
                             )
                           })}
                         </div>

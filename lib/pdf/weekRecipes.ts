@@ -14,11 +14,26 @@ export function curatedSlotIds(
   manualRecipes: Partial<Record<DayMealSlot, string[]>>,
   weekMealMatches: Record<DayMealSlot, RecipeMatch[]>
 ): string[] {
-  const weekRaw = weeklyManualRecipes[weekNumber]?.[slot]
-  if (Array.isArray(weekRaw) && weekRaw.length) return weekRaw
-  const legacyRaw = manualRecipes[slot]
-  if (Array.isArray(legacyRaw) && legacyRaw.length) return legacyRaw
-  return weekMealMatches[slot].map((m) => m.recipe.id)
+  // 1. Explicit per-week override for this specific week number
+  const weekRaw = weeklyManualRecipes?.[weekNumber]?.[slot]
+  if (Array.isArray(weekRaw)) return weekRaw
+
+  // 2. Plan-wide manual override
+  const legacyRaw = manualRecipes?.[slot]
+  if (Array.isArray(legacyRaw)) return legacyRaw
+
+  // 3. Fallback to any configured week's manual selection if available (most recent week)
+  const configuredWeeks = Object.keys(weeklyManualRecipes || {})
+    .map(Number)
+    .filter((w) => !isNaN(w))
+    .sort((a, b) => b - a)
+  for (const w of configuredWeeks) {
+    const raw = weeklyManualRecipes[w]?.[slot]
+    if (Array.isArray(raw)) return raw
+  }
+
+  // 4. Otherwise, fall back to AI auto-detected matches
+  return (weekMealMatches?.[slot] || []).map((m) => m.recipe.id)
 }
 
 export function getSlotRecipes(
@@ -34,9 +49,9 @@ export function getSlotRecipes(
     const chosenIds = curatedSlotIds(slot, weekNumber, weeklyManualRecipes, manualRecipes, weekMealMatches)
     const matches = chosenIds
       .map((id): RecipeMatch | null => {
-        const auto = weekMealMatches[slot].find((m) => m.recipe.id === id)
+        const auto = weekMealMatches?.[slot]?.find((m) => m.recipe.id === id)
         if (auto) return auto
-        const recipe = recipeBank.find((r) => r.id === id)
+        const recipe = (recipeBank || []).find((r) => r.id === id)
         return recipe ? { recipe, why: pickedByLine } : null
       })
       .filter((m): m is RecipeMatch => !!m)
