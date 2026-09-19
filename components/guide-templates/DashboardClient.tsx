@@ -2015,6 +2015,39 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     })
 
   const [aiGroceryTidying, setAiGroceryTidying] = useState(false)
+  const [extractingFromRecipes, setExtractingFromRecipes] = useState(false)
+
+  async function extractListFromRecipes() {
+    if (extractingFromRecipes) return
+    setExtractingFromRecipes(true)
+    try {
+      const visibleRecipes = allMatches
+        .filter((m) => !recipeOverrides[m.recipe.id]?.hidden)
+        .map((m) => ({
+          ...m.recipe,
+          ingredients: recipeOverrides[m.recipe.id]?.ingredients ?? m.recipe.ingredients,
+        }))
+      const freshList = buildGroceryList(visibleRecipes)
+      const listToSave = freshList.length > 0 ? freshList : GROCERY_CATEGORIES
+      setGroceryOverride(listToSave)
+      setAiGroceryCache((prev) => {
+        const next = { ...prev }
+        delete next[FULL_PLAN_GROCERY_CACHE_KEY]
+        return next
+      })
+      if (roadmapId) {
+        await fetch(`/api/compass/roadmaps/${roadmapId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ guide_overrides: { grocery_list_override: listToSave } }),
+        }).catch(() => {})
+      }
+      tidyGroceryWithAi()
+    } finally {
+      setTimeout(() => setExtractingFromRecipes(false), 400)
+    }
+  }
+
   async function tidyGroceryWithAi() {
     if (aiGroceryTidying) return
     setAiGroceryTidying(true)
@@ -3824,13 +3857,17 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
               <div style={sectionTitleStyle}><ShoppingCart size={18} color={C.accent} /> Your shopping list</div>
               {editable && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {groceryOverride && (
                     <button type="button" onClick={resetGroceryList}
                       style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 10px', borderRadius: 8, border: `1px solid ${C.rule}`, background: C.bg, color: C.muted, cursor: 'pointer' }}>
                       Reset auto list
                     </button>
                   )}
+                  <button type="button" onClick={extractListFromRecipes} disabled={extractingFromRecipes}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '5px 12px', borderRadius: 8, border: `1px solid ${C.rule}`, background: C.paper, color: C.ink, cursor: extractingFromRecipes ? 'not-allowed' : 'pointer' }}>
+                    <ChefHat size={13} color={C.accent} /> {extractingFromRecipes ? 'Extracting from recipes…' : 'Extract from recipes'}
+                  </button>
                   <button type="button" onClick={tidyGroceryWithAi} disabled={aiGroceryTidying}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '5px 12px', borderRadius: 8, border: `1px solid ${C.accent}`, background: C.accentSoft, color: C.accent, cursor: aiGroceryTidying ? 'not-allowed' : 'pointer' }}>
                     <Sparkles size={13} /> {aiGroceryTidying ? 'Cleaning up with AI…' : 'Clean up with AI'}
