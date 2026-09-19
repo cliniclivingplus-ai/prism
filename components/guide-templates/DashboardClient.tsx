@@ -3317,26 +3317,36 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                                 <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 12 }}>
                                   Daily Action Targets (Tap to check off)
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                   {DAY_LABELS.map((day, dayIndex) => {
+                                    const dayId = `protocol-${activeWkObj.week_number}-${day}`
+                                    const isOpen = openDay === dayId
                                     const dayDate = dateForWeekDay(data.createdAt, activeWkObj.week_number, dayIndex)
                                     const dayActions = activeWkObj.days?.[dayIndex] ?? activeWkObj.actions ?? []
                                     return (
-                                      <div key={day} style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 12, padding: '12px 14px' }}>
-                                        <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                          <span>{day}</span>
-                                          <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>{dayDate}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                          {dayActions.map((action, actionIndex) => {
-                                            const checked = checkedSet.has(`${activeWkObj.week_number}:${actionIndex}:${dayDate}`)
-                                            return (
-                                              <GoalRow key={actionIndex} weekNumber={activeWkObj.week_number} actionIndex={actionIndex} date={dayDate} action={action}
-                                                checked={checked}
-                                                onToggle={() => toggle(activeWkObj.week_number, actionIndex, dayDate)} />
-                                            )
-                                          })}
-                                        </div>
+                                      <div key={day} style={{ background: isOpen ? C.paper : C.bg, border: `1px solid ${C.rule}`, borderRadius: 10, overflow: 'hidden', transition: 'all 0.15s ease' }}>
+                                        <button type="button" onClick={() => setOpenDay(isOpen ? null : dayId)}
+                                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                                          <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>{day}</span>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>{dayActions.length} target{dayActions.length === 1 ? '' : 's'}</span>
+                                            {isOpen ? <ChevronDown size={16} color={C.accent} /> : <ChevronRight size={16} color={C.muted} />}
+                                          </div>
+                                        </button>
+                                        {isOpen && (
+                                          <div style={{ padding: '0 14px 14px', borderTop: `1px solid ${C.rule}`, marginTop: 4, paddingTop: 10 }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                              {dayActions.map((action, actionIndex) => {
+                                                const checked = checkedSet.has(`${activeWkObj.week_number}:${actionIndex}:${dayDate}`)
+                                                return (
+                                                  <GoalRow key={actionIndex} weekNumber={activeWkObj.week_number} actionIndex={actionIndex} date={dayDate} action={action}
+                                                    checked={checked}
+                                                    onToggle={() => toggle(activeWkObj.week_number, actionIndex, dayDate)} />
+                                                )
+                                              })}
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
                                     )
                                   })}
