@@ -33,9 +33,10 @@ const VAGUE_REFERENCE = /^(remaining|rest of|leftover)\b/i
 const JUNK_ITEM_NAMES = new Set([
   'water', 'powder', 'ream', 'mixture', 'extract', 'kcal', 'calorie', 'calories', 'carb', 'carbs', 'protein', 'fat', 'fats', 'fiber', 'nutrition', 'nutrition information', 'ingredient', 'ingredients',
   'into', 'half', 'each', 'for', 'let', 'once', 'then', 'now', 'next', 'before', 'after', 'during', 'while', 'store', 'rest', 'top', 'batter', 'longer', 'storage', 'longer storage', 'for longer storage',
+  'juice from', 'juice of', 'half a', 'few', 'piece', 'pieces', 'portion', 'portions', 'disc of',
 ])
 
-const NOISE_WORDS = /\b(fresh|freshly|finely|coarsely|roughly|thinly|thickly|small|medium|large|extra|ripe|boneless|skinless|deveined|peeled|grated|chopped|sliced|diced|minced|crushed|crumbled|drained|rinsed|cooked|raw|packet|packets|bag|bags|box|boxes|tin|tins|jar|jars|can|cans|lean|rasher|rashers|thumb|sized|piece|pieces|clove|cloves|halved|halves|julienned|julienne|quartered|shredded|leaf|leaves|root|roots|head|heads|bunch|bunches|sprig|sprigs|stick|sticks|stalk|stalks|wedge|wedges|slice|slices|cube|cubes|cubed|optional|garnish|organic|pure|cold|pressed|virgin|ground|powdered|soaked|dry|dried|roasted|toasted|steamed|boiled|blanched|pitted|seedless|seeded|unsweetened|sweetened|warm|hot|chilled)\b/gi
+const NOISE_WORDS = /\b(fresh|freshly|finely|coarsely|roughly|thinly|thickly|small|medium|large|extra|ripe|boneless|skinless|deveined|peeled|grated|chopped|sliced|diced|minced|crushed|crumbled|drained|rinsed|cooked|raw|packet|packets|bag|bags|box|boxes|tin|tins|jar|jars|can|cans|lean|rasher|rashers|thumb|sized|piece|pieces|clove|cloves|halved|halves|julienned|julienne|quartered|shredded|leaf|leaves|root|roots|head|heads|bunch|bunches|sprig|sprigs|stick|sticks|stalk|stalks|wedge|wedges|slice|slices|cube|cubes|cubed|optional|garnish|organic|pure|cold|pressed|virgin|ground|powdered|soaked|dry|dried|roasted|toasted|steamed|boiled|blanched|pitted|seedless|seeded|unsweetened|sweetened|warm|hot|chilled|floret|florets|disc|discs|chunk|chunks|stem|stems|pod|pods|frozen|mashed|few|handful|handfuls|size|big|homemade|mix|mixes)\b/gi
 
 const SPELLING_VARIANTS: Record<string, string> = { chilly: 'chilli', chili: 'chilli' }
 
@@ -46,14 +47,24 @@ const CANONICAL_ALIASES: Record<string, string> = {
   'cloves garlic': 'garlic',
   'minced garlic': 'garlic',
   'garlic powder': 'garlic',
+  'garlic pod': 'garlic',
+  'garlic pods': 'garlic',
+  'pods garlic': 'garlic',
+  'pods of garlic': 'garlic',
   'ginger root': 'ginger',
   'fresh ginger': 'ginger',
   'ginger piece': 'ginger',
   'grated ginger': 'ginger',
+  'ginger powder': 'ginger',
+  'ginger garlic paste': 'ginger',
   'lemon juice': 'lemon',
   'fresh lemon': 'lemon',
+  'juice of lemon': 'lemon',
+  'juice from lemon': 'lemon',
   'lime juice': 'lime',
   'fresh lime': 'lime',
+  'juice of lime': 'lime',
+  'juice from lime': 'lime',
   'extra virgin olive oil': 'olive oil',
   'evoo': 'olive oil',
   'virgin coconut oil': 'coconut oil',
@@ -68,9 +79,13 @@ const CANONICAL_ALIASES: Record<string, string> = {
   'cilantro leaf': 'coriander leaves',
   'cilantro leaves': 'coriander leaves',
   'fresh coriander': 'coriander leaves',
+  'handful of coriander': 'coriander leaves',
+  'coriander powder': 'coriander leaves',
+  'coriander chutney': 'coriander leaves',
   'mint leaf': 'mint leaves',
   'mint leaves': 'mint leaves',
   'fresh mint': 'mint leaves',
+  'few mint': 'mint leaves',
   'curry leaf': 'curry leaves',
   'fresh curry leaves': 'curry leaves',
   'jeera': 'cumin',
@@ -83,6 +98,8 @@ const CANONICAL_ALIASES: Record<string, string> = {
   'rai': 'mustard seeds',
   'black pepper powder': 'black pepper',
   'ground black pepper': 'black pepper',
+  'pepper corn': 'black pepper',
+  'pepper corns': 'black pepper',
   'sea salt': 'salt',
   'rock salt': 'salt',
   'pink salt': 'salt',
@@ -115,13 +132,20 @@ const CANONICAL_ALIASES: Record<string, string> = {
   'date': 'dates',
   'pitted dates': 'dates',
   'date paste': 'dates',
+  'homemade date paste': 'dates',
   'rolled oats': 'oats',
   'steel cut oats': 'oats',
   'instant oats': 'oats',
   'oat flour': 'oats',
+  'oatmeal': 'oats',
+  'more oats': 'oats',
   'brown rice flour': 'brown rice',
+  'brown rice flakes': 'brown rice',
+  'rice flakes': 'brown rice',
+  'red rice flakes': 'red rice',
   'cooked quinoa': 'quinoa',
   'raw quinoa': 'quinoa',
+  'quinoa flakes': 'quinoa',
   'plant based milk': 'plant milk',
   'almond milk': 'almond milk',
   'soy milk': 'soy milk',
@@ -132,13 +156,21 @@ const CANONICAL_ALIASES: Record<string, string> = {
   'hung curd': 'curd',
   'greek yogurt': 'yogurt',
   'plain yogurt': 'yogurt',
+  'vanilla yogurt': 'yogurt',
   'firm tofu': 'tofu',
   'silken tofu': 'tofu',
   'extra firm tofu': 'tofu',
+  'big tofu': 'tofu',
   'sprouted moong': 'moong sprouts',
+  'green mung sprouts': 'moong sprouts',
+  'mung bean sprouts': 'moong sprouts',
+  'mung sprouts': 'moong sprouts',
+  'mixed sprouts': 'moong sprouts',
+  'sprouts': 'moong sprouts',
   'moong bean': 'moong dal',
   'yellow moong dal': 'moong dal',
   'green moong dal': 'moong dal',
+  'yellow mung dal': 'moong dal',
   'chana dal': 'chana',
   'garbanzo bean': 'chickpeas',
   'garbanzo beans': 'chickpeas',
@@ -152,18 +184,22 @@ const CANONICAL_ALIASES: Record<string, string> = {
   'juice of lime or lemon': 'lemon',
   'squeezed lime juice': 'lime',
   'chickpea': 'chickpeas',
-  'chickpea flour': 'chickpea flour',
+  'chickpea flour': 'chickpeas',
   'coriander': 'coriander leaves',
   'stock bok choy': 'bok choy',
+  'stems of bok choy': 'bok choy',
   'natural peanut butter': 'peanut butter',
   'frozen blueberries': 'blueberries',
-  'homemade date paste': 'dates',
+  'blueberry': 'blueberries',
+  'frozen mixed berry': 'blueberries',
+  'mixed berry': 'blueberries',
   'juicy figs': 'figs',
   'fig': 'figs',
   'barnyard millet': 'millet',
   'foxtail millet': 'millet',
-  'millet flake': 'millet flakes',
-  'millet flakes': 'millet flakes',
+  'little millet': 'millet',
+  'millet flake': 'millet',
+  'millet flakes': 'millet',
   'brown rice poha': 'rice poha',
   'poha': 'rice poha',
   'quinoa pasta': 'quinoa',
@@ -174,13 +210,31 @@ const CANONICAL_ALIASES: Record<string, string> = {
   'wheatgrass powder': 'wheatgrass',
   'wheatgrass juice': 'wheatgrass',
   'maca root powder': 'maca powder',
+  'broccoli floret': 'broccoli',
+  'broccoli florets': 'broccoli',
+  'broccoli stem': 'broccoli',
+  'mashed avocado': 'avocado',
+  'green apple': 'apple',
+  'homemade applesauce': 'apple',
+  'applesauce': 'apple',
+  'mix of frozen banana': 'banana',
+  'frozen banana': 'banana',
+  'cherry tomato': 'cherry tomatoes',
+  '10 cherry tomatoes': 'cherry tomatoes',
+  'sweet potato': 'sweet potato',
+  'methi seeds': 'methi',
+  'ragi flour': 'ragi',
+  'black urad dal': 'black urad dal',
+  'red amaranth': 'red amaranth',
+  'wholemeal bread': 'wholemeal bread',
+  'whole wheat bread': 'wholemeal bread',
 }
 
-const UNIT_ALT = 'cups?|tbsps?|tbsp\\.?|tablespoons?|tsps?|tsp\\.?|teaspoons?|grams?|g|kg|mg|ml|milliliters?|l|liters?|oz\\.?|ounces?|lbs?|lb\\.?|pounds?|cloves?|inch(?:es)?|pinch(?:es)?|handfuls?|slices?|pieces?|bunch(?:es)?|stalks?|sprigs?|cans?|packets?|jars?|tins?|boxes?|each|drizzles?|splash(?:es)?|dash(?:es)?'
-const LEADING_QTY = /^[\d½¼¾⅓⅔]+(\s*(?:[\-\/.]|\bto\b)\s*[\d½¼¾⅓⅔]+)*\s*/i
+const UNIT_ALT = 'cups?|tbsps?|tbsp\\.?|tablespoons?|tsps?|tsp\\.?|teaspoons?|grams?|g|kg|mg|ml|milliliters?|l|liters?|oz\\.?|ounces?|lbs?|lb\\.?|pounds?|cloves?|inch(?:es)?|pinch(?:es)?|handfuls?|handful|slices?|slice|pieces?|piece|bunch(?:es)?|stalks?|stalk|sprigs?|sprig|cans?|can|packets?|packet|jars?|jar|tins?|tin|boxes?|box|pods?|pod|stems?|stem|discs?|disc|chunks?|chunk|size|head|heads|leaves|leaf|roots?|root|drizzles?|splash(?:es)?|dash(?:es)?|each|bowls?|plates?|portions?|scoops?'
+const LEADING_QTY = /^(?:[\d½¼¾⅓⅔]+(?:\/[\d½¼¾⅓⅔]+)?(?:\.\d+)?(?:\s+(?:[\d½¼¾⅓⅔]+(?:\/[\d½¼¾⅓⅔]+)?(?:\.\d+)?|to|-|\/|x|×))*\s*)+/i
 const LEADING_MULT = /^[x×]\s*/i
 const LEADING_UNIT = new RegExp(`^(?:${UNIT_ALT})\\.?\\s+`, 'i')
-const LEADING_OF = /^of\s+/i
+const LEADING_OF = /^(?:of|from|a|an|the|disc of)\s+/i
 const TRAILING_QTY_UNIT = new RegExp(`\\s+[\\d½¼¾⅓⅔]+(\\s*[\\-/.]\\s*[\\d½¼¾⅓⅔]+)*(?:\\s+(?:${UNIT_ALT})\\.?)*\\s*$`, 'i')
 const ALL_CAPS_HEADER = /^[A-Z][A-Z\s\-]+$/
 
@@ -231,6 +285,9 @@ function extractItemName(line: string): string {
   if (s.includes(':')) s = s.slice(s.lastIndexOf(':') + 1).trim()
   s = stripLeakedInstructionText(s)
   if (!s) return ''
+  // Strip non-alphanumeric bullet/symbol characters at the start
+  s = s.replace(/^[^\w\d½¼¾⅓⅔]+/i, '').trim()
+  if (!s) return ''
   if (VAGUE_REFERENCE.test(s)) return ''
   s = s.replace(/\s+/g, ' ').trim()
   s = s.replace(/\([^)]*$/, '').trim()
@@ -242,7 +299,9 @@ function extractItemName(line: string): string {
   let prev = ''
   while (prev !== s) {
     prev = s
+    s = s.replace(/^(?:juice\s+(?:from|of)\s+)+/i, '').trim()
     s = s.replace(LEADING_QTY, '').replace(LEADING_MULT, '').replace(LEADING_UNIT, '').replace(LEADING_OF, '').trim()
+    s = s.replace(/^[^\w\d½¼¾⅓⅔]+/i, '').trim()
   }
   s = s.replace(TRAILING_QTY_UNIT, '')
 
@@ -267,7 +326,7 @@ function extractItemName(line: string): string {
 
 function splitAndJoinedItems(name: string): string[] {
   if (!name) return []
-  const parts = name.split(/\s*&\s*|\s+and\s+|\s+or\s+/i).map((p) => p.trim()).filter(Boolean)
+  const parts = name.split(/\s*&\s*|\s+and\s+|\s+or\s+|\s*\/\s*/i).map((p) => p.trim()).filter(Boolean)
   return parts.length > 0 ? parts : [name]
 }
 
@@ -279,7 +338,9 @@ function titleCase(s: string): string {
 function categorize(name: string): string {
   const lower = name.toLowerCase()
   for (const cat of CATEGORY_KEYWORDS) {
-    if (cat.keywords.some((kw) => lower.includes(kw))) return cat.head
+    // Sort keywords by descending length so "pumpkin seed" matches before "pumpkin"
+    const sortedKw = [...cat.keywords].sort((a, b) => b.length - a.length)
+    if (sortedKw.some((kw) => lower.includes(kw))) return cat.head
   }
   return 'Other'
 }
@@ -296,9 +357,12 @@ export function buildGroceryList(recipes: { ingredients: string }[]): GroceryCat
       const opens = (line.match(/\(/g) || []).length
       const closes = (line.match(/\)/g) || []).length
       if (opens > closes) insideWrappedParen = true
-      for (const rawName of splitAndJoinedItems(extractItemName(line))) {
-        if (!rawName || rawName.length < 2) continue
-        const name = CANONICAL_ALIASES[rawName.toLowerCase()] || rawName
+      const rawExtracted = extractItemName(line)
+      if (!rawExtracted) continue
+      for (const piece of splitAndJoinedItems(rawExtracted)) {
+        const cleaned = extractItemName(piece) || piece
+        if (!cleaned || cleaned.length < 2) continue
+        const name = CANONICAL_ALIASES[cleaned.toLowerCase()] || cleaned
         const display = titleCase(name)
         const key = name.toLowerCase()
         const head = categorize(name)

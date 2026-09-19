@@ -2007,10 +2007,33 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   }, [allMatchesBase, data.recipeBank])
   // Real ingredients from this patient's own matched recipes, categorized —
   // falls back to the generic reference list only when no recipe has been
-  // matched yet, so the list is never left empty. Used as the fallback for
-  // any week whose own curated recipes don't yield ingredients.
-  const patientGroceryCategories = useMemo(() => buildGroceryList(allMatches.map((m) => m.recipe)), [allMatches])
-  const groceryCategories = patientGroceryCategories.length > 0 ? patientGroceryCategories : GROCERY_CATEGORIES
+  const patientGroceryCategories = useMemo(() => {
+    const visibleRecipes = allMatches
+      .filter((m) => !recipeOverrides[m.recipe.id]?.hidden)
+      .map((m) => ({
+        ...m.recipe,
+        ingredients: recipeOverrides[m.recipe.id]?.ingredients ?? m.recipe.ingredients,
+      }))
+    return buildGroceryList(visibleRecipes)
+  }, [allMatches, recipeOverrides])
+
+  const groceryCategories = aiGroceryCache[FULL_PLAN_GROCERY_CACHE_KEY] ?? (patientGroceryCategories.length > 0 ? patientGroceryCategories : GROCERY_CATEGORIES)
+
+  // Automatically trigger AI deduplication pass for the unified full plan grocery list
+  useEffect(() => {
+    if (aiGroceryCache[FULL_PLAN_GROCERY_CACHE_KEY] || patientGroceryCategories.length === 0) return
+    const candidateItems = patientGroceryCategories.flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
+    if (candidateItems.length === 0) return
+    let cancelled = false
+    fetch('/api/share/grocery-list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: candidateItems }) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled || !j || !Array.isArray(j.categories) || j.categories.length === 0) return
+        setAiGroceryCache((prev) => ({ ...prev, [FULL_PLAN_GROCERY_CACHE_KEY]: j.categories }))
+      })
+      .catch(() => { /* keep regex list on failure */ })
+    return () => { cancelled = true }
+  }, [patientGroceryCategories, aiGroceryCache])
 
   // The regex cleanup in groceryList.ts is instant but rule-based — an AI
   // pass catches what fixed rules can't (spelling variants, oddly-worded
@@ -2018,16 +2041,15 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // once, cached) so opening a week's list is never blocked on it — the
   // regex-based list above shows immediately and this quietly replaces it
   // when ready, or stays as-is if the call fails.
-  //
-  // A week with no curated recipes of its own falls back to
-  // patientGroceryCategories (every matched recipe across the whole plan) —
-  // that fallback used to never reach this AI pass at all, so it stayed the
-  // full, un-merged regex output (duplicates like "Lime"/"Lime juice" never
-  // resolved) for every empty week. Cached once under a sentinel key rather
-  // than per week, since it's the same whole-plan list every time it's needed.
   useEffect(() => {
     if (openGroceryWeek == null) return
-    const weekRecipes = getSlotRecipes(openGroceryWeek).flatMap((s) => s.matches).map((m) => m.recipe)
+    const weekRecipes = getSlotRecipes(openGroceryWeek)
+      .flatMap((s) => s.matches)
+      .filter((m) => !recipeOverrides[m.recipe.id]?.hidden)
+      .map((m) => ({
+        ...m.recipe,
+        ingredients: recipeOverrides[m.recipe.id]?.ingredients ?? m.recipe.ingredients,
+      }))
     const weekCandidates = buildGroceryList(weekRecipes).flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
     const usingFullPlanFallback = weekCandidates.length === 0
     const cacheKey = usingFullPlanFallback ? FULL_PLAN_GROCERY_CACHE_KEY : openGroceryWeek
@@ -2048,7 +2070,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
       .finally(() => { if (!cancelled) setAiGroceryLoadingWeek((prev) => (prev === openGroceryWeek ? null : prev)) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openGroceryWeek])
+  }, [openGroceryWeek, recipeOverrides])
 
   const combinedImages = new Map(mealImages)
   allWeekSlotRecipes.forEach((s) => s.matches.forEach((m) => {
