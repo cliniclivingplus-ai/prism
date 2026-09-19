@@ -2304,19 +2304,21 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     <div style={weekBoxLabel}>Recipes for the week</div>
                     <div data-slot-list style={{ display: openSlot == null ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
                       {weekSlotRecipes.map(({ slot, matches }) => {
+                        const visibleMatches = matches.filter((m) => !recipeOverrides[m.recipe.id]?.hidden)
                         const slotId = `${w.week_number}-${slot}`
                         return (
                           <button key={slot} data-slot-trigger={slotId} onClick={() => setOpenSlot(slotId)}
                             style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.rule}`, background: C.bg, cursor: 'pointer' }}>
                             <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>{SLOT_LABELS[slot]}</div>
-                            <div style={{ fontSize: 11.5, color: matches.length ? C.accent : C.muted, marginTop: 4, fontWeight: 600 }}>
-                              {matches.length ? `${matches.length} recipe${matches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
+                            <div style={{ fontSize: 11.5, color: visibleMatches.length ? C.accent : C.muted, marginTop: 4, fontWeight: 600 }}>
+                              {visibleMatches.length ? `${visibleMatches.length} recipe${visibleMatches.length === 1 ? '' : 's'}` : `Not detected yet, ${coachFirst} will add some.`}
                             </div>
                           </button>
                         )
                       })}
                     </div>
                     {weekSlotRecipes.map(({ slot, matches }) => {
+                      const visibleMatches = matches.filter((m) => !recipeOverrides[m.recipe.id]?.hidden)
                       const slotId = `${w.week_number}-${slot}`
                       return (
                       <div key={slot} data-slot-body={slotId} style={{ display: openSlot === slotId ? 'block' : 'none' }}>
@@ -2325,9 +2327,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                           ← Back to meal slots
                         </button>
                         <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, marginBottom: 10 }}>{SLOT_LABELS[slot]}, picked for your plan</div>
-                        {matches.length > 0 ? (
+                        {visibleMatches.length > 0 ? (
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-                            {matches.map((m) => (
+                            {visibleMatches.map((m) => (
                               <button key={m.recipe.id} data-recipe-trigger={m.recipe.id} onClick={() => setOpenRecipeId(m.recipe.id)}
                                 style={{ textAlign: 'left', padding: 0, borderRadius: 12, border: `1px solid ${C.rule}`, background: C.bg, overflow: 'hidden', cursor: 'pointer' }}>
                                 {combinedImages.get(m.recipe.id) ? (
@@ -3400,7 +3402,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                         const allOptions = data.recipeBank
                         const query = (recipeSearch[slot] || '').trim().toLowerCase()
                         const options = query ? allOptions.filter((r) => r.name.toLowerCase().includes(query)) : allOptions
-                        const checkedIds = new Set(curatedSlotIds(slot, selWeek))
+                        const checkedIds = new Set(
+                          curatedSlotIds(slot, selWeek).filter((id) => !recipeOverrides[id]?.hidden)
+                        )
                         return (
                           <div key={slot}>
                             <div style={editLabelStyle}>{SLOT_LABELS[slot]}</div>
@@ -3418,11 +3422,16 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                               {options.map((r) => (
                                 <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: 12.5, color: C.ink, cursor: 'pointer' }}>
                                   <input type="checkbox" checked={checkedIds.has(r.id)} onChange={(e) => {
+                                    const isChecked = e.target.checked
                                     const base = curatedSlotIds(slot, selWeek)
-                                    const next = e.target.checked ? [...base, r.id] : base.filter((id) => id !== r.id)
+                                    const next = isChecked ? [...base, r.id] : base.filter((id) => id !== r.id)
                                     const deduped = Array.from(new Set(next))
                                     setWeeklyManualRecipes((prev) => ({ ...prev, [selWeek]: { ...prev[selWeek], [slot]: deduped } }))
                                     setManualRecipes((prev) => ({ ...prev, [slot]: deduped }))
+                                    setRecipeOverrides((prev) => ({
+                                      ...prev,
+                                      [r.id]: { ...prev[r.id], hidden: !isChecked }
+                                    }))
                                   }} />
                                   {r.name}
                                 </label>
@@ -3492,6 +3501,10 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                                       const next = base.filter((id) => id !== m.recipe.id)
                                       setWeeklyManualRecipes((prev) => ({ ...prev, [selWeek]: { ...prev[selWeek], [slot]: next } }))
                                       setManualRecipes((prev) => ({ ...prev, [slot]: next }))
+                                      setRecipeOverrides((prev) => ({
+                                        ...prev,
+                                        [m.recipe.id]: { ...prev[m.recipe.id], hidden: true }
+                                      }))
                                     }}
                                     style={{
                                       position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%',
