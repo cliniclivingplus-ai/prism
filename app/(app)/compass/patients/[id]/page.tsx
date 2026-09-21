@@ -3,13 +3,14 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { renderMarkdownBold } from '@/lib/renderMarkdownBold'
-import { ArrowLeft, Plus, Pencil, FileText, StickyNote, LayoutDashboard, Calendar, ChevronRight, Microscope, Trash2, X, Link2, Check, Dna, FileCheck2, Droplets, History, CheckSquare, Copy } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, FileText, StickyNote, LayoutDashboard, Calendar, ChevronRight, Microscope, Trash2, X, Link2, Check, Dna, FileCheck2, Droplets, History, CheckSquare, Copy, Upload } from 'lucide-react'
 import ReportsTab from '@/components/ReportsTab'
 import MicrobiomeLinkTab from '@/components/MicrobiomeLinkTab'
 import BloodLinkTab from '@/components/BloodLinkTab'
 import ChecklistTab from '@/components/ChecklistTab'
 import EditSessionModal from '@/components/EditSessionModal'
 import CloneRoadmapModal from '@/components/CloneRoadmapModal'
+import UploadNotesModal from '@/components/UploadNotesModal'
 
 // ── Design tokens ────────────────────────────────────────────────────
 const C = {
@@ -100,8 +101,24 @@ export default function PatientPage() {
   const [showCloneModal, setShowCloneModal] = useState(false)
   const [cloneSourceId, setCloneSourceId] = useState<string | undefined>(undefined)
 
+  const [showUploadNotesModal, setShowUploadNotesModal] = useState(false)
+  const [uploadTargetSessionId, setUploadTargetSessionId] = useState<string | undefined>(undefined)
+
   const [mrxLinked, setMrxLinked] = useState<boolean | null>(null)
   const [bloodLinked, setBloodLinked] = useState<boolean | null>(null)
+
+  async function reloadPatientData() {
+    try {
+      const [s, r] = await Promise.all([
+        fetch(`/api/compass/sessions?patient_id=${patientId}`).then((res) => res.json()),
+        fetch(`/api/compass/roadmaps?patient_id=${patientId}`).then((res) => res.json()),
+      ])
+      if (Array.isArray(s)) setSessions(s)
+      if (Array.isArray(r)) setRoadmaps(r)
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     let alive = true
@@ -229,7 +246,16 @@ export default function PatientPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                setUploadTargetSessionId(undefined)
+                setShowUploadNotesModal(true)
+              }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 9, border: `1px solid ${C.greenBorder}`, background: C.greenSoft, color: C.greenDeep, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            >
+              <Upload size={14} /> Upload notes
+            </button>
             <Link
               href={`/compass/patients/${patientId}/edit`}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 9, border: `1px solid ${C.line}`, background: C.card, color: C.muted, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
@@ -301,7 +327,17 @@ export default function PatientPage() {
       <div style={{ marginTop: 22 }}>
         {tab === 'sessions' && <SessionsTab sessions={sessions} roadmaps={roadmaps} patientId={patientId} router={router} onEditInputs={(s) => setEditingSessionInputs(s)} />}
         {tab === 'reports' && <ReportsTab patientId={patientId} />}
-        {tab === 'notes' && <NotesTab sessions={sessions} onSessionUpdated={(updated) => setSessions(prev => prev.map(s => s.id === updated.id ? updated : s))} onEditInputs={(s) => setEditingSessionInputs(s)} />}
+        {tab === 'notes' && (
+          <NotesTab
+            sessions={sessions}
+            onSessionUpdated={(updated) => setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))}
+            onEditInputs={(s) => setEditingSessionInputs(s)}
+            onUploadNotesClick={(sid) => {
+              setUploadTargetSessionId(sid)
+              setShowUploadNotesModal(true)
+            }}
+          />
+        )}
         {tab === 'dashboard' && (
           <DashboardTab
             roadmaps={roadmaps}
@@ -355,6 +391,20 @@ export default function PatientPage() {
           onClose={() => {
             setShowCloneModal(false)
             setCloneSourceId(undefined)
+          }}
+        />
+      )}
+
+      {showUploadNotesModal && (
+        <UploadNotesModal
+          patientId={patientId}
+          patientName={patient.full_name}
+          sessions={sessions}
+          initialSessionId={uploadTargetSessionId}
+          hasRoadmap={roadmaps.length > 0}
+          onClose={() => setShowUploadNotesModal(false)}
+          onNotesUploaded={() => {
+            reloadPatientData()
           }}
         />
       )}
@@ -573,7 +623,17 @@ function SessionsTab({ sessions, roadmaps, patientId, router, onEditInputs }: { 
   )
 }
 
-function NotesTab({ sessions, onSessionUpdated, onEditInputs }: { sessions: Session[]; onSessionUpdated?: (updatedSession: Session) => void; onEditInputs?: (s: Session) => void }) {
+function NotesTab({
+  sessions,
+  onSessionUpdated,
+  onEditInputs,
+  onUploadNotesClick,
+}: {
+  sessions: Session[]
+  onSessionUpdated?: (updatedSession: Session) => void
+  onEditInputs?: (s: Session) => void
+  onUploadNotesClick?: (sessionId?: string) => void
+}) {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [preNotes, setPreNotes] = useState('')
   const [postNotes, setPostNotes] = useState('')
@@ -581,7 +641,29 @@ function NotesTab({ sessions, onSessionUpdated, onEditInputs }: { sessions: Sess
   const [error, setError] = useState('')
 
   if (sessions.length === 0) {
-    return <EmptyState icon={StickyNote} title="No notes recorded" body="Pre- and post-session notes you add on any session are collected here, so a patient's full clinical narrative stays in one place across visits." />
+    return (
+      <EmptyState
+        icon={StickyNote}
+        title="No notes recorded"
+        body="Pre- and post-session notes you add or upload on any consultation session are collected here, so a patient's full clinical narrative stays in one place across visits."
+        cta={
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => onUploadNotesClick?.()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 9, border: 'none', background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 6px rgba(83,138,34,0.25)' }}
+            >
+              <Upload size={14} /> Upload Notes
+            </button>
+            <button
+              onClick={() => onUploadNotesClick?.('new')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 9, border: `1px solid ${C.greenBorder}`, background: C.greenSoft, color: C.greenDeep, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            >
+              <Plus size={14} /> Add Consultation Notes
+            </button>
+          </div>
+        }
+      />
+    )
   }
 
   const ordered = [...sessions].sort((a, b) => new Date(b.session_date || b.created_at || 0).getTime() - new Date(a.session_date || a.created_at || 0).getTime())
@@ -644,7 +726,14 @@ function NotesTab({ sessions, onSessionUpdated, onEditInputs }: { sessions: Sess
                 <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginLeft: 8 }}>(Session {ordered.length - index})</span>
               </div>
               {!isEditing && (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => onUploadNotesClick?.(s.id)}
+                    title="Upload note file or import Drive document for this session"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 7, border: `1px solid ${C.greenBorder}`, background: C.greenSoft, color: C.greenDeep, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    <Upload size={12} /> Upload note file
+                  </button>
                   <button
                     onClick={() => onEditInputs?.(s)}
                     title="Edit transcript, summary, and notes"

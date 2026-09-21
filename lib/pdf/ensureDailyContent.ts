@@ -38,26 +38,32 @@ export async function ensureDailyContent(roadmap: RoadmapRow): Promise<void> {
     'daily_lifestyle_guidelines' in overrides || 'meal_guidelines' in overrides || 'daily_schedule' in overrides
   if (hasAnyOverride) return
 
-  let geminiSnippet = ''
-  let fullQA = ''
-  if (roadmap.session_id) {
+  let multiSessionNotes = ''
+  if (roadmap.patient_id) {
     try {
-      const { data: session } = await supabaseAdmin
+      const { data: allSessions } = await supabaseAdmin
         .from('sessions')
-        .select('gemini_doc_raw, qa_pairs')
-        .eq('id', roadmap.session_id)
-        .maybeSingle()
-      if (session) {
-        const qaPairs: { question: string; answer: string }[] = session.qa_pairs ?? []
-        fullQA = qaPairs.map((qa, i) => `Q${i + 1}: ${qa.question}\nAnswer: ${qa.answer}`).join('\n\n')
-        geminiSnippet = session.gemini_doc_raw?.slice(0, 1500) ?? ''
+        .select('*')
+        .eq('patient_id', roadmap.patient_id)
+        .order('session_date', { ascending: true })
+
+      if (allSessions && allSessions.length > 0) {
+        const blocks: string[] = []
+        allSessions.forEach((s, idx) => {
+          const parts: string[] = []
+          const label = `Consultation ${idx + 1}`
+          if (s.pre_meeting_notes?.trim()) parts.push(`Pre-notes: ${s.pre_meeting_notes.trim()}`)
+          if (s.post_meeting_notes?.trim()) parts.push(`Post-notes: ${s.post_meeting_notes.trim()}`)
+          if (s.gemini_doc_raw?.trim()) parts.push(`Transcript: ${s.gemini_doc_raw.trim().slice(0, 1000)}`)
+          if (parts.length > 0) blocks.push(`${label}:\n${parts.join('\n')}`)
+        })
+        multiSessionNotes = blocks.join('\n\n')
       }
     } catch { /* ignore session fetch failure */ }
   }
 
   const patientFacts = [
-    geminiSnippet ? `CONSULTATION TRANSCRIPT / MEETING NOTES:\n${geminiSnippet}` : '',
-    fullQA ? `CONSULTATION Q&A NOTES:\n${fullQA}` : '',
+    multiSessionNotes ? `CONSULTATION NOTES & TRANSCRIPTS:\n${multiSessionNotes}` : '',
     roadmap.overview ?? '',
     (() => {
       const parsed = parseNutritionistGuidelines(roadmap.nutritionist_guidelines ?? '')

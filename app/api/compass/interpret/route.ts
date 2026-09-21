@@ -46,18 +46,43 @@ export async function POST(req: NextRequest) {
     const { session_id, patient_id, duration_months = 1, refresh_roadmap_id, lifestyle_guidelines: bodyLifestyle, meal_guidelines: bodyMeals } = await req.json()
     if (!session_id || !patient_id) return NextResponse.json({ error: 'Missing params' }, { status: 400 })
 
-    const [{ data: session }, { data: patient }, { data: reports }] = await Promise.all([
+    const [{ data: session }, { data: patient }, { data: reports }, { data: allPatientSessions }] = await Promise.all([
       supabaseAdmin.from('sessions').select('*').eq('id', session_id).single(),
       supabaseAdmin.from('patients').select('*').eq('id', patient_id).single(),
       supabaseAdmin.from('patient_reports').select('report_type, patient_summary').eq('patient_id', patient_id).eq('status', 'ready'),
+      supabaseAdmin.from('sessions').select('*').eq('patient_id', patient_id).order('session_date', { ascending: true }),
     ])
     if (!session || !patient) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const qaPairs: { question: string; answer: string }[] = session.qa_pairs ?? []
-    const roadmapInstructions = session.roadmap_instructions ?? ''
+    const sessionsList = (allPatientSessions && allPatientSessions.length > 0) ? allPatientSessions : [session]
+    const sessionNarrativeParts: string[] = []
+    sessionsList.forEach((s, idx) => {
+      const parts: string[] = []
+      const label = `Consultation / Session ${idx + 1}` + (s.session_date ? ` (${s.session_date.slice(0, 10)})` : '')
+      if (s.pre_meeting_notes?.trim()) {
+        parts.push(`Pre-session notes:\n${s.pre_meeting_notes.trim()}`)
+      }
+      if (s.post_meeting_notes?.trim()) {
+        parts.push(`Post-session notes:\n${s.post_meeting_notes.trim()}`)
+      }
+      if (s.gemini_doc_raw?.trim()) {
+        parts.push(`Meeting transcript / document:\n${s.gemini_doc_raw.trim().slice(0, 1500)}`)
+      }
+      if (s.gemini_summary_raw?.trim()) {
+        parts.push(`Meeting summary:\n${s.gemini_summary_raw.trim()}`)
+      }
+      if (s.qa_pairs && Array.isArray(s.qa_pairs) && s.qa_pairs.length > 0) {
+        const qaStr = s.qa_pairs.map((qa: { question: string; answer: string }, i: number) => `  Q${i + 1}: ${qa.question}\n  Answer: ${qa.answer}`).join('\n')
+        parts.push(`Q&A:\n${qaStr}`)
+      }
+      if (parts.length > 0) {
+        sessionNarrativeParts.push(`=== ${label} ===\n${parts.join('\n\n')}`)
+      }
+    })
 
-    const fullQA = qaPairs.map((qa, i) => `Q${i+1}: ${qa.question}\nAnswer: ${qa.answer}`).join('\n\n')
-    const geminiSnippet = session.gemini_doc_raw?.slice(0, 800) ?? ''
+    const multiSessionNotesBlock = sessionNarrativeParts.join('\n\n')
+    const qaPairs: { question: string; answer: string }[] = sessionsList.flatMap((s) => (s.qa_pairs || []) as { question: string; answer: string }[])
+    const roadmapInstructions = session.roadmap_instructions ?? ''
     const reportsBlock = (reports ?? []).length
       ? (reports ?? []).map((r) => `${r.report_type}:\n${r.patient_summary}`).join('\n\n')
       : ''
@@ -241,11 +266,8 @@ export async function POST(req: NextRequest) {
         { role: 'system', content: 'Extract specific clinical facts from the consultation. Return only a bullet list of specific, measurable, named facts. No generalisations. Only what is explicitly stated. Never use an em dash (—); use a comma, period, or "and" instead.' },
         { role: 'user', content: `Patient: ${patient.full_name}, ${patient.gender ?? ''}, Concern: ${patient.primary_concern}
 
-Gemini meeting notes:
-${geminiSnippet}
-
-Q&A:
-${fullQA || 'None'}
+Consultation Notes & Transcripts (all sessions):
+${multiSessionNotesBlock || 'None'}
 ${reportsBlock ? `\nLab/diagnostic reports on file:\n${reportsBlock}\n` : ''}
 ${bloodMarkersBlock ? `\nBlood panel test results on file (real extracted values):\n${bloodMarkersBlock}\n` : ''}
 ${mrxPrescriptionBlock ? `\nDoctor-approved MicrobiomeRX prescription on file (already finalized by a doctor, treat as settled clinical direction):\n${mrxPrescriptionBlock}\n` : ''}
