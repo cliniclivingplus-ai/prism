@@ -12,10 +12,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
 // Lets a coach fix the AI-extracted supplement list (wrong dose/timing read
 // off the PDF, a row that shouldn't be there, one that's missing) and
-// explicitly confirm it — this is the only way supplements ever reach the
-// patient dashboard, never automatically on upload.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; reportId: string }> }) {
-  const { reportId } = await params
+  const { reportId, id: patientId } = await params
   const body = await req.json()
   const update: Record<string, unknown> = {}
   if (Array.isArray(body.supplements)) {
@@ -33,5 +31,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { data, error } = await supabaseAdmin.from('patient_reports').update(update).eq('id', reportId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (patientId && body.supplements_confirmed) {
+    try {
+      const { data: roadmaps } = await supabaseAdmin
+        .from('roadmaps')
+        .select('id, guide_overrides')
+        .eq('patient_id', patientId)
+
+      if (roadmaps && roadmaps.length > 0) {
+        for (const rm of roadmaps) {
+          const overrides = (rm.guide_overrides as Record<string, unknown>) || {}
+          const currentOverride = overrides.confirmed_supplements_override as unknown[] | undefined
+          if (!currentOverride || currentOverride.length === 0) {
+            await supabaseAdmin
+              .from('roadmaps')
+              .update({ guide_overrides: { ...overrides, confirmed_supplements_override: null } })
+              .eq('id', rm.id)
+          }
+        }
+      }
+    } catch { /* non-fatal sync */ }
+  }
+
   return NextResponse.json(data)
 }

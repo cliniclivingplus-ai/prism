@@ -136,11 +136,12 @@ export function buildGuideData(
     createdAt: roadmap.created_at,
     // A coach can edit the supplement table directly on the roadmap
     // (previously only editable per-report, back on the Reports tab) —
-    // once they do, that edit is the source of truth for this roadmap, the
-    // same "override wins over the computed default" rule as everything
-    // else here. Until then this is the real, confirmed-report-derived
+    // once they do with actual rows, that edit is the source of truth for this roadmap.
+    // Until then (or if the override is empty/unset), this uses the real, confirmed-report-derived
     // list resolveConfirmedSupplements() computed.
-    confirmedSupplements: overrides.confirmed_supplements_override ?? confirmedSupplements,
+    confirmedSupplements: (overrides.confirmed_supplements_override && overrides.confirmed_supplements_override.length > 0)
+      ? overrides.confirmed_supplements_override
+      : confirmedSupplements,
     careServices: overrides.care_services ?? [],
     nextAppointment: overrides.next_appointment ?? { date: '', time: '', mode: '' },
     reachInfo: overrides.reach_info ?? { phone: '', hours: '', frontDesk: '' },
@@ -167,7 +168,12 @@ export function buildGuideData(
     // before this step existed or when generation failed.
     dailyChecklistItems: overrides.daily_checklist_items
       ?? roadmap.daily_checklist_items
-      ?? buildDeterministicChecklist(confirmedSupplements, roadmap.lifestyle_guidelines ?? ''),
+      ?? buildDeterministicChecklist(
+        (overrides.confirmed_supplements_override && overrides.confirmed_supplements_override.length > 0)
+          ? overrides.confirmed_supplements_override
+          : confirmedSupplements,
+        roadmap.lifestyle_guidelines ?? ''
+      ),
     groceryListOverride: overrides.grocery_list_override ?? null,
     plateComposition: overrides.plate_composition ?? DEFAULT_PLATE_COMPOSITION,
     // Per-roadmap ingredient/step edits (e.g. "remove all the garlic") for

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo, useEffect, useRef, Fragment, type ReactNode } from 'react'
 import { CheckCircle2, Circle, MapPin, Utensils, Pill, ShoppingCart, HeartPulse, HelpCircle, Phone, Clock, X, ChefHat, Download, Sparkles, Star, Save, Check, Loader2, ExternalLink, Flame, CalendarCheck, Target, TrendingUp, ChevronDown, ChevronRight, Video, MessageCircle, Users, Activity, Stethoscope, Plus, Trash2, Eye, EyeOff, LinkIcon, Droplet, Sun, type IconComponent } from '@/lib/kawaii/icons'
-import { UploadCloud, Compass } from 'lucide-react'
+import { UploadCloud, Compass, RefreshCw } from 'lucide-react'
 import CloneRoadmapModal from '@/components/CloneRoadmapModal'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import { Splash } from '@/lib/kawaii/Mascot'
@@ -1223,6 +1223,11 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // override-wins pattern as every other field here) — it does not change
   // the underlying report(s) the list was built from.
   const [supplementRows, setSupplementRows] = useState<{ name: string; dose: string; timing: string; duration: string; notes: string }[]>(data.confirmedSupplements || [])
+  useEffect(() => {
+    if (supplementRows.length === 0 && data.confirmedSupplements && data.confirmedSupplements.length > 0) {
+      setSupplementRows(data.confirmedSupplements)
+    }
+  }, [data.confirmedSupplements])
   // Textarea DOM refs, keyed by period — LinkInsertButton reads the coach's
   // current selection directly off these to know what phrase to wrap.
   const lifestyleTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
@@ -3810,10 +3815,18 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     </div>
                   ))}
                 </div>
-                <button type="button" onClick={() => setSupplementRows((prev) => [...prev, { name: '', dose: '', timing: '', duration: '', notes: '' }])}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', color: C.accent, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-                  <Plus size={12} /> Add supplement
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <button type="button" onClick={() => setSupplementRows((prev) => [...prev, { name: '', dose: '', timing: '', duration: '', notes: '' }])}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', color: C.accent, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                    <Plus size={12} /> Add supplement
+                  </button>
+                  {data.confirmedSupplements && data.confirmedSupplements.length > 0 && (
+                    <button type="button" onClick={() => setSupplementRows(data.confirmedSupplements)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', color: C.accent, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                      <RefreshCw size={12} /> Sync from prescription reports ({data.confirmedSupplements.length})
+                    </button>
+                  )}
+                </div>
               </>
             ) : data.confirmedSupplements.length > 0 ? (
               <div style={{ overflowX: 'auto', marginBottom: 10 }}>
