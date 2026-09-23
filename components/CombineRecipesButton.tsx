@@ -53,8 +53,18 @@ export default function CombineRecipesButton({
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [open])
 
-  // Filter out recipes marked as hidden already
-  const visibleRecipes = recipes.filter((r) => !recipeOverrides[r.id]?.hidden)
+  // All recipes from the recipe bank plus any custom recipe overrides
+  const bankIds = new Set(recipes.map((r) => r.id))
+  const extraFromOverrides: BankRecipe[] = Object.entries(recipeOverrides)
+    .filter(([id, o]) => !bankIds.has(id) && !!o && !!o.name)
+    .map(([id, o]) => ({
+      id,
+      name: o.name || id,
+      ingredients: o.ingredients || '',
+      steps: o.steps || '',
+    }))
+
+  const allAvailableRecipes: BankRecipe[] = [...recipes, ...extraFromOverrides]
 
   // Auto-generate suggested combined title when selection changes
   const toggleSelect = (id: string) => {
@@ -67,7 +77,7 @@ export default function CombineRecipesButton({
     setSelectedIds(next)
 
     // Suggest title by joining names of selected recipes
-    const selectedObj = next.map((selId) => recipes.find((r) => r.id === selId)).filter((r): r is BankRecipe => !!r)
+    const selectedObj = next.map((selId) => allAvailableRecipes.find((r) => r.id === selId)).filter((r): r is BankRecipe => !!r)
     const suggestedTitle = selectedObj.map((r) => recipeOverrides[r.id]?.name ?? r.name).join(' & ')
     setCustomTitle(suggestedTitle)
   }
@@ -77,7 +87,7 @@ export default function CombineRecipesButton({
 
     const primaryId = selectedIds[0]
     const secondaryIds = selectedIds.slice(1)
-    const selectedRecipes = selectedIds.map((id) => recipes.find((r) => r.id === id)).filter((r): r is BankRecipe => !!r)
+    const selectedRecipes = selectedIds.map((id) => allAvailableRecipes.find((r) => r.id === id)).filter((r): r is BankRecipe => !!r)
 
     const finalTitle = customTitle.trim() || selectedRecipes.map((r) => recipeOverrides[r.id]?.name ?? r.name).join(' & ')
 
@@ -242,8 +252,8 @@ export default function CombineRecipesButton({
             />
           </div>
 
-          <div style={{ maxHeight: 140, overflowY: 'auto', border: `1px solid ${C.line}`, borderRadius: 8, padding: 6, marginBottom: 10 }}>
-            {visibleRecipes
+          <div style={{ maxHeight: 220, overflowY: 'auto', border: `1px solid ${C.line}`, borderRadius: 8, padding: 6, marginBottom: 10 }}>
+            {allAvailableRecipes
               .filter((r) => (recipeOverrides[r.id]?.name ?? r.name).toLowerCase().includes(search.toLowerCase()))
               .map((r) => {
                 const displayName = recipeOverrides[r.id]?.name ?? r.name
