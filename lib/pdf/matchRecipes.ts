@@ -51,7 +51,7 @@ const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert'] as const
 export function selectRecipesForPatient(
   opts: { primaryConcern: string; dietProtocol: string[] },
   bank: BankRecipe[],
-  perMealLimit = 2
+  perMealLimit = 5
 ): Record<(typeof MEAL_TYPES)[number], RecipeMatch[]> {
   const concernKeywords = extractKeywords(opts.primaryConcern)
   const dietKeywords = opts.dietProtocol.flatMap(extractKeywords)
@@ -66,14 +66,18 @@ export function selectRecipesForPatient(
         const matched = keywords.filter((k) => new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(haystack))
         return { recipe: r, matched }
       })
-      .filter((s) => s.matched.length > 0)
       .sort((a, b) => b.matched.length - a.matched.length)
 
-    result[meal] = scored.slice(0, perMealLimit).map((s) => ({
+    const matchingScored = scored.filter((s) => s.matched.length > 0)
+    const finalScored = matchingScored.length > 0 ? matchingScored : scored
+
+    result[meal] = finalScored.slice(0, perMealLimit).map((s) => ({
       recipe: s.recipe,
-      why: opts.primaryConcern && concernKeywords.some((k) => s.matched.includes(k))
+      why: opts.primaryConcern && s.matched.some((k) => concernKeywords.includes(k))
         ? `Chosen for your plan, it fits what your coach noted about "${s.matched.find((m) => concernKeywords.includes(m))}."`
-        : `Chosen for your plan, it matches your care team's diet notes on "${s.matched[0]}."`,
+        : s.matched.length > 0
+          ? `Chosen for your plan, it matches your care team's diet notes on "${s.matched[0]}."`
+          : `Chosen for your plan by your care team.`,
     }))
   }
   return result

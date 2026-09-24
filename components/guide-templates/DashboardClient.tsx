@@ -36,7 +36,7 @@ import { autoLinkText } from '@/lib/autoLinkKeywords'
 import { INLINE_LINK_RE, linksIn, reattachLinks } from '@/lib/linkText'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
-const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
+const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks']
 // Sentinel key into aiGroceryCache (keyed by week_number everywhere else,
 // always a positive integer) for the whole-plan fallback list's own AI-cleaned
 // result — see the grocery useEffect below.
@@ -3618,8 +3618,17 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                                     const base = curatedSlotIds(slot, selWeek)
                                     const next = isChecked ? [...base, r.id] : base.filter((id) => id !== r.id)
                                     const deduped = Array.from(new Set(next))
-                                    setWeeklyManualRecipes((prev) => ({ ...prev, [selWeek]: { ...prev[selWeek], [slot]: deduped } }))
-                                    setManualRecipes((prev) => ({ ...prev, [slot]: deduped }))
+                                    setWeeklyManualRecipes((prev) => {
+                                      const nextW = { ...prev, [selWeek]: { ...(prev[selWeek] || {}), [slot]: deduped } }
+                                      setManualRecipes((prevM) => {
+                                        const nextM = { ...prevM, [slot]: deduped }
+                                        if (roadmapId) {
+                                          patchRoadmap({ guide_overrides: { weekly_manual_recipes: nextW, manual_recipes: nextM } })
+                                        }
+                                        return nextM
+                                      })
+                                      return nextW
+                                    })
                                     setRecipeOverrides((prev) => ({
                                       ...prev,
                                       [r.id]: { ...prev[r.id], hidden: !isChecked }
@@ -3691,8 +3700,17 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                                       const selWeek = editingWeek ?? months[0]?.weeks[0]?.week_number ?? 1
                                       const base = curatedSlotIds(slot, selWeek)
                                       const next = base.filter((id) => id !== m.recipe.id)
-                                      setWeeklyManualRecipes((prev) => ({ ...prev, [selWeek]: { ...prev[selWeek], [slot]: next } }))
-                                      setManualRecipes((prev) => ({ ...prev, [slot]: next }))
+                                      setWeeklyManualRecipes((prev) => {
+                                        const nextW = { ...prev, [selWeek]: { ...(prev[selWeek] || {}), [slot]: next } }
+                                        setManualRecipes((prevM) => {
+                                          const nextM = { ...prevM, [slot]: next }
+                                          if (roadmapId) {
+                                            patchRoadmap({ guide_overrides: { weekly_manual_recipes: nextW, manual_recipes: nextM } })
+                                          }
+                                          return nextM
+                                        })
+                                        return nextW
+                                      })
                                       setRecipeOverrides((prev) => ({
                                         ...prev,
                                         [m.recipe.id]: { ...prev[m.recipe.id], hidden: true }

@@ -24,6 +24,7 @@ const PERIOD_KEYWORD_RULES: [RegExp, string][] = [
   [/\b(breakfast)\b/i, 'Breakfast'],
   [/\b(lunch|midday|noon)\b/i, 'Lunch'],
   [/\b(dinner|supper)\b/i, 'Dinner'],
+  [/\b(snack|snacks|tea\s*time|munchies)\b/i, 'Snacks'],
   [/\b(morning|wake|sunrise|sunlight|fast(?:ing)?)\b/i, 'Morning'],
   [/\b(afternoon)\b/i, 'Afternoon'],
   [/\b(evening|night|sleep|bed\s*time|screen)\b/i, 'Evening'],

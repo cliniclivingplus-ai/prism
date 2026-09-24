@@ -6,6 +6,7 @@ import { reshapeRoadmapIntoQuarters, reshapeRoadmapIntoMonths, type WeeklyPlan }
 import { parseNutritionistGuidelines } from './parseNutritionistGuidelines'
 import { matchGuideImageDistinct, type GuideImage } from './matchGuideImage'
 import { selectRecipesForPatient, type BankRecipe } from './matchRecipes'
+import { getSlotRecipes } from './weekRecipes'
 import { splitRecipeLines } from '../recipeText'
 import { cleanSourceTitle, sourceSearchUrl } from '../sourceLinks'
 import { groupBulletsByLabel } from '../periodBullets'
@@ -547,7 +548,7 @@ function lifestylePages(data: GuideData): ReactElement[] {
 // had no PDF counterpart at all).
 function mealPages(data: GuideData): ReactElement[] {
   const heroImage = matchGuideImageDistinct(data.mealGuidelines, data.imageBank, new Set())
-  const groups = periodGroupBlocks(data.mealGuidelines, ['Breakfast', 'Lunch', 'Dinner'])
+  const groups = periodGroupBlocks(data.mealGuidelines, ['Breakfast', 'Lunch', 'Dinner', 'Snacks'])
   return [
     <PageShell key="meals1" eyebrow={"BREAKFAST, LUNCH\n& DINNER"}>
       <Text style={shared.title}>Breakfast, lunch &amp; dinner</Text>
@@ -601,11 +602,23 @@ function recipesPages(data: GuideData): ReactElement[] {
   const coachName = data.coach?.full_name || 'your coach'
   const firstName = data.patient.full_name?.split(' ')[0] || 'You'
   const parsed = parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines)
-  const selection = selectRecipesForPatient(
+  const autoMatches = selectRecipesForPatient(
     { primaryConcern: data.patient.primary_concern || '', dietProtocol: parsed.dietProtocol },
-    data.recipeBank
+    data.recipeBank,
+    5
   )
-  const allMatches = [...selection.breakfast, ...selection.lunch, ...selection.dinner]
+  const DAY_MEAL_SLOTS: DayMealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert']
+  const slotRecipes = getSlotRecipes(
+    1,
+    DAY_MEAL_SLOTS,
+    data.weeklyManualRecipes || {},
+    data.manualRecipes || {},
+    autoMatches,
+    data.recipeBank,
+    'Picked for your plan.'
+  )
+  const rawMatches = slotRecipes.flatMap((s) => s.matches)
+  const allMatches = rawMatches.filter((m, i) => rawMatches.findIndex((x) => x.recipe.id === m.recipe.id) === i)
   const usedImages = new Set<string>()
 
   // No real match beats a fabricated one — if nothing in the recipe bank

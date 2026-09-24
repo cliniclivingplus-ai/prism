@@ -289,7 +289,7 @@ function StreakFlame({ lit, pop }: { lit: boolean; pop: boolean }) {
 }
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
-const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
+const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks']
 
 export default function WeekBrutalTemplate({ shareToken, data, initialCheckins, editable = false, roadmapId }: {
   shareToken: string

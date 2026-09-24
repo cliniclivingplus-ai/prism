@@ -43,7 +43,7 @@ import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
 import CombineRecipesButton from '@/components/CombineRecipesButton'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
-const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner']
+const MEAL_PERIODS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks']
 
 const DAY_MEAL_SLOTS: DayMealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert']
 const SLOT_LABELS: Record<DayMealSlot, string> = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks', dessert: 'Desserts' }
