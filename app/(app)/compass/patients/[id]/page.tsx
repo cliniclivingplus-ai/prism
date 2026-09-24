@@ -584,9 +584,12 @@ function SessionsTab({ sessions, roadmaps, patientId, router, onEditInputs }: { 
         const linkedRoadmap = roadmaps.find(r => r.session_id === s.id)
         const qaCount = Array.isArray(s.qa_pairs) ? s.qa_pairs.length : 0
         return (
-          <button
+          <div
             key={s.id}
+            role="link"
+            tabIndex={0}
             onClick={() => router.push(`/compass/patients/${patientId}/sessions/${s.id}`)}
+            onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); router.push(`/compass/patients/${patientId}/sessions/${s.id}`) } }}
             className="roster-row"
             style={{ textAlign: 'left', background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 1px 2px rgba(26,36,23,0.03)' }}
           >
@@ -616,7 +619,7 @@ function SessionsTab({ sessions, roadmaps, patientId, router, onEditInputs }: { 
               </button>
               <ChevronRight size={18} color={C.faint} style={{ flexShrink: 0 }} />
             </div>
-          </button>
+          </div>
         )
       })}
     </div>
