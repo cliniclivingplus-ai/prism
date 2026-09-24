@@ -127,6 +127,51 @@ function isRateOrQuotaError(err: unknown): boolean {
   return /rate_limit_exceeded|429|413|503|502|token_limit_exceeded|tpm|tokens|quota|exceeded/i.test(message)
 }
 
+
+// Free Gemini fallback (OpenAI-compatible endpoint). Used when a request is
+// too big for Groq's per-request cap or every Groq key/model has failed —
+// keeps the FULL prompt, unlike trimming. Only GEMINI_API_KEY is needed; no
+// paid provider is ever called.
+function hasGemini(): boolean {
+  return Boolean(process.env.GEMINI_API_KEY?.trim())
+}
+
+function estimateTokens(params: ChatCompletionCreateParamsNonStreaming): number {
+  const chars = params.messages.reduce((n, m) => n + (typeof m.content === 'string' ? m.content.length : 0), 0)
+  return Math.ceil(chars / 4) + (params.max_tokens ?? 1000)
+}
+
+async function callGemini(params: ChatCompletionCreateParamsNonStreaming): Promise<ChatCompletion | null> {
+  const key = process.env.GEMINI_API_KEY?.trim()
+  if (!key) return null
+  const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.6-flash'
+  try {
+    const body: Record<string, unknown> = {
+      model,
+      messages: params.messages,
+      temperature: params.temperature ?? 0.3,
+      // Gemini 2.5 counts its own thinking against the output budget, so a
+      // budget sized for Groq's models can cut the answer off mid-JSON.
+      max_tokens: Math.min((params.max_tokens ?? 1000) * 2 + 500, 8000),
+      reasoning_effort: 'low',
+    }
+    if (params.response_format) body.response_format = params.response_format
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      console.warn(`[Gemini fallback] ${res.status}: ${(await res.text()).slice(0, 200)}`)
+      return null
+    }
+    return (await res.json()) as ChatCompletion
+  } catch (e) {
+    console.warn('[Gemini fallback] failed:', e instanceof Error ? e.message : e)
+    return null
+  }
+}
+
 /**
  * Execute Groq Chat Completion with automatic multi-key pool round-robin rotation and failover.
  * Dynamically rotates across all keys found in groq_api_keys.txt or environment variables.
@@ -138,6 +183,13 @@ export async function groqChatCompletion(
   const clients = getPool()
   let lastError: unknown = null
   const poolSize = clients.length
+
+  // 0. Requests already known to exceed Groq's ~8000-token per-request cap
+  // go straight to Gemini with the full, untrimmed prompt.
+  if (hasGemini() && estimateTokens(params) > 7000) {
+    const viaGemini = await callGemini(params)
+    if (viaGemini) return viaGemini
+  }
 
   // 1. Primary Attempt Loop across all available Groq API keys
   for (let attempt = 0; attempt < poolSize; attempt++) {
@@ -170,6 +222,10 @@ export async function groqChatCompletion(
   // the same cap. Shrink the request itself (completion budget first, then
   // trim the longest message) and retry once before falling to other models.
   const tooLarge = parseTooLarge(lastError)
+  if (tooLarge && hasGemini()) {
+    const viaGemini = await callGemini(params)
+    if (viaGemini) return viaGemini
+  }
   if (tooLarge) {
     const shrunk = shrinkToFit(params, tooLarge.limit, tooLarge.requested)
     if (shrunk) {
@@ -215,34 +271,10 @@ export async function groqChatCompletion(
     }
   }
 
-  // 3. Secondary Provider Fallback (OpenRouter / OpenAI) if all Groq keys and models hit rate limits
-  const secondaryKey = process.env.OPENROUTER_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()
-  if (secondaryKey && isRateOrQuotaError(lastError)) {
-    const isOpenRouter = Boolean(process.env.OPENROUTER_API_KEY?.trim())
-    const baseUrl = isOpenRouter ? 'https://openrouter.ai/api/v1' : 'https://api.openai.com/v1'
-    const fallbackModel = isOpenRouter ? 'meta-llama/llama-3.3-70b-instruct' : 'gpt-4o-mini'
-    console.warn(`[Groq Key Pool] All Groq keys/models rate limited. Failing over to ${baseUrl} (${fallbackModel})...`)
-    try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${secondaryKey}`,
-        },
-        body: JSON.stringify({
-          model: fallbackModel,
-          messages: params.messages,
-          max_tokens: Math.min(params.max_tokens ?? 2500, 2500),
-          temperature: params.temperature ?? 0.7,
-        }),
-      })
-      if (res.ok) {
-        const json = await res.json()
-        return json as ChatCompletion
-      }
-    } catch (e) {
-      console.error('[Groq Key Pool] Secondary provider fallback failed:', e)
-    }
+  // 3. Last resort: free Gemini, whatever the error was.
+  if (hasGemini() && isRateOrQuotaError(lastError)) {
+    const viaGemini = await callGemini(params)
+    if (viaGemini) return viaGemini
   }
 
   throw lastError
