@@ -144,25 +144,39 @@ function estimateTokens(params: ChatCompletionCreateParamsNonStreaming): number 
 async function callGemini(params: ChatCompletionCreateParamsNonStreaming): Promise<ChatCompletion | null> {
   const key = process.env.GEMINI_API_KEY?.trim()
   if (!key) return null
-  const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.6-flash'
+  // If one model is overloaded (503) fall through to the next — all are on the same free key.
+  const models = [process.env.GEMINI_MODEL?.trim(), 'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'].filter((m, i, a): m is string => !!m && a.indexOf(m) === i)
   try {
     const body: Record<string, unknown> = {
-      model,
+      model: models[0],
       messages: params.messages,
       temperature: params.temperature ?? 0.3,
       // Gemini 2.5 counts its own thinking against the output budget, so a
       // budget sized for Groq's models can cut the answer off mid-JSON.
-      max_tokens: Math.min((params.max_tokens ?? 1000) * 2 + 500, 8000),
+      max_tokens: Math.min((params.max_tokens ?? 1000) * 3 + 2000, 16000),
       reasoning_effort: 'low',
     }
     if (params.response_format) body.response_format = params.response_format
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify(body),
-    })
-    if (!res.ok) {
-      console.warn(`[Gemini fallback] ${res.status}: ${(await res.text()).slice(0, 200)}`)
+    // 503 ("high demand") and 429 are transient on Gemini — retry a few
+    // times with a growing pause before giving up, so an oversized prompt
+    // isn't dropped to the trimmed-Groq path just because of a short spike.
+    let res: Response | null = null
+    for (const model of models) {
+      body.model = model
+      for (let attempt = 0; attempt < 2; attempt++) {
+        res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+          body: JSON.stringify(body),
+        })
+        if (res.ok || (res.status !== 503 && res.status !== 429)) break
+        console.warn(`[Gemini fallback] ${model} ${res.status}, ${attempt === 0 ? 'retrying' : 'trying next model'}...`)
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 1500))
+      }
+      if (res && (res.ok || (res.status !== 503 && res.status !== 429))) break
+    }
+    if (!res || !res.ok) {
+      console.warn(`[Gemini fallback] ${res?.status}: ${(await res?.text() ?? '').slice(0, 200)}`)
       return null
     }
     return (await res.json()) as ChatCompletion
