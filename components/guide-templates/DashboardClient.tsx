@@ -1243,7 +1243,15 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const [linkToast, setLinkToast] = useState<string[] | null>(null)
   const [showCloneModal, setShowCloneModal] = useState(false)
   function autoLinkOnBlur(current: string, apply: (next: string) => void) {
-    const { next, linkedPhrases } = autoLinkText(current, keywordLinkBank)
+    // Recipe-bank names auto-link too (e.g. typing "Amla Shot" links to that
+    // recipe's card); an explicit keyword-bank entry for the same phrase wins.
+    const known = new Set(keywordLinkBank.map((e) => e.keyword_norm))
+    const recipeEntries = shareToken && typeof window !== 'undefined'
+      ? data.recipeBank
+          .filter((r) => r.name && r.name.trim().length >= 4 && !known.has(r.name.trim().toLowerCase()))
+          .map((r) => ({ keyword: r.name.trim(), keyword_norm: r.name.trim().toLowerCase(), url: `${window.location.origin}/share/roadmap/${shareToken}#recipe-${r.id}` }))
+      : []
+    const { next, linkedPhrases } = autoLinkText(current, [...keywordLinkBank, ...recipeEntries])
     if (linkedPhrases.length > 0) {
       apply(next)
       setLinkToast(linkedPhrases)
