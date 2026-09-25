@@ -240,7 +240,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
       return next
     })
   }
-  const hiddenStyle = (id: string): CSSProperties => (!editable && isHidden(id) ? { display: 'none' } : {})
+  const hiddenStyle = (id: string): CSSProperties => (isHidden(id) ? { display: 'none' } : {})
   const parsed = useMemo(() => parseNutritionistGuidelines(data.roadmap.nutritionist_guidelines), [data.roadmap.nutritionist_guidelines])
   const lifestyleBullets = useMemo(() => parseBullets(data.roadmap.lifestyle_guidelines), [data.roadmap.lifestyle_guidelines])
 
