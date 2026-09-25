@@ -22,21 +22,11 @@ export function curatedSlotIds(
   const legacyRaw = manualRecipes?.[slot]
   if (Array.isArray(legacyRaw) && legacyRaw.length > 0) return legacyRaw
 
-  // 3. Fallback to any configured week's manual selection if available (most recent week with items)
-  const configuredWeeks = Object.keys(weeklyManualRecipes || {})
-    .map(Number)
-    .filter((w) => !isNaN(w))
-    .sort((a, b) => b - a)
-  for (const w of configuredWeeks) {
-    const raw = weeklyManualRecipes[w]?.[slot]
-    if (Array.isArray(raw) && raw.length > 0) return raw
-  }
-
-  // 4. If an explicit empty array was set and no legacy or other week manual selection exists, return []
+  // 3. If an explicit empty array was set and no legacy manual selection exists, return []
   if (Array.isArray(weekRaw)) return weekRaw
   if (Array.isArray(legacyRaw)) return legacyRaw
 
-  // 5. Otherwise, fall back to AI auto-detected matches
+  // 4. Otherwise, fall back to AI auto-detected matches
   return (weekMealMatches?.[slot] || []).map((m) => m.recipe.id)
 }
 
