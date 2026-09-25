@@ -477,11 +477,10 @@ export default function WeekTemplate({ shareToken, data, initialCheckins, editab
   const [selectedWeekNum, setSelectedWeekNum] = useState<number | null>(null)
   const allWeeks = useMemo(() => [...weeklySchedule].sort((a, b) => a.week_number - b.week_number), [weeklySchedule])
   const visibleWeeks = useMemo(() => {
-    if (editable) return allWeeks
     return allWeeks.filter((w) => !hiddenSections.includes(`week-${w.week_number}`))
   }, [allWeeks, hiddenSections, editable])
   const week = useMemo(() => {
-    const pool = editable ? allWeeks : visibleWeeks
+    const pool = visibleWeeks
     if (selectedWeekNum != null) {
       const found = pool.find((w) => w.week_number === selectedWeekNum)
       if (found) return found
@@ -1649,7 +1648,7 @@ function clpToggleGroceryCat(head){
             <div data-section-body="roadmap" style={{ display: isSectionOpen('roadmap') ? 'block' : 'none' }}>
             {(allWeeks.length > 1 || editable) && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginTop: 16, marginBottom: 20 }}>
-                {(editable ? allWeeks : visibleWeeks).map((w) => {
+                {visibleWeeks.map((w) => {
                   const isWkHidden = isHidden(`week-${w.week_number}`)
                   const isSelected = week?.week_number === w.week_number
                   const actionCount = w.actions?.length || (w.days ? w.days.reduce((acc, d) => acc + d.length, 0) : 0)

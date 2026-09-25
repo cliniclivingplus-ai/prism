@@ -215,7 +215,6 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
   const [weeklySchedule, setWeeklySchedule] = useState(data.roadmap.weekly_schedule ?? [])
   const allMonths = useMemo(() => reshapeRoadmapIntoMonths(weeklySchedule).filter((m) => m.planned), [weeklySchedule])
   const months = useMemo(() => {
-    if (editable) return allMonths
     return allMonths
       .filter((m) => !hiddenSections.includes(`month-${m.monthNumber}`))
       .map((m) => ({
