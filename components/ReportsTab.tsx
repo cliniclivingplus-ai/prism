@@ -229,6 +229,14 @@ function ReportRow({ report, patientId, onDeleted, onUpdated }: { report: Report
   )
 }
 
+// Exactly the patient-reports bucket's own file_size_limit (15,000,000
+// bytes) — a larger cap here would let a file past this check that Storage
+// then rejects. The file goes straight to Supabase Storage from the browser
+// and never through our own API: a serverless request body is capped at
+// 4.5MB on Vercel, which is why a 6.3MB report came back as "File size
+// exceeds maximum upload limit" / a network error.
+const MAX_UPLOAD_BYTES = 15_000_000
+
 export default function ReportsTab({ patientId }: { patientId: string }) {
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
@@ -247,14 +255,40 @@ export default function ReportsTab({ patientId }: { patientId: string }) {
   }
 
   async function upload(file: File) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadError(`${file.name}: ${(file.size / 1024 / 1024).toFixed(1)}MB is over the 15MB limit.`)
+      return
+    }
     try {
-      const form = new FormData()
-      form.append('file', file)
-      form.append('report_type', reportType)
-      const r = await fetch(`/api/patients/${patientId}/reports`, { method: 'POST', body: form })
+      const urlRes = await fetch(`/api/patients/${patientId}/reports/upload-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_name: file.name }),
+      })
+      const urlJson = await urlRes.json().catch(() => null)
+      if (!urlRes.ok || !urlJson?.signed_url) {
+        setUploadError(`${file.name}: ${urlJson?.error || `Could not start upload (${urlRes.status})`}`)
+        return
+      }
+
+      const put = await fetch(urlJson.signed_url, {
+        method: 'PUT',
+        headers: file.type ? { 'Content-Type': file.type } : undefined,
+        body: file,
+      })
+      if (!put.ok) {
+        setUploadError(`${file.name}: Upload failed (${put.status}), try again.`)
+        return
+      }
+
+      const r = await fetch(`/api/patients/${patientId}/reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storage_path: urlJson.path, file_name: file.name, file_type: file.type, report_type: reportType }),
+      })
       const j = await r.json().catch(() => null)
       if (!r.ok) {
-        const errMsg = j?.error || (r.status === 413 ? 'File size exceeds maximum upload limit' : `Upload failed (${r.status})`)
+        const errMsg = j?.error || `Upload failed (${r.status})`
         setUploadError(`${file.name}: ${errMsg}`)
         if (j?.report) setReports((prev) => [j.report, ...prev])
         return
