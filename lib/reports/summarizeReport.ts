@@ -4,7 +4,7 @@ const MAX_REPORT_CHARS = 8000
 
 export async function summarizeReportForPatient(reportType: string, patientName: string, rawText: string): Promise<string> {
   const completion = await groqChatCompletion({
-    model: 'openai/gpt-oss-120b',
+    model: 'openai/gpt-oss-20b',
     temperature: 0.3,
     max_tokens: 700,
     messages: [

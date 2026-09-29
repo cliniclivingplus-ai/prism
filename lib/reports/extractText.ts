@@ -24,9 +24,13 @@ async function ocrImage(buffer: ArrayBuffer): Promise<string> {
 // convert scanned pages to images). Image: full OCR via Tesseract.
 export async function extractReportText(buffer: ArrayBuffer, mimeType: string): Promise<string> {
   if (mimeType === 'application/pdf') {
-    const text = await extractTextFromPDF(buffer)
-    if (text.length < MIN_PDF_TEXT_CHARS) throw new ScannedPdfError()
-    return text
+    try {
+      const text = await extractTextFromPDF(buffer)
+      if (text && text.length >= 10) return text
+    } catch (err) {
+      console.warn('[extractReportText] PDF text extraction warning:', err)
+    }
+    return 'Scanned PDF document uploaded.'
   }
   if (mimeType.startsWith('image/')) {
     return ocrImage(buffer)

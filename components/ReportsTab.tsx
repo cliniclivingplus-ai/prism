@@ -252,10 +252,16 @@ export default function ReportsTab({ patientId }: { patientId: string }) {
       form.append('file', file)
       form.append('report_type', reportType)
       const r = await fetch(`/api/patients/${patientId}/reports`, { method: 'POST', body: form })
-      const j = await r.json()
-      if (!r.ok) { setUploadError(`${file.name}: ${j.error || 'Upload failed'}`); if (j.report) setReports((prev) => [j.report, ...prev]); return }
-      setReports((prev) => [j, ...prev])
-    } catch {
+      const j = await r.json().catch(() => null)
+      if (!r.ok) {
+        const errMsg = j?.error || (r.status === 413 ? 'File size exceeds maximum upload limit' : `Upload failed (${r.status})`)
+        setUploadError(`${file.name}: ${errMsg}`)
+        if (j?.report) setReports((prev) => [j.report, ...prev])
+        return
+      }
+      if (j) setReports((prev) => [j, ...prev])
+    } catch (err) {
+      console.error('[ReportsTab] Upload network error:', err)
       setUploadError(`${file.name}: Network error, try again.`)
     }
   }
