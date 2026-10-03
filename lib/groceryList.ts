@@ -18,14 +18,14 @@ export const GROCERY_CATEGORY_ORDER = [
 ]
 
 const CATEGORY_KEYWORDS: { head: string; keywords: string[] }[] = [
-  { head: 'Fruit', keywords: ['apple', 'banana', 'papaya', 'pear', 'orange', 'berry', 'berries', 'pomegranate', 'kiwi', 'mango', 'grape', 'lemon', 'lime', 'avocado', 'date', 'fig', 'melon', 'watermelon', 'strawberr', 'blueberr', 'raspberr', 'passionfruit', 'peach', 'plum', 'apricot', 'guava', 'pineapple'] },
+  { head: 'Fruit', keywords: ['apple', 'banana', 'papaya', 'pear', 'orange', 'berry', 'strawberry', 'blueberry', 'raspberry', 'cranberry', 'mulberry', 'gooseberry', 'goji berry', 'pomegranate', 'kiwi', 'mango', 'grape', 'lemon', 'lime', 'sweet lime', 'mosambi', 'avocado', 'date', 'medjool date', 'raisin', 'fig', 'melon', 'watermelon', 'muskmelon', 'passionfruit', 'peach', 'plum', 'apricot', 'guava', 'pineapple', 'cherry', 'jackfruit', 'chikoo', 'sapota', 'custard apple', 'dragon fruit', 'amla'] },
   { head: 'Cruciferous vegetables', keywords: ['broccoli', 'cauliflower', 'kale', 'cabbage', 'brussels sprout', 'bok choy', 'arugula', 'rocket', 'radish', 'mooli', 'turnip', 'kohlrabi', 'mustard green', 'watercress', 'horseradish'] },
-  { head: 'Green vegetables & leafy greens', keywords: ['spinach', 'palak', 'lettuce', 'zucchini', 'green bean', 'french bean', 'string bean', 'asparagus', 'cucumber', 'celery', 'pea', 'peas', 'green pepper', 'methi', 'fenugreek', 'swiss chard', 'coriander', 'cilantro', 'mint', 'curry leaf', 'curry leaves', 'parsley', 'leek', 'gourd', 'bottle gourd', 'bitter gourd', 'ridge gourd', 'ash gourd', 'lauki', 'torai', 'karela', 'okra', 'bhindi', 'spring onion', 'scallion'] },
-  { head: 'Other vegetables', keywords: ['tomato', 'onion', 'garlic', 'ginger', 'pumpkin', 'carrot', 'beet', 'beetroot', 'sweet potato', 'potato', 'eggplant', 'brinjal', 'bell pepper', 'capsicum', 'mushroom', 'corn', 'yam', 'artichoke'] },
-  { head: 'Grains & millets', keywords: ['oat', 'rice', 'ragi', 'jowar', 'bajra', 'quinoa', 'buckwheat', 'amaranth', 'millet', 'barley', 'wheat', 'flour', 'bread', 'pasta', 'noodle', 'spaghetti', 'tortilla', 'breadcrumb', 'poha'] },
-  { head: 'Lentils & protein', keywords: ['moong', 'masoor', 'chana', 'toor dal', 'dal', 'rajma', 'tofu', 'tempeh', 'edamame', 'sprout', 'hummus', 'lentil', 'chickpea', 'bean', 'egg', 'chicken', 'fish', 'salmon', 'prawn', 'steak', 'bacon', 'paneer', 'yogurt', 'yoghurt', 'curd', 'milk', 'cheese'] },
-  { head: 'Nuts & seeds', keywords: ['almond', 'walnut', 'brazil nut', 'chia', 'flaxseed', 'flax seed', 'pumpkin seed', 'sesame', 'sunflower seed', 'cashew', 'pistachio', 'tahini', 'hemp seed'] },
-  { head: 'Herbs, spices & pantry', keywords: ['cinnamon', 'turmeric', 'cumin', 'coriander powder', 'black pepper', 'salt', 'honey', 'vinegar', 'oil', 'coconut', 'vanilla', 'cardamom', 'clove', 'bay leaf', 'mustard seed', 'chili', 'chilli', 'paprika', 'oregano', 'stock', 'sweetener', 'sauce', 'pesto', 'sugar', 'baking powder', 'cocoa', 'fennel', 'asafoetida', 'hing', 'jeera', 'seasoning', 'tamari', 'spirulina', 'matcha', 'jaggery'] },
+  { head: 'Green vegetables & leafy greens', keywords: ['spinach', 'palak', 'lettuce', 'zucchini', 'green bean', 'french bean', 'string bean', 'asparagus', 'cucumber', 'celery', 'pea', 'peas', 'green pepper', 'methi', 'fenugreek', 'tindora', 'ivy gourd', 'drumstick', 'chayote', 'microgreen', 'leafy green', 'basil leaf', 'swiss chard', 'coriander', 'cilantro', 'mint', 'curry leaf', 'curry leaves', 'parsley', 'leek', 'gourd', 'bottle gourd', 'bitter gourd', 'ridge gourd', 'ash gourd', 'lauki', 'torai', 'karela', 'okra', 'bhindi', 'spring onion', 'scallion'] },
+  { head: 'Other vegetables', keywords: ['tomato', 'onion', 'garlic', 'ginger', 'pumpkin', 'carrot', 'beet', 'beetroot', 'sweet potato', 'potato', 'eggplant', 'brinjal', 'bell pepper', 'capsicum', 'red pepper', 'green pepper', 'yellow pepper', 'orange pepper', 'cherry tomato', 'mushroom', 'corn', 'sweet corn', 'yam', 'artichoke', 'aubergine', 'butternut squash', 'squash', 'shallot', 'spring onion', 'green onion', 'kimchi', 'olive'] },
+  { head: 'Grains & millets', keywords: ['oat', 'rice', 'ragi', 'jowar', 'bajra', 'quinoa', 'buckwheat', 'amaranth', 'millet', 'barley', 'wheat', 'flour', 'bread', 'pasta', 'noodle', 'spaghetti', 'tortilla', 'breadcrumb', 'poha', 'rava', 'rawa', 'sooji', 'suji', 'semolina', 'daliya', 'dalia', 'couscous', 'polenta', 'muri', 'wrap', 'groat', 'sourdough'] },
+  { head: 'Lentils & protein', keywords: ['moong', 'mung', 'masoor', 'chana', 'channa', 'chole', 'toor dal', 'dal', 'daal', 'dhal', 'dhall', 'urad', 'arhar', 'rajma', 'lobia', 'cowpea', 'black eyed pea', 'moth bean', 'soybean', 'soy bean', 'bengal gram', 'gram', 'sattu', 'aquafaba', 'buttermilk', 'rajma', 'tofu', 'tempeh', 'edamame', 'sprout', 'hummus', 'lentil', 'chickpea', 'bean', 'egg', 'chicken', 'fish', 'salmon', 'prawn', 'steak', 'bacon', 'paneer', 'yogurt', 'yoghurt', 'curd', 'milk', 'cheese'] },
+  { head: 'Nuts & seeds', keywords: ['almond', 'walnut', 'brazil nut', 'chia', 'chia seed', 'flaxseed', 'flax seed', 'pumpkin seed', 'sesame', 'sesame seed', 'sunflower seed', 'melon seed', 'watermelon seed', 'cashew', 'pistachio', 'tahini', 'hemp seed', 'peanut', 'groundnut', 'hazelnut', 'pecan', 'macadamia', 'pine nut', 'nut butter', 'trail mix'] },
+  { head: 'Herbs, spices & pantry', keywords: ['cinnamon', 'turmeric', 'cumin', 'coriander powder', 'coriander seed', 'fenugreek seed', 'methi seed', 'carom seed', 'ajwain', 'carom', 'kalonji', 'nigella', 'star anise', 'nutmeg', 'saffron', 'amchur', 'aamchur', 'tamarind', 'kokum', 'cayenne', 'basil', 'thyme', 'dill', 'sage', 'chive', 'rosemary', 'pepper flake', 'chilli flake', 'black pepper', 'white pepper', 'peppercorn', 'rock salt', 'sendha namak', 'baking soda', 'nutritional yeast', 'chocolate', 'cacao', 'molasses', 'miso', 'sriracha', 'siracha', 'gochujang', 'soy sauce', 'tamari', 'liquid amino', 'nori', 'wakame', 'kombu', 'dashi', 'eno', 'salt', 'honey', 'vinegar', 'oil', 'coconut', 'vanilla', 'cardamom', 'clove', 'bay leaf', 'mustard seed', 'chili', 'chilli', 'paprika', 'oregano', 'stock', 'sweetener', 'sauce', 'pesto', 'sugar', 'baking powder', 'cocoa', 'fennel', 'asafoetida', 'hing', 'jeera', 'seasoning', 'tamari', 'spirulina', 'matcha', 'jaggery'] },
 ]
 
 const VAGUE_REFERENCE = /^(remaining|rest of|leftover)\b/i
@@ -372,14 +372,87 @@ function titleCase(s: string): string {
   return s[0].toUpperCase() + s.slice(1)
 }
 
-function categorize(name: string): string {
-  const lower = name.toLowerCase()
-  for (const cat of CATEGORY_KEYWORDS) {
-    // Sort keywords by descending length so "pumpkin seed" matches before "pumpkin"
-    const sortedKw = [...cat.keywords].sort((a, b) => b.length - a.length)
-    if (sortedKw.some((kw) => lower.includes(kw))) return cat.head
+// Matching happens on whole words, not substrings: plain `includes()` put
+// "peanut" in the pea bucket and "cornflour" in with the sweetcorn.
+function singularizeForMatch(word: string): string {
+  if (word.length > 4 && word.endsWith('ies')) return word.slice(0, -3) + 'y'
+  if (word.length > 4 && word.endsWith('oes')) return word.slice(0, -2)
+  if (word.length > 3 && word.endsWith('s') && !/(?:us|ss|is)$/.test(word)) return word.slice(0, -1)
+  return word
+}
+
+// Deliberately not singularizeWord(): that one keeps "oats"/"peas" plural on
+// purpose for display, which left them unable to match the keywords "oat"
+// and "pea".
+function toWords(text: string): string[] {
+  return text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(singularizeForMatch)
+}
+
+// True when the keyword's words appear in order, as whole words.
+function hasPhrase(words: string[], keyword: string): boolean {
+  const kw = toWords(keyword)
+  if (kw.length === 0) return false
+  for (let i = 0; i + kw.length <= words.length; i++) {
+    let hit = true
+    for (let j = 0; j < kw.length; j++) {
+      if (words[i + j] !== kw[j]) { hit = false; break }
+    }
+    if (hit) return true
   }
-  return 'Other'
+  return false
+}
+
+// Longest keyword first, so "pumpkin seed" wins over "pumpkin".
+const SORTED_CATEGORY_KEYWORDS = CATEGORY_KEYWORDS.map((cat) => ({
+  head: cat.head,
+  keywords: [...cat.keywords].sort((a, b) => b.length - a.length),
+}))
+
+// A spice or pantry form of a food is shopped for with the spices, not with
+// the fresh food it is made from: chilli powder is not a vegetable and
+// tomato ketchup is not a tomato. Checked before the keyword table, which
+// would otherwise file both by their first word.
+const PANTRY_FORM_WORDS = new Set([
+  'powder', 'masala', 'seasoning', 'spice', 'chutney', 'pickle', 'ketchup', 'sauce', 'paste',
+  'puree', 'vinegar', 'syrup', 'extract', 'essence', 'stock', 'broth', 'oil', 'ghee', 'jam',
+  'marmalade', 'tea', 'coffee', 'flour', 'atta', 'starch',
+])
+
+// ...except where the pantry form is still bought as the food itself: a nut
+// butter sits with the nuts, a flour with its grain.
+const PANTRY_FORM_EXCEPTIONS = [
+  { head: 'Nuts & seeds', first: ['almond', 'peanut', 'groundnut', 'cashew', 'walnut', 'hazelnut', 'pistachio', 'sesame', 'sunflower', 'pumpkin'], second: ['butter'] },
+  { head: 'Grains & millets', first: ['wheat', 'ragi', 'jowar', 'bajra', 'millet', 'rice', 'oat', 'barley', 'buckwheat', 'amaranth', 'corn', 'maize', 'quinoa'], second: ['flour', 'atta', 'starch'] },
+  { head: 'Lentils & protein', first: ['gram', 'chickpea', 'lentil', 'soy', 'protein', 'whey', 'pea'], second: ['flour', 'powder'] },
+]
+
+// Shared by the regex pass below and by the AI tidy-up route, which runs
+// every name the model returns back through this instead of trusting the
+// category the model picked. A model will occasionally file chilli powder
+// with the vegetables, or a vegetable under Fruit, and a shopping list
+// sorted into the wrong aisles is worse than one not sorted at all.
+export function categorizeItem(name: string): string {
+  const words = toWords(name)
+  if (words.length === 0) return 'Other'
+
+  for (const ex of PANTRY_FORM_EXCEPTIONS) {
+    for (let i = 0; i + 1 < words.length; i++) {
+      if (ex.first.includes(words[i]) && ex.second.includes(words[i + 1])) return ex.head
+    }
+  }
+  if (words.some((w) => PANTRY_FORM_WORDS.has(w))) return 'Herbs, spices & pantry'
+  // "besan" is gram flour under another name, with no second word to match.
+  if (words.includes('besan')) return 'Lentils & protein'
+
+  let best = { head: 'Other', length: 0 }
+  for (const cat of SORTED_CATEGORY_KEYWORDS) {
+    for (const kw of cat.keywords) {
+      // Across categories, not just within one: "pumpkin seed" has to beat
+      // "pumpkin", even though Other vegetables is listed first.
+      if (kw.length > best.length && hasPhrase(words, kw)) best = { head: cat.head, length: kw.length }
+    }
+  }
+  return best.head
 }
 
 export function buildGroceryList(recipes: { ingredients: string }[]): GroceryCategory[] {
@@ -402,7 +475,7 @@ export function buildGroceryList(recipes: { ingredients: string }[]): GroceryCat
         const name = CANONICAL_ALIASES[cleaned.toLowerCase()] || cleaned
         const display = titleCase(name)
         const key = name.toLowerCase()
-        const head = categorize(name)
+        const head = categorizeItem(name)
         if (!buckets.has(head)) buckets.set(head, new Map())
         buckets.get(head)!.set(key, display)
       }
