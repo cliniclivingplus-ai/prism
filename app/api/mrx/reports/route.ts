@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth/guard'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sanitizeForDb } from '@/lib/sanitizeDbText'
 
 export const dynamic = 'force-dynamic'
 
@@ -148,9 +149,9 @@ export async function POST(req: NextRequest) {
       patient_name: patientName,
       patient_age_sex: body.patientAgeSex?.trim() || null,
       pdf_filename: body.pdfFilename ?? null,
-      species_list: body.speciesList ?? null,
+      species_list: sanitizeForDb(body.speciesList ?? null),
       species_count: body.speciesCount ?? null,
-      report_data: body.reportData ?? null,
+      report_data: sanitizeForDb(body.reportData ?? null),
       nutrition_plan: null,
     })
     .select('id')

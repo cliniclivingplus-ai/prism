@@ -7,6 +7,7 @@ export const maxDuration = 60
 import { createSupabaseAdmin } from '@/lib/blood/supabaseServer'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { extractMarkers } from '@/lib/blood/extractMarkers'
+import { stripUnsafeChars, sanitizeForDb } from '@/lib/sanitizeDbText'
 
 // Extraction (including OCR for scanned reports) happens entirely in the
 // browser now — see lib/extractReport.ts. This route only ever receives
@@ -31,7 +32,10 @@ export async function POST(req: NextRequest) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
-    const rawText = text
+    // A NUL or broken surrogate out of the PDF/OCR text would make the
+    // insert below fail with Postgres's "unsupported Unicode escape
+    // sequence" — after parsing and the AI pass had already run.
+    const rawText = stripUnsafeChars(text)
 
     const admin = createSupabaseAdmin()
 
@@ -108,7 +112,7 @@ export async function POST(req: NextRequest) {
         pdf_filename: file.name,
         pdf_path: pdfPath,
         raw_text: rawText,
-        markers,
+        markers: sanitizeForDb(markers),
       })
       .select()
       .single()

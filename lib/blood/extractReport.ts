@@ -19,6 +19,8 @@ import { createWorker } from 'tesseract.js'
 
 const MIN_TEXT_LAYER_CHARS = 200
 
+import { stripUnsafeChars } from '@/lib/sanitizeDbText'
+
 export type ExtractResult = { text: string; ocrUsed: boolean }
 export type ExtractProgress = { stage: 'reading' | 'ocr'; page?: number; totalPages?: number }
 
@@ -72,7 +74,7 @@ export async function extractFromPdf(file: File, onProgress?: (p: ExtractProgres
   }
 
   if (fullText.trim().length >= MIN_TEXT_LAYER_CHARS) {
-    return { text: fullText, ocrUsed: false }
+    return { text: stripUnsafeChars(fullText), ocrUsed: false }
   }
 
   // Scanned PDF — render each page to a canvas and OCR it right here.
@@ -81,14 +83,14 @@ export async function extractFromPdf(file: File, onProgress?: (p: ExtractProgres
     canvases.push(await renderPageToCanvas(await pdf.getPage(i)))
   }
   const text = await ocrImages(canvases, onProgress)
-  return { text, ocrUsed: true }
+  return { text: stripUnsafeChars(text), ocrUsed: true }
 }
 
 export async function extractFromFile(file: File, onProgress?: (p: ExtractProgress) => void): Promise<ExtractResult> {
   if (file.type === 'application/pdf') return extractFromPdf(file, onProgress)
   if (file.type.startsWith('image/')) {
     const text = await ocrImages([file], onProgress)
-    return { text, ocrUsed: true }
+    return { text: stripUnsafeChars(text), ocrUsed: true }
   }
   throw new Error(`Unsupported file type: ${file.type}`)
 }

@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { extractReportText, ScannedPdfError } from '@/lib/reports/extractText'
 import { summarizeReportForPatient } from '@/lib/reports/summarizeReport'
 import { extractSupplementsFromReport } from '@/lib/reports/extractSupplements'
+import { stripUnsafeChars, sanitizeForDb } from '@/lib/sanitizeDbText'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
 
   try {
-    const rawText = await extractReportText(buffer, fileType)
+    const rawText = stripUnsafeChars(await extractReportText(buffer, fileType))
     const [summary, supplements] = await Promise.all([
       summarizeReportForPatient(reportType.trim(), patient.full_name, rawText),
       extractSupplementsFromReport(rawText),
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .from('patient_reports')
       // supplements is a draft only — supplements_confirmed stays false
       // (its default) until a coach reviews and confirms it.
-      .update({ raw_text: rawText, patient_summary: summary, supplements, status: 'ready' })
+      .update({ raw_text: rawText, patient_summary: stripUnsafeChars(summary), supplements: sanitizeForDb(supplements), status: 'ready' })
       .eq('id', report.id)
       .select()
       .single()
