@@ -74,7 +74,7 @@ export function useSectionReport(id: string) {
         .single()
 
       if (error || !data) {
-        router.push('/mrx/dashboard')
+        router.push('/dashboard')
         return
       }
 

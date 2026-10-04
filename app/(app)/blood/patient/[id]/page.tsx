@@ -176,7 +176,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
       <header className="border-b border-border bg-card">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <Link
-            href={clpPatientId ? `/compass/patients/${clpPatientId}?tab=blood` : '/compass/patients'}
+            href={clpPatientId ? `/compass/patients/${clpPatientId}?tab=blood` : '/dashboard'}
             className="text-sm text-foreground-secondary hover:text-foreground"
           >
             ← Back to Patient

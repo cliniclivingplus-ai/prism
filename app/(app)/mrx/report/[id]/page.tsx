@@ -69,6 +69,7 @@ export default function ReportPage() {
   const [report,  setReport]  = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [prescription, setPrescription] = useState<{ id: string; approved_at: string | null } | null>(null)
+  const [clpPatientId, setClpPatientId] = useState<string | null>(null)
   // Set when this report is linked to a hub patient (clp_patient_id) whose
   // own name doesn't match this report's patient_name — the earliest
   // visible sign a coach picked the wrong patient at upload time.
@@ -88,12 +89,23 @@ export default function ReportPage() {
         const { data, error } = await supabase
           .from('reports').select('*').eq('id', id).single()
 
-        if (error || !data) { router.push('/mrx/dashboard'); return }
+        if (error || !data) { router.push('/dashboard'); return }
         setReport(data)
 
-        if (data.clp_patient_id) {
+        let resolvedClpId = data.clp_patient_id ?? null
+        if (!resolvedClpId && data.patient_id) {
+          const { data: link } = await supabase
+            .from('mrx_patient_links')
+            .select('clp_patient_id')
+            .eq('mrx_patient_id', data.patient_id)
+            .maybeSingle()
+          resolvedClpId = link?.clp_patient_id ?? null
+        }
+        if (resolvedClpId) setClpPatientId(resolvedClpId)
+
+        if (resolvedClpId) {
           try {
-            const hubRes = await fetch(`/api/patients/${data.clp_patient_id}`)
+            const hubRes = await fetch(`/api/patients/${resolvedClpId}`)
             if (hubRes.ok) {
               const hub = await hubRes.json()
               const hubName = (hub?.full_name ?? '').trim()
@@ -255,10 +267,10 @@ export default function ReportPage() {
           ))}
         </div>
 
-        {/* Back to dashboard */}
+        {/* Back button */}
         <div className="p-4" style={{ borderTop: '1px solid #C8E9A8' }}>
           <Link
-            href="/mrx/dashboard"
+            href={clpPatientId ? `/compass/patients/${clpPatientId}?tab=microbiome` : '/dashboard'}
             onClick={() => setNavOpen(false)}
             className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-xs font-medium transition-all"
             style={{ background: '#FFFFFF', border: '1px solid #C8E9A8', color: '#538A22' }}
@@ -268,7 +280,7 @@ export default function ReportPage() {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Back to Dashboard
+            {clpPatientId ? 'Back to Patient' : 'Back to Dashboard'}
           </Link>
         </div>
       </div>

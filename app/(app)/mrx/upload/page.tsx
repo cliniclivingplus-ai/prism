@@ -185,7 +185,12 @@ export default function UploadPage() {
 
         <div className="flex items-center justify-between mb-8">
           <div>
-            <Link href="/mrx/dashboard" className="text-xs font-mono text-gray-400 hover:text-[#538A22] transition mb-2 block">← Dashboard</Link>
+            <Link
+              href={hubPatientId ? `/compass/patients/${hubPatientId}?tab=microbiome` : '/dashboard'}
+              className="text-xs font-mono text-gray-400 hover:text-[#538A22] transition mb-2 block"
+            >
+              ← {hubPatientId ? 'Back to Patient' : 'Dashboard'}
+            </Link>
             <h1 className="text-2xl font-light text-gray-900">Upload report</h1>
             <p className="text-xs text-gray-400 font-mono mt-1">BugSpeaks PDF - all data extracted automatically</p>
           </div>

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { renderMarkdownBold } from '@/lib/renderMarkdownBold'
 import { ArrowLeft, Plus, Pencil, FileText, StickyNote, LayoutDashboard, Calendar, ChevronRight, Microscope, Trash2, X, Link2, Check, Dna, FileCheck2, Droplets, History, CheckSquare, Copy, Upload } from 'lucide-react'
@@ -89,7 +89,21 @@ function daysAgo(d?: string) {
 export default function PatientPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const patientId = params.id as string
+
+  const fromParam = searchParams.get('from')
+  const [backHref, setBackHref] = useState('/dashboard')
+
+  useEffect(() => {
+    if (fromParam) {
+      setBackHref(fromParam)
+    } else if (typeof window !== 'undefined' && document.referrer.includes('/compass/patients')) {
+      setBackHref('/compass/patients')
+    } else {
+      setBackHref('/dashboard')
+    }
+  }, [fromParam])
 
   const [patient, setPatient] = useState<Patient | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
@@ -171,7 +185,7 @@ export default function PatientPage() {
     return (
       <div style={{ maxWidth: 1040, margin: '0 auto', textAlign: 'center', paddingTop: 80 }}>
         <p style={{ color: C.muted }}>This patient could not be found.</p>
-        <Link href="/compass/patients" style={{ color: C.green, fontWeight: 600 }}>Back to patients</Link>
+        <Link href={backHref} style={{ color: C.green, fontWeight: 600 }}>Back to patients</Link>
       </div>
     )
   }
@@ -180,8 +194,8 @@ export default function PatientPage() {
 
   return (
     <div style={{ maxWidth: 1040, margin: '0 auto' }}>
-      <Link href="/compass/patients" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: C.faint, textDecoration: 'none', marginBottom: 18, fontWeight: 500 }}>
-        <ArrowLeft size={14} /> All patients
+      <Link href={backHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: C.faint, textDecoration: 'none', marginBottom: 18, fontWeight: 500 }}>
+        <ArrowLeft size={14} /> Back to patients
       </Link>
 
       {/* ── Patient summary header ── */}

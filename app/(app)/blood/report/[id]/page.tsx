@@ -109,7 +109,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     ? `/compass/patients/${clpPatientId}?tab=blood`
     : report.patient_id
       ? `/blood/patient/${report.patient_id}`
-      : '/compass/patients'
+      : '/dashboard'
 
   return (
     <div className="min-h-screen bg-background">
