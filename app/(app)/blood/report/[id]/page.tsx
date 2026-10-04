@@ -38,6 +38,7 @@ function RangeBar({ marker }: { marker: ExtractedMarker }) {
 
 type ReportData = {
   id: string
+  patient_id?: string | null
   pdf_filename: string | null
   markers: ExtractedMarker[] | null
   recommendations: MarkerRecommendation[] | null
@@ -49,6 +50,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const { id } = use(params)
   const [report, setReport] = useState<ReportData | null>(null)
   const [patient, setPatient] = useState<Patient | null>(null)
+  const [clpPatientId, setClpPatientId] = useState<string | null>(null)
   const [fileUrl, setFileUrl] = useState<string | null>(null)
   const [recommendations, setRecommendations] = useState<MarkerRecommendation[] | null>(null)
   const [loadingRecs, setLoadingRecs] = useState(false)
@@ -68,6 +70,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         setReport(j.report)
         setPatient(j.patient)
         setFileUrl(j.fileUrl)
+        if (j.clpPatientId) setClpPatientId(j.clpPatientId)
         if (j.report.recommendations) setRecommendations(j.report.recommendations)
         const hubName = (j.hubPatientName ?? '').trim()
         const toolName = (j.patient?.name ?? '').trim()
@@ -102,12 +105,18 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const markers = report.markers ?? []
   const abnormalMarkers = markers.filter((m) => m.abnormal)
 
+  const backHref = clpPatientId
+    ? `/compass/patients/${clpPatientId}?tab=blood`
+    : report.patient_id
+      ? `/blood/patient/${report.patient_id}`
+      : '/compass/patients'
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/blood/dashboard" className="flex items-center gap-2 text-sm text-foreground-secondary hover:text-foreground">
-            ← Dashboard
+          <Link href={backHref} className="flex items-center gap-2 text-sm text-foreground-secondary hover:text-foreground">
+            ← Back to Patient
           </Link>
           {fileUrl && (
             <a href={fileUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">

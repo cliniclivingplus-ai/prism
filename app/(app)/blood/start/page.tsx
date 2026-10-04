@@ -54,14 +54,14 @@ export default function BloodStartPage() {
             <p className="m-0 mb-4 text-[13px]" style={{ color: 'var(--ink-faint)' }}>{error}</p>
             {hubPatientId ? (
               <Link
-                href={`/patients/${hubPatientId}?view=blood`}
+                href={`/compass/patients/${hubPatientId}?tab=blood`}
                 className="text-[13px] font-semibold"
                 style={{ color: 'var(--rust-600)' }}
               >
                 Back to the patient
               </Link>
             ) : (
-              <Link href="/dashboard" className="text-[13px] font-semibold" style={{ color: 'var(--rust-600)' }}>
+              <Link href="/compass/patients" className="text-[13px] font-semibold" style={{ color: 'var(--rust-600)' }}>
                 Back to patients
               </Link>
             )}

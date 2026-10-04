@@ -69,6 +69,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [patient, setPatient] = useState<Patient | null>(null)
+  const [clpPatientId, setClpPatientId] = useState<string | null>(null)
   const [reports, setReports] = useState<ReportRow[]>([])
   const [trends, setTrends] = useState<MarkerTrend[]>([])
   const [summary, setSummary] = useState<StructuredSummary | null>(null)
@@ -94,6 +95,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
         setPatient(j.patient)
         setReports(j.reports)
         setTrends(j.trends)
+        if (j.clpPatientId) setClpPatientId(j.clpPatientId)
         if (j.patient.progress_summary) setSummary(parseSummaryPayload(j.patient.progress_summary))
       })
   }
@@ -173,7 +175,12 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="max-w-4xl mx-auto px-6 py-4">
-          <Link href="/blood/dashboard" className="text-sm text-foreground-secondary hover:text-foreground">← Dashboard</Link>
+          <Link
+            href={clpPatientId ? `/compass/patients/${clpPatientId}?tab=blood` : '/compass/patients'}
+            className="text-sm text-foreground-secondary hover:text-foreground"
+          >
+            ← Back to Patient
+          </Link>
         </div>
       </header>
 

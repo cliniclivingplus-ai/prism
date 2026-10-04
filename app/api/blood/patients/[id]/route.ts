@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 import { createSupabaseAdmin } from '@/lib/blood/supabaseServer'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { buildMarkerTrends } from '@/lib/blood/patientTrends'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -20,5 +21,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const trends = buildMarkerTrends((reports ?? []).map((r) => ({ created_at: r.created_at, markers: r.markers })))
 
-  return NextResponse.json({ patient, reports: reports ?? [], trends })
+  const hub = createAdminClient('compass')
+  const { data: link } = await hub
+    .from('blood_patient_links')
+    .select('clp_patient_id')
+    .eq('blood_patient_id', id)
+    .maybeSingle()
+
+  const clpPatientId = link?.clp_patient_id ?? null
+
+  return NextResponse.json({ patient, reports: reports ?? [], trends, clpPatientId })
 }
+

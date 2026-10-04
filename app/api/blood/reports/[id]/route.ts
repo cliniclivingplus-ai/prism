@@ -27,11 +27,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   // clp_patient_id, that hub patient's own name might read differently —
   // the earliest visible sign a coach picked the wrong patient at upload.
   let hubPatientName: string | null = null
-  if (report.clp_patient_id) {
-    const hub = createAdminClient('compass')
-    const { data: hubPatient } = await hub.from('patients').select('full_name').eq('id', report.clp_patient_id).maybeSingle()
+  let clpPatientId: string | null = report.clp_patient_id ?? null
+
+  const hub = createAdminClient('compass')
+  if (!clpPatientId && report.patient_id) {
+    const { data: link } = await hub
+      .from('blood_patient_links')
+      .select('clp_patient_id')
+      .eq('blood_patient_id', report.patient_id)
+      .maybeSingle()
+    clpPatientId = link?.clp_patient_id ?? null
+  }
+
+  if (clpPatientId) {
+    const { data: hubPatient } = await hub.from('patients').select('full_name').eq('id', clpPatientId).maybeSingle()
     hubPatientName = hubPatient?.full_name ?? null
   }
 
-  return NextResponse.json({ report, patient, fileUrl, hubPatientName })
+  return NextResponse.json({ report, patient, fileUrl, hubPatientName, clpPatientId })
 }
