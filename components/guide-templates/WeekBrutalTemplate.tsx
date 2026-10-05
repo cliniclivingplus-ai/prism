@@ -2025,9 +2025,9 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
           {editable ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginTop: 20, marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.cream, opacity: 0.6, marginBottom: 4 }}>Phone</div>
+                <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.cream, opacity: 0.6, marginBottom: 4 }}>Coach phone</div>
                 <input value={reachInfo.phone} onChange={(e) => setReachInfo({ ...reachInfo, phone: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
-                  placeholder="Add a phone number" style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${PALETTE.cream}55`, borderRadius: 8, padding: '7px 10px', fontSize: '0.85rem', color: PALETTE.cream, boxSizing: 'border-box' }} />
+                  placeholder="Add coach phone number" style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${PALETTE.cream}55`, borderRadius: 8, padding: '7px 10px', fontSize: '0.85rem', color: PALETTE.cream, boxSizing: 'border-box' }} />
               </div>
               <div>
                 <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.cream, opacity: 0.6, marginBottom: 4 }}>Work hours</div>

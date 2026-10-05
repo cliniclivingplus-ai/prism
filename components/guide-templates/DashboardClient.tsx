@@ -4102,8 +4102,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 <div style={{ ...weekBoxLabel, marginBottom: 10 }}>Contact details</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
                   <div>
-                    <div style={editLabelStyle}>Phone</div>
-                    <input style={editInputStyle} value={reachInfo.phone} placeholder="Add a phone number"
+                    <div style={editLabelStyle}>Coach phone</div>
+                    <input style={editInputStyle} value={reachInfo.phone} placeholder="Add coach phone number"
                       onChange={(e) => setReachInfo({ ...reachInfo, phone: e.target.value })} />
                   </div>
                   <div>

@@ -2006,9 +2006,9 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
           {editable ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginTop: 16, marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.muted, marginBottom: 4 }}>Phone</div>
+                <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.muted, marginBottom: 4 }}>Coach phone</div>
                 <input value={reachInfo.phone} onChange={(e) => setReachInfo({ ...reachInfo, phone: e.target.value })} onBlur={() => saveReachInfo(reachInfo)}
-                  placeholder="Add a phone number" style={{ width: '100%', background: ONYX.card, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '6px 9px', fontSize: '0.83rem', color: ONYX.ink, boxSizing: 'border-box' }} />
+                  placeholder="Add coach phone number" style={{ width: '100%', background: ONYX.card, border: `1px solid ${ONYX.border}`, borderRadius: 2, padding: '6px 9px', fontSize: '0.83rem', color: ONYX.ink, boxSizing: 'border-box' }} />
               </div>
               <div>
                 <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: ONYX.muted, marginBottom: 4 }}>Work hours</div>
