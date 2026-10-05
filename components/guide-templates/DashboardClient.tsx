@@ -1386,7 +1386,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const [careServices, setCareServices] = useState(data.careServices || [])
   const [openCareService, setOpenCareService] = useState<number | null>(null)
   const [nextAppointment, setNextAppointment] = useState(data.nextAppointment || { date: '', time: '', mode: '' })
-  const [reachInfo, setReachInfo] = useState(data.reachInfo || { phone: '', hours: '', frontDesk: '' })
+  const [reachInfo, setReachInfo] = useState(data.reachInfo || { phone: '+91 72931 11120', hours: '9 AM - 8 PM', frontDesk: '+91 72931 11120' })
   const [careTeam, setCareTeam] = useState<{ name: string; role: string; intro: string; photo?: string; date: string; time: string; mode: string }[]>(data.careTeam || [])
   // Adding from the staff directory (the Coaches page, same source as the
   // primary "Coach" picker above) pre-fills name/role/intro/photo instead

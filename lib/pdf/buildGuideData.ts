@@ -144,7 +144,11 @@ export function buildGuideData(
       : confirmedSupplements,
     careServices: overrides.care_services ?? [],
     nextAppointment: overrides.next_appointment ?? { date: '', time: '', mode: '' },
-    reachInfo: overrides.reach_info ?? { phone: '', hours: '', frontDesk: '' },
+    reachInfo: {
+      phone: overrides.reach_info?.phone || '+91 72931 11120',
+      hours: overrides.reach_info?.hours || '9 AM - 8 PM',
+      frontDesk: overrides.reach_info?.frontDesk || '+91 72931 11120',
+    },
     careTeam: overrides.care_team ?? [],
     hiddenSections: overrides.hidden_sections ?? [],
     dailyMetrics: overrides.daily_metrics ?? {},
