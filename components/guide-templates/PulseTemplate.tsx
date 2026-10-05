@@ -2096,13 +2096,15 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
                 {data.nextAppointment.time && ` · ${new Date(`2000-01-01T${data.nextAppointment.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
                 {data.nextAppointment.mode && ` · ${data.nextAppointment.mode}`}
               </div>
-              <p style={{ color: PULSE.inkSoft, fontSize: '0.89rem', lineHeight: 1.6, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
-              <p style={{ color: PULSE.inkSoft, fontSize: '0.89rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
+              <p style={{ color: PULSE.inkSoft, fontSize: '0.89rem', lineHeight: 1.6, marginBottom: 4 }}>Have a question? Reach out to your health coach first (they will get back to you in 12–24 hours).</p>
+              <p style={{ color: PULSE.inkSoft, fontSize: '0.89rem', lineHeight: 1.6, marginBottom: 4 }}>If your health coach is not available or outside of work hours, contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''}.</p>
+              <p style={{ color: PULSE.inkSoft, fontSize: '0.89rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a nearby physician.</p>
             </div>
           ) : (
             <div style={{ marginTop: 16 }}>
-              <p style={{ color: PULSE.inkSoft, fontSize: '0.89rem', lineHeight: 1.6, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
-              <p style={{ color: PULSE.inkSoft, fontSize: '0.89rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
+              <p style={{ color: PULSE.inkSoft, fontSize: '0.89rem', lineHeight: 1.6, marginBottom: 4 }}>Have a question? Reach out to your health coach first (they will get back to you in 12–24 hours).</p>
+              <p style={{ color: PULSE.inkSoft, fontSize: '0.89rem', lineHeight: 1.6, marginBottom: 4 }}>If your health coach is not available or outside of work hours, contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''}.</p>
+              <p style={{ color: PULSE.inkSoft, fontSize: '0.89rem', lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a nearby physician.</p>
             </div>
           )}
           {data.coach?.email && (

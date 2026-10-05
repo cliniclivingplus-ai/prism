@@ -4159,13 +4159,15 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                   {nextAppointment.mode && ` · ${nextAppointment.mode}`}
                 </div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, textTransform: 'uppercase', marginBottom: 8 }}>Until your next appointment</div>
-                <p style={{ ...bulletStyle, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
-                <p style={{ ...bulletStyle, marginBottom: 0 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
+                <p style={{ ...bulletStyle, marginBottom: 4 }}>Have a question? Reach out to your health coach first (they will get back to you in 12–24 hours).</p>
+                <p style={{ ...bulletStyle, marginBottom: 4 }}>If your health coach is not available or outside of work hours, contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''}.</p>
+                <p style={{ ...bulletStyle, marginBottom: 0 }}><strong>Emergency?</strong> Consult a nearby physician.</p>
               </div>
             ) : (
               <div style={{ background: C.bg, border: `1px solid ${C.rule}`, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
-                <p style={{ ...bulletStyle, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
-                <p style={{ ...bulletStyle, marginBottom: 0 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
+                <p style={{ ...bulletStyle, marginBottom: 4 }}>Have a question? Reach out to your health coach first (they will get back to you in 12–24 hours).</p>
+                <p style={{ ...bulletStyle, marginBottom: 4 }}>If your health coach is not available or outside of work hours, contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''}.</p>
+                <p style={{ ...bulletStyle, marginBottom: 0 }}><strong>Emergency?</strong> Consult a nearby physician.</p>
               </div>
             )}
           </div>

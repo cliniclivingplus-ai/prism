@@ -839,12 +839,12 @@ function whenToReachPages(data: GuideData): ReactElement[] {
           <Text style={{ ...tableStyles.th, flex: 2.5 }}>WHAT TO DO</Text>
         </View>
         <View style={tableStyles.row}>
-          <Text style={{ ...tableStyles.td, flex: 1, fontFamily: font.bodyBold }}>Within a day</Text>
-          <Text style={{ ...tableStyles.td, flex: 2.5 }}>A question about a supplement, food, or your plan. Message {coachFirst} directly.</Text>
+          <Text style={{ ...tableStyles.td, flex: 1, fontFamily: font.bodyBold }}>Have a question?</Text>
+          <Text style={{ ...tableStyles.td, flex: 2.5 }}>Reach out to {coachFirst} first (they will get back to you in 12–24 hours). If not available or outside work hours, contact front desk.</Text>
         </View>
         <View style={tableStyles.row}>
-          <Text style={{ ...tableStyles.td, flex: 1, fontFamily: font.bodyBold }}>Next session</Text>
-          <Text style={{ ...tableStyles.td, flex: 2.5 }}>General progress, motivation, or &quot;how am I doing&quot;. Save it for your next call.</Text>
+          <Text style={{ ...tableStyles.td, flex: 1, fontFamily: font.bodyBold }}>Emergency?</Text>
+          <Text style={{ ...tableStyles.td, flex: 2.5 }}>Consult a nearby physician.</Text>
         </View>
       </View>
     </PageShell>,

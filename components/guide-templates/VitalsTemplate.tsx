@@ -1919,8 +1919,9 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
               {data.nextAppointment.mode && ` · ${data.nextAppointment.mode}`}
             </div>
           )}
-          <p style={{ fontSize: 13, color: V.inkSoft, lineHeight: 1.6, marginTop: 14, marginBottom: 4 }}>Have a question? Contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''} first.</p>
-          <p style={{ fontSize: 13, color: V.inkSoft, lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a physician nearby.</p>
+          <p style={{ fontSize: 13, color: V.inkSoft, lineHeight: 1.6, marginTop: 14, marginBottom: 4 }}>Have a question? Reach out to your health coach first (they will get back to you in 12–24 hours).</p>
+          <p style={{ fontSize: 13, color: V.inkSoft, lineHeight: 1.6, marginBottom: 4 }}>If your health coach is not available or outside of work hours, contact front desk{reachInfo.frontDesk ? ` at ${reachInfo.frontDesk}` : ''}.</p>
+          <p style={{ fontSize: 13, color: V.inkSoft, lineHeight: 1.6 }}><strong>Emergency?</strong> Consult a nearby physician.</p>
           {data.coach?.email && <p style={{ fontSize: 12.5, color: V.accent, marginTop: 8 }}>Message {coachFirst} directly at {data.coach.email}.</p>}
         </Card>
 
