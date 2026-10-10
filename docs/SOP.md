@@ -301,6 +301,28 @@ vercel rollback <deployment-url>  # repoint the aliases to it
 Rolling back code does **not** undo a database migration or any row the bad
 build wrote. Check data separately.
 
+### Bulk data imports
+
+Importing content (a recipe collection, a knowledge-base drop) writes straight
+to the live database, so it follows its own procedure. Worked example:
+`scripts/parse-sanjeev-recipes.mjs` then `scripts/import-parsed-recipes.mjs`.
+
+1. **Parse and import are separate scripts.** The parser only reads the source
+   file and writes JSON for review; it never touches the database.
+2. **Review the parsed output before writing.** Compare counts against what
+   the source itself claims, and read at least one complex record in full.
+3. **Prove nothing was lost.** Diff every content line of the source against
+   the parsed records, and account for each line reported missing.
+4. **The importer is idempotent and dry-run by default.** It skips records
+   that already exist and needs an explicit `--write` to insert.
+5. **Record what was inserted** (ids to a local file, git-ignored) so the
+   import can be undone precisely.
+6. **Never carry a patient's name into shared content.** A collection
+   prepared for one patient becomes available to every patient once it is in
+   a shared table; strip the identity, keep the clinical content.
+7. **Verify it reaches the places that consume it**, not just the table —
+   for recipes that means the roadmap matcher and the shopping list.
+
 ### Database migrations
 
 SQL files live in `supabase/` (`migration_v24` … `v43`). They are applied

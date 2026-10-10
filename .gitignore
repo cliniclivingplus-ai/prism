@@ -11,3 +11,7 @@ _ImageBank_TestBatch/
 staff_photos/
 groq_api_keys.txt
 supabase/.temp/
+
+# One-off data-import working files (see docs/SOP.md "Bulk data imports")
+.recipes_parsed.json
+.recipes_imported.json
