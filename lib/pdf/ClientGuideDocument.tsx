@@ -59,7 +59,8 @@ export type GuideData = {
   template: string // coach-picked page template for the patient-facing dashboard — 'classic' (default) or 'almanac'; editing always happens in the classic editor regardless of which one is picked
   createdAt: string // roadmap's real creation timestamp — the only anchor a week's Sunday-Saturday day tabs have to real calendar dates, since roadmaps don't store an explicit start date
   confirmedSupplements: { name: string; dose: string; timing: string; duration: string; notes: string }[] // from a patient_reports row a coach explicitly reviewed & confirmed — never shown pre-confirmation
-  careServices: { name: string; icon: string; sessions: string; description?: string; link?: string; linkLabel?: string }[] // "What's included in your care" tiles — coach-entered, empty by default rather than generic filler copy
+  careServices: { name: string; icon: string; sessions: string; description?: string; link?: string; linkLabel?: string }[]
+  saladBowl: { heading: string; items: string[] }[] // "Make your own salad bowl" chart — clinic standard, editable per patient // "What's included in your care" tiles — coach-entered, empty by default rather than generic filler copy
   nextAppointment: { date: string; time: string; mode: string } // shown in "When to reach us" — coach-entered, blank fields just don't render rather than showing a placeholder
   reachInfo: { phone: string; hours: string; frontDesk: string } // "When to reach us" contact details — coach-entered per roadmap, all blank by default rather than a fabricated clinic phone/hours
   careTeam: { name: string; role: string; intro: string; date: string; time: string; mode: string }[] // "Your care team" — other providers (doctor, therapist, naturopath, etc.) beyond the primary coach, each with their own intro + appointment. Empty by default.

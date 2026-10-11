@@ -42,6 +42,8 @@ import { toBlockTheme } from '@/lib/blocks/BlockRenderer'
 import { splitIntoPeriods, joinPeriods, parseScheduleLines } from '@/lib/periodBullets'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import InlineEditableText from '@/components/InlineEditableText'
+import SaladBowlSection from './SaladBowlSection'
+import type { SaladBowlGroup } from '@/lib/saladBowl'
 import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
 import CombineRecipesButton from '@/components/CombineRecipesButton'
 import { CareServiceLinkButton, CareServiceLinkFields, isVisibleCareService } from '@/components/CareServiceLink'
@@ -145,6 +147,7 @@ const TOC_ITEMS: { label: string; id: string }[] = [
   { label: 'Grocery list', id: 'grocery' },
   { label: 'Supplements', id: 'supplements' },
   { label: 'Services', id: 'services' },
+  { label: 'Salad bowl', id: 'saladbowl' },
   { label: 'Track your progress', id: 'track' },
   { label: 'When to reach us', id: 'reach' },
   { label: 'FAQ', id: 'faq' },
@@ -296,6 +299,13 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
   // Best-effort, fire-and-forget — same helper and tolerance as
   // WeekTemplate.tsx: local state below already reflects the edit
   // optimistically, so a failed PATCH is never worse than a missed autosave.
+  // The clinic's standard salad-bowl chart, editable for this patient.
+  const [saladBowl, setSaladBowl] = useState<SaladBowlGroup[]>(data.saladBowl)
+  function saveSaladBowl(next: SaladBowlGroup[]) {
+    setSaladBowl(next)
+    patchRoadmap({ guide_overrides: { salad_bowl: next } })
+  }
+
   function patchRoadmap(body: Record<string, unknown>) {
     if (!roadmapId) return
     fetch(`/api/compass/roadmaps/${roadmapId}`, {
@@ -2065,6 +2075,16 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
               </div>
             )
           })()}
+        </div>
+      </section>
+
+      {/* Make your own salad bowl — clinic standard chart, editable per patient */}
+      <section id="saladbowl" style={{ background: PALETTE.paper1, padding: '4rem 1.5rem', ...hiddenStyle('saladbowl') }}>
+        <div style={{ maxWidth: 720, margin: '0 auto' }}>
+          <Eyebrow>Build your own</Eyebrow>
+          <SecTitle icon={<Utensils size={26} />}>Make Your Own Salad Bowl</SecTitle>
+          <SaladBowlSection groups={saladBowl} editable={editable} onChange={saveSaladBowl}
+            theme={{ ink: PALETTE.ink, muted: PALETTE.dusk1, accent: PALETTE.berry, line: PALETTE.line, cardBg: 'rgba(255,255,255,0.45)' }} />
         </div>
       </section>
 

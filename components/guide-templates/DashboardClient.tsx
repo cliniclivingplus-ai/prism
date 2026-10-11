@@ -22,6 +22,8 @@ import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from '@/lib/periodBullets'
 import AiEditButton from '@/components/AiEditButton'
+import SaladBowlSection from './SaladBowlSection'
+import type { SaladBowlGroup } from '@/lib/saladBowl'
 import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
 import CombineRecipesButton from '@/components/CombineRecipesButton'
 import LinkInsertButton from '@/components/LinkInsertButton'
@@ -1478,6 +1480,13 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  // The clinic's standard salad-bowl chart, editable for this patient.
+  const [saladBowl, setSaladBowl] = useState<SaladBowlGroup[]>(data.saladBowl)
+  function saveSaladBowl(next: SaladBowlGroup[]) {
+    setSaladBowl(next)
+    patchRoadmap({ guide_overrides: { salad_bowl: next } })
+  }
 
   function patchRoadmap(body: Record<string, unknown>) {
     if (!roadmapId) return
@@ -4003,6 +4012,14 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Make your own salad bowl — clinic standard chart, editable per patient */}
+          <div id="saladbowl" {...hiddenAttrs('saladbowl')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('saladbowl') }}>
+            {editable && <SectionToggle hidden={isHidden('saladbowl')} onToggle={() => toggleSection('saladbowl')} />}
+            <div style={sectionTitleStyle}><Utensils size={18} color={C.accent} /> Make your own salad bowl</div>
+            <SaladBowlSection groups={saladBowl} editable={editable} onChange={saveSaladBowl}
+              theme={{ ink: C.ink, muted: C.muted, accent: C.accent, line: C.rule, cardBg: C.bg }} />
           </div>
 
           {/* Services — coach-entered tiles (icon + name + sessions), tap one

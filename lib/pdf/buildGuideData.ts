@@ -1,4 +1,5 @@
 import type { GuideData, Coach, DayMealSlot } from './ClientGuideDocument'
+import { resolveSaladBowl } from '../saladBowl'
 import type { GuideImage } from './matchGuideImage'
 import type { BankRecipe } from './matchRecipes'
 import type { ChecklistPageBlock } from '../blocks/types'
@@ -81,7 +82,7 @@ export type RoadmapRow = {
   kb_sources: GuideData['roadmap']['kb_sources'] | null
   weekly_schedule: GuideData['roadmap']['weekly_schedule'] | null
   duration_months: number
-  guide_overrides: { goal_label?: string; why_reflection?: string; coach_quote?: string; founder_note?: string; manual_recipes?: Partial<Record<DayMealSlot, string[]>>; weekly_manual_recipes?: Record<number, Partial<Record<DayMealSlot, string[]>>>; theme?: string; template?: string; care_services?: GuideData['careServices']; next_appointment?: GuideData['nextAppointment']; reach_info?: GuideData['reachInfo']; care_team?: GuideData['careTeam']; hidden_sections?: string[]; daily_metrics?: GuideData['dailyMetrics']; power_points?: GuideData['powerPoints']; canvas_blocks?: ChecklistPageBlock[]; daily_lifestyle_guidelines?: string; meal_guidelines?: string; daily_schedule?: string; daily_checklist_items?: ChecklistItem[]; grocery_list_override?: GroceryCategory[] | null; plate_composition?: PlateComposition; confirmed_supplements_override?: GuideData['confirmedSupplements'] | null; recipe_content_overrides?: GuideData['recipeContentOverrides'] } | null
+  guide_overrides: { goal_label?: string; why_reflection?: string; coach_quote?: string; founder_note?: string; manual_recipes?: Partial<Record<DayMealSlot, string[]>>; weekly_manual_recipes?: Record<number, Partial<Record<DayMealSlot, string[]>>>; theme?: string; template?: string; care_services?: GuideData['careServices']; salad_bowl?: GuideData['saladBowl']; next_appointment?: GuideData['nextAppointment']; reach_info?: GuideData['reachInfo']; care_team?: GuideData['careTeam']; hidden_sections?: string[]; daily_metrics?: GuideData['dailyMetrics']; power_points?: GuideData['powerPoints']; canvas_blocks?: ChecklistPageBlock[]; daily_lifestyle_guidelines?: string; meal_guidelines?: string; daily_schedule?: string; daily_checklist_items?: ChecklistItem[]; grocery_list_override?: GroceryCategory[] | null; plate_composition?: PlateComposition; confirmed_supplements_override?: GuideData['confirmedSupplements'] | null; recipe_content_overrides?: GuideData['recipeContentOverrides'] } | null
   patients: (Omit<GuideData['patient'], never> & { nutritionists: Coach | null }) | null
   sessions: { case_summary: { goal?: string; coach_quote?: string } | null } | null
 }
@@ -143,6 +144,9 @@ export function buildGuideData(
       ? overrides.confirmed_supplements_override
       : confirmedSupplements,
     careServices: overrides.care_services ?? [],
+    // Every roadmap gets the clinic's standard chart; a coach's edits for
+    // this patient replace it (see lib/saladBowl.ts).
+    saladBowl: resolveSaladBowl(overrides.salad_bowl),
     nextAppointment: overrides.next_appointment ?? { date: '', time: '', mode: '' },
     reachInfo: {
       phone: overrides.reach_info?.phone ?? '',

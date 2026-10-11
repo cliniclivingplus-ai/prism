@@ -39,6 +39,8 @@ import { toBlockTheme } from '@/lib/blocks/BlockRenderer'
 import { splitIntoPeriods, parseScheduleLines, joinPeriods } from '@/lib/periodBullets'
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import InlineEditableText from '@/components/InlineEditableText'
+import SaladBowlSection from './SaladBowlSection'
+import type { SaladBowlGroup } from '@/lib/saladBowl'
 import AiBulkRecipeEditButton from '@/components/AiBulkRecipeEditButton'
 import CombineRecipesButton from '@/components/CombineRecipesButton'
 
@@ -140,6 +142,7 @@ const TOC_ITEMS: { label: string; id: string }[] = [
   { label: 'Grocery list', id: 'grocery' },
   { label: 'Supplements', id: 'supplements' },
   { label: 'Services', id: 'services' },
+  { label: 'Salad bowl', id: 'saladbowl' },
   { label: 'Track your progress', id: 'track' },
   { label: 'When to reach us', id: 'reach' },
   { label: 'FAQ', id: 'faq' },
@@ -246,6 +249,13 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
 
   // Best-effort, fire-and-forget — local state below already reflects the
   // edit optimistically, matching WeekTemplate's own patchRoadmap helper.
+  // The clinic's standard salad-bowl chart, editable for this patient.
+  const [saladBowl, setSaladBowl] = useState<SaladBowlGroup[]>(data.saladBowl)
+  function saveSaladBowl(next: SaladBowlGroup[]) {
+    setSaladBowl(next)
+    patchRoadmap({ guide_overrides: { salad_bowl: next } })
+  }
+
   function patchRoadmap(body: Record<string, unknown>) {
     if (!roadmapId) return
     fetch(`/api/compass/roadmaps/${roadmapId}`, {
@@ -1901,6 +1911,14 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
             <div style={{ color: ONYX.muted, fontSize: '0.76rem', marginTop: 14 }}>Don&apos;t start, stop, or change a dose without confirming with {coachFirst} first.</div>
           </Card>
         )}
+
+        {/* Make your own salad bowl — clinic standard chart, editable per patient */}
+        <Card id="saladbowl" hidden={isHidden('saladbowl')}>
+          <Eyebrow>Build your own</Eyebrow>
+          <SecTitle icon={<Utensils size={18} />}>Make your own salad bowl</SecTitle>
+          <SaladBowlSection groups={saladBowl} editable={editable} onChange={saveSaladBowl}
+            theme={{ ink: ONYX.inkSoft, muted: ONYX.muted, accent: ONYX.accent, line: ONYX.border, cardBg: ONYX.bg }} />
+        </Card>
 
         {/* What's included in your care */}
         {(careServices.some(isVisibleCareService) || editable) && (
