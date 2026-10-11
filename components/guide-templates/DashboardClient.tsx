@@ -34,6 +34,7 @@ import { CareServiceLinkButton, CareServiceLinkFields, isVisibleCareService } fr
 import { useKeywordLinkBank } from '@/lib/hooks/useKeywordLinkBank'
 import { autoLinkText } from '@/lib/autoLinkKeywords'
 import { recipeMatchesQuery } from '@/lib/recipeSearch'
+import { RECIPE_CATEGORIES, recipeInCategory, categoriesOf, categoryLabel } from '@/lib/recipeCategories'
 import { INLINE_LINK_RE, linksIn, reattachLinks } from '@/lib/linkText'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
@@ -1374,6 +1375,9 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const [weeklyManualRecipes, setWeeklyManualRecipes] = useState<Record<number, Partial<Record<DayMealSlot, string[]>>>>(data.weeklyManualRecipes || {})
   const [editingWeek, setEditingWeek] = useState<number | null>(null)
   const [recipeSearch, setRecipeSearch] = useState<Partial<Record<DayMealSlot, string>>>({})
+  // Which collection each slot's list is narrowed to. 'all' keeps every
+  // recipe visible, which is the default.
+  const [recipeCategory, setRecipeCategory] = useState<Partial<Record<DayMealSlot, string>>>({})
   const [theme, setTheme] = useState(data.theme && PALETTES[data.theme] ? data.theme : 'classic')
   const WEEK_FAMILY_TEMPLATES = ['week', 'week-brutal', 'week-earth', 'week-editorial', 'week-neon', 'week-bloom', 'week-care', 'week-aurora']
   const [template, setTemplate] = useState(
@@ -3602,7 +3606,12 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       {DAY_MEAL_SLOTS.map((slot) => {
                         const allOptions = data.recipeBank
                         const query = (recipeSearch[slot] || '').trim().toLowerCase()
-                        const options = query ? allOptions.filter((r) => recipeMatchesQuery(r, query)) : allOptions
+                        const slotCategory = recipeCategory[slot] || 'all'
+                        const options = allOptions.filter(
+                          (r) =>
+                            (slotCategory === 'all' || recipeInCategory(r, slotCategory)) &&
+                            (!query || recipeMatchesQuery(r, query))
+                        )
                         const checkedIds = new Set(
                           curatedSlotIds(slot, selWeek).filter((id) => !recipeOverrides[id]?.hidden)
                         )
@@ -3610,16 +3619,36 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                           <div key={slot}>
                             <div style={editLabelStyle}>{SLOT_LABELS[slot]}</div>
                             {allOptions.length > 0 && (
-                              <input
-                                value={recipeSearch[slot] || ''}
-                                onChange={(e) => setRecipeSearch((prev) => ({ ...prev, [slot]: e.target.value }))}
-                                placeholder={`Search recipes…`}
-                                style={{ ...editInputStyle, marginBottom: 6, fontSize: 12.5 }}
-                              />
+                              <>
+                                <select
+                                  value={slotCategory}
+                                  onChange={(e) => setRecipeCategory((prev) => ({ ...prev, [slot]: e.target.value }))}
+                                  style={{ ...editInputStyle, marginBottom: 6, fontSize: 12.5 }}
+                                >
+                                  <option value="all">All collections ({allOptions.length})</option>
+                                  {RECIPE_CATEGORIES.map((c) => {
+                                    const count = allOptions.filter((r) => recipeInCategory(r, c.slug)).length
+                                    return count > 0 ? (
+                                      <option key={c.slug} value={c.slug}>{c.label} ({count})</option>
+                                    ) : null
+                                  })}
+                                </select>
+                                <input
+                                  value={recipeSearch[slot] || ''}
+                                  onChange={(e) => setRecipeSearch((prev) => ({ ...prev, [slot]: e.target.value }))}
+                                  placeholder={`Search recipes…`}
+                                  style={{ ...editInputStyle, marginBottom: 6, fontSize: 12.5 }}
+                                />
+                              </>
                             )}
                             <div style={{ maxHeight: 180, overflowY: 'auto', border: `1px solid ${C.rule}`, borderRadius: 8, padding: '4px 10px', background: C.paper }}>
                               {allOptions.length === 0 && <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>No recipes in the bank yet.</div>}
-                              {allOptions.length > 0 && options.length === 0 && <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>No matches for &quot;{recipeSearch[slot]}&quot;.</div>}
+                              {allOptions.length > 0 && options.length === 0 && (
+                                <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>
+                                  Nothing here{query ? ` for “${recipeSearch[slot]}”` : ''}
+                                  {slotCategory !== 'all' ? ` in ${categoryLabel(slotCategory)}` : ''}.
+                                </div>
+                              )}
                               {options.map((r) => (
                                 <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: 12.5, color: C.ink, cursor: 'pointer' }}>
                                   <input type="checkbox" checked={checkedIds.has(r.id)} onChange={(e) => {
@@ -3643,7 +3672,14 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                                       [r.id]: { ...prev[r.id], hidden: !isChecked }
                                     }))
                                   }} />
-                                  {r.name}
+                                  <span style={{ minWidth: 0 }}>
+                                    {r.name}
+                                    {categoriesOf(r).length > 0 && (
+                                      <span style={{ display: 'block', fontSize: 10.5, color: C.muted }}>
+                                        {categoriesOf(r).map(categoryLabel).join(' · ')}
+                                      </span>
+                                    )}
+                                  </span>
                                 </label>
                               ))}
                             </div>
