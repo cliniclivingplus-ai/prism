@@ -15,3 +15,8 @@ supabase/.temp/
 # One-off data-import working files (see docs/SOP.md "Bulk data imports")
 .recipes_parsed.json
 .recipes_imported.json
+
+.cookbooks_parsed.json
+.cookbooks_imported.json
+.cookbook-images.json
+.cookbook-images/

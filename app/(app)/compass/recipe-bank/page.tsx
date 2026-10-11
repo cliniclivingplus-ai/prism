@@ -18,6 +18,8 @@ type Recipe = {
   image_url: string | null; image_storage_path: string | null
 }
 
+import { RECIPE_CATEGORIES, recipeInCategory, categoriesOf, categoryLabel } from '@/lib/recipeCategories'
+
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert'] as const
 
 const inputStyle = {
@@ -28,6 +30,23 @@ const labelStyle = { fontSize: 11, fontWeight: 700, color: C.faint, textTransfor
 
 export default function RecipeBankPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([])
+  // Everything is visible by default; a category only narrows the view.
+  const [category, setCategory] = useState<string>('all')
+  const [search, setSearch] = useState('')
+
+  // The category narrows by collection; the box searches name, ingredients
+  // and tags, so "low fodmap" or "paneer" both work.
+  const visibleRecipes = recipes.filter((r) => {
+    if (category !== 'all' && !recipeInCategory(r, category)) return false
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    const flat = q.replace(/[^a-z0-9]/g, '')
+    return (
+      r.name.toLowerCase().includes(q) ||
+      (r.ingredients || '').toLowerCase().includes(q) ||
+      (r.tags || []).some((t) => t.toLowerCase().replace(/[^a-z0-9]/g, '').includes(flat))
+    )
+  })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [name, setName] = useState('')
@@ -343,6 +362,34 @@ export default function RecipeBankPage() {
         </div>
       </div>
 
+      {!loading && !loadError && recipes.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
+            {[{ slug: 'all', label: `All recipes (${recipes.length})` }, ...RECIPE_CATEGORIES.map((c) => ({
+              slug: c.slug,
+              label: `${c.label} (${recipes.filter((r) => recipeInCategory(r, c.slug)).length})`,
+            }))].map((c) => {
+              const active = category === c.slug
+              return (
+                <button key={c.slug} onClick={() => setCategory(c.slug)}
+                  style={{
+                    padding: '6px 13px', borderRadius: 999, cursor: 'pointer', fontSize: 12.5,
+                    fontWeight: active ? 700 : 500,
+                    border: `1px solid ${active ? C.green : C.line}`,
+                    background: active ? C.green : '#fff',
+                    color: active ? '#fff' : C.ink,
+                  }}>
+                  {c.label}
+                </button>
+              )
+            })}
+          </div>
+          <input value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search recipes by name, ingredient or tag…"
+            style={{ ...inputStyle, marginTop: 10, maxWidth: 420 }} />
+        </div>
+      )}
+
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.muted, fontSize: 13 }}>
           <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Loading recipes…
@@ -354,8 +401,13 @@ export default function RecipeBankPage() {
           <ChefHat size={16} /> No recipes yet — add one above to get started.
         </div>
       ) : (
+        visibleRecipes.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 13, padding: '12px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ChefHat size={16} /> No recipes match this filter. Pick “All recipes” to see everything.
+          </div>
+        ) : (
         MEAL_TYPES.map((mt) => {
-          const list = recipes.filter((r) => r.meal_type === mt)
+          const list = visibleRecipes.filter((r) => r.meal_type === mt)
           if (!list.length) return null
           return (
             <div key={mt} style={{ marginBottom: 20 }}>
@@ -462,6 +514,15 @@ export default function RecipeBankPage() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{r.name}{r.protein_label ? <span style={{ fontSize: 11.5, fontWeight: 600, color: C.green, marginLeft: 8 }}>{r.protein_label}</span> : null}</div>
+                        {categoriesOf(r).length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 4 }}>
+                            {categoriesOf(r).map((slug) => (
+                              <span key={slug} style={{ fontSize: 10.5, fontWeight: 600, color: C.greenDeep, background: '#eef5ec', border: `1px solid ${C.line}`, borderRadius: 999, padding: '1px 8px' }}>
+                                {categoryLabel(slug)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                           <button onClick={() => startEdit(r)}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
@@ -494,6 +555,7 @@ export default function RecipeBankPage() {
             </div>
           )
         })
+        )
       )}
     </div>
   )
