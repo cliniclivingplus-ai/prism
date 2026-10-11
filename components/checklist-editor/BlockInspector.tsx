@@ -5,6 +5,7 @@ import type { ChecklistPageBlock, BlockIconKey } from '@/lib/blocks/types'
 import type { RecipeLookup, ImageLookup } from '@/lib/blocks/BlockRenderer'
 import { IconPickerDropdown } from './IconPickerDropdown'
 import { ColorSwatchPicker } from './ColorSwatchPicker'
+import { splitPastedList, isMultiItemPaste } from '@/lib/pastedList'
 
 const C = {
   green: '#538A22', ink: '#1A2417', muted: '#6b7280', faint: '#8A9284', line: '#ECEBE3', card: '#FFFFFF', danger: '#B3261E',
@@ -13,6 +14,77 @@ const inputStyle: CSSProperties = { width: '100%', padding: '7px 9px', borderRad
 const labelStyle: CSSProperties = { display: 'block', fontSize: 10.5, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4, marginTop: 12 }
 const rowBtnStyle: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: C.danger, cursor: 'pointer', fontSize: 11, padding: 2 }
 const addBtnStyle: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, background: 'none', border: `1px dashed ${C.line}`, borderRadius: 7, padding: '6px 10px', color: C.green, cursor: 'pointer', fontSize: 12, fontWeight: 700 }
+
+// Checklist items, with pasting a whole list in one go. Ten points typed
+// elsewhere should arrive as ten items, not one — so a multi-line paste
+// into any row splits across rows, and the box below takes a whole list at
+// once. Pasting a single line still behaves normally.
+function ChecklistItems({ items, onChange }: { items: { text: string }[]; onChange: (items: { text: string }[]) => void }) {
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulk, setBulk] = useState('')
+  const parsed = splitPastedList(bulk)
+
+  function pasteInto(index: number, text: string) {
+    const lines = splitPastedList(text)
+    const next = [...items]
+    next.splice(index, 1, ...lines.map((t) => ({ text: t })))
+    onChange(next)
+  }
+
+  function addAll() {
+    if (parsed.length === 0) return
+    // An untouched empty row is a placeholder, not an item worth keeping.
+    const kept = items.filter((it) => it.text.trim())
+    onChange([...kept, ...parsed.map((t) => ({ text: t }))])
+    setBulk('')
+    setBulkOpen(false)
+  }
+
+  return (
+    <>
+      <div style={labelStyle}>Items</div>
+      {items.map((it, i) => (
+        <ListRow key={i} onRemove={() => onChange(items.filter((_, j) => j !== i))}>
+          <input
+            style={inputStyle}
+            value={it.text}
+            onChange={(e) => onChange(items.map((x, j) => (j === i ? { text: e.target.value } : x)))}
+            onPaste={(e) => {
+              const text = e.clipboardData.getData('text')
+              if (!isMultiItemPaste(text)) return
+              e.preventDefault()
+              pasteInto(i, text)
+            }}
+            placeholder="Item — or paste a whole list here"
+          />
+        </ListRow>
+      ))}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <button type="button" style={addBtnStyle} onClick={() => onChange([...items, { text: '' }])}>
+          <Plus size={13} /> Add item
+        </button>
+        <button type="button" style={addBtnStyle} onClick={() => setBulkOpen((v) => !v)}>
+          <Plus size={13} /> {bulkOpen ? 'Close paste box' : 'Paste a list'}
+        </button>
+      </div>
+      {bulkOpen && (
+        <div style={{ marginTop: 8 }}>
+          <textarea
+            autoFocus
+            value={bulk}
+            onChange={(e) => setBulk(e.target.value)}
+            rows={6}
+            placeholder={'Paste your list here — one point per line. Numbering and bullets are removed automatically.'}
+            style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
+          />
+          <button type="button" style={{ ...addBtnStyle, marginTop: 6, opacity: parsed.length ? 1 : 0.5 }} onClick={addAll} disabled={!parsed.length}>
+            <Plus size={13} /> Add {parsed.length || ''} item{parsed.length === 1 ? '' : 's'}
+          </button>
+        </div>
+      )}
+    </>
+  )
+}
 
 type Recipe = RecipeLookup
 type GuideImage = ImageLookup
@@ -86,13 +158,7 @@ function TypeSpecificEditor({ block, onChange, recipes, images, onImageUploaded 
       return (
         <>
           <Field label="Title" value={block.title ?? ''} onChange={(v) => onChange({ ...block, title: v || undefined })} />
-          <div style={labelStyle}>Items</div>
-          {block.items.map((it, i) => (
-            <ListRow key={i} onRemove={() => onChange({ ...block, items: block.items.filter((_, j) => j !== i) })}>
-              <input style={inputStyle} value={it.text} onChange={(e) => onChange({ ...block, items: block.items.map((x, j) => (j === i ? { text: e.target.value } : x)) })} />
-            </ListRow>
-          ))}
-          <button type="button" style={addBtnStyle} onClick={() => onChange({ ...block, items: [...block.items, { text: '' }] })}><Plus size={13} /> Add item</button>
+          <ChecklistItems items={block.items} onChange={(items) => onChange({ ...block, items })} />
         </>
       )
 
