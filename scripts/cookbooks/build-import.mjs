@@ -96,23 +96,26 @@ for (const book of BOOKS) {
   const sources = { divider: 0, contents: 0, name: 0, fixed: 0 }
   for (const recipe of parsed) {
     let meal = book.meal
+    let mealSource = book.meal ? 'fixed' : null
     if (meal) sources.fixed++
     if (!meal && dividers.length) {
       const applicable = dividers.filter((d) => d.page < recipe.page)
       if (applicable.length) {
         meal = applicable[applicable.length - 1].meal
+        mealSource = 'divider'
         sources.divider++
       }
     }
     if (!meal && contents.size) {
       meal = contents.get(key(recipe.name)) || null
-      if (meal) sources.contents++
+      if (meal) { mealSource = 'contents'; sources.contents++ }
     }
     if (!meal) {
       meal = mealFromName(recipe.name)
+      mealSource = 'name'
       sources.name++
     }
-    all.push({ ...recipe, meal_type: meal, category: book.category, source: book.file })
+    all.push({ ...recipe, meal_type: meal, mealSource, category: book.category, source: book.file })
   }
   report.push({ book: book.file, category: book.category, count: parsed.length, sources })
 }
@@ -133,6 +136,7 @@ for (const r of all) {
   merged.set(signature, {
     name: r.name,
     meal_type: r.meal_type,
+    mealSource: r.mealSource,
     ingredients: r.ingredients,
     steps: r.steps,
     servings: r.servings,

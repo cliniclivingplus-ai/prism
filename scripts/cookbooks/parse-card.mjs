@@ -77,9 +77,20 @@ export async function parseCardBook(buffer) {
     )
     if (!titleCandidates.length) continue
     const titleItem = titleCandidates.slice().sort((a, b) => b.h - a.h)[0]
-    const titleParts = titleCandidates
-      .filter((i) => Math.abs(i.y - titleItem.y) <= 2.5 && i.h >= titleItem.h - 1)
-      .sort((a, b) => a.x - b.x)
+    // A title can run to a second or third line ("Avocado and Red Cabbage
+    // Salad"). Take every consecutive line set in the same size as the
+    // biggest one — stopping at the first gap — or the name arrives cut off.
+    const titleLines = toLines(titleCandidates.filter((i) => i.h >= titleItem.h - 1))
+    const lineGap = titleItem.h * 2
+    const startAt = titleLines.findIndex((l) => Math.abs(l.y - titleItem.y) <= 2.5)
+    const titleRows = []
+    for (let k = startAt; k >= 0 && k < titleLines.length; k++) {
+      const row = titleLines[k]
+      const previous = titleRows[titleRows.length - 1]
+      if (previous && previous.y - row.y > lineGap) break
+      titleRows.push(row)
+    }
+    const titleParts = titleRows.map((r) => ({ str: r.text, x: r.x, y: r.y, h: r.h }))
 
     // "2 servings · 40 minutes" prints beside the title; the Prep/Cook/Serve
     // strip can sit anywhere, so it is matched on its own wording.
@@ -106,7 +117,10 @@ export async function parseCardBook(buffer) {
         .trim()
     )
     if (!title || title.length < 3) continue
-    const titleSet = new Set(titleParts)
+    const titleRowYs = titleRows.map((r) => r.y)
+    const titleSet = new Set(
+      titleCandidates.filter((i) => titleRowYs.some((y) => Math.abs(i.y - y) <= 2.5) && i.h >= titleItem.h - 1)
+    )
 
     // Columns first, lines second — grouping into lines before splitting
     // would fuse each ingredient onto the step printed beside it.
