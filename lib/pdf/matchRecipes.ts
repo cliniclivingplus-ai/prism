@@ -76,37 +76,43 @@ export function selectRecipesForPatient(
   const keywords = [...new Set([...concernKeywords, ...dietKeywords])]
   const lowFodmapPlan = planMentionsLowFodmap(opts.primaryConcern, opts.dietProtocol)
 
+  // Recipes are no longer typed by meal. The clinic organises the bank by
+  // collection (South Indian, Low FODMAP, PCOS…) and the coach decides at
+  // pick time what belongs at what time of day, so every slot draws from
+  // the whole bank. Scored once, then dealt out so no two slots suggest the
+  // same dish.
+  const scored = bank
+    .map((r) => {
+      const haystack = `${r.name} ${r.tags.join(' ')} ${r.ingredients}`.toLowerCase()
+      const matched = keywords.filter((k) => new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(haystack))
+      const fodmapFirst = lowFodmapPlan && isLowFodmapRecipe(r)
+      return { recipe: r, matched, fodmapFirst }
+    })
+    .sort((a, b) => Number(b.fodmapFirst) - Number(a.fodmapFirst) || b.matched.length - a.matched.length)
+
+  const relevant = scored.filter((s) => s.matched.length > 0 || s.fodmapFirst)
+  const pool = relevant.length > 0 ? relevant : scored
+
   const result = {} as Record<(typeof MEAL_TYPES)[number], RecipeMatch[]>
-  for (const meal of MEAL_TYPES) {
-    const scored = bank
-      .filter((r) => r.meal_type === meal)
-      .map((r) => {
-        const haystack = `${r.name} ${r.tags.join(' ')} ${r.ingredients}`.toLowerCase()
-        const matched = keywords.filter((k) => new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(haystack))
-        // Only set when the plan actually calls for low FODMAP; for every
-        // other patient these recipes compete on keywords like any other.
-        const fodmapFirst = lowFodmapPlan && isLowFodmapRecipe(r)
-        return { recipe: r, matched, fodmapFirst }
+  for (const meal of MEAL_TYPES) result[meal] = []
+  // Round-robin: the strongest matches spread across the slots rather than
+  // all landing in the first one.
+  let cursor = 0
+  for (let round = 0; round < perMealLimit; round++) {
+    for (const meal of MEAL_TYPES) {
+      const s = pool[cursor++]
+      if (!s) break
+      result[meal].push({
+        recipe: s.recipe,
+        why: s.fodmapFirst
+          ? 'Chosen for your plan because it is built to be low-FODMAP.'
+          : opts.primaryConcern && s.matched.some((k) => concernKeywords.includes(k))
+            ? `Chosen for your plan, it fits what your coach noted about "${s.matched.find((m) => concernKeywords.includes(m))}."`
+            : s.matched.length > 0
+              ? `Chosen for your plan, it matches your care team's diet notes on "${s.matched[0]}."`
+              : `Chosen for your plan by your care team.`,
       })
-      // Low-FODMAP first when the plan asks for it, then keyword relevance
-      // within each group.
-      .sort((a, b) => Number(b.fodmapFirst) - Number(a.fodmapFirst) || b.matched.length - a.matched.length)
-
-    // A low-FODMAP recipe earns its place on the tag alone; everything else
-    // still has to match something real in the patient's own notes.
-    const matchingScored = scored.filter((s) => s.matched.length > 0 || s.fodmapFirst)
-    const finalScored = matchingScored.length > 0 ? matchingScored : scored
-
-    result[meal] = finalScored.slice(0, perMealLimit).map((s) => ({
-      recipe: s.recipe,
-      why: s.fodmapFirst
-        ? 'Chosen for your plan because it is built to be low-FODMAP.'
-        : opts.primaryConcern && s.matched.some((k) => concernKeywords.includes(k))
-        ? `Chosen for your plan, it fits what your coach noted about "${s.matched.find((m) => concernKeywords.includes(m))}."`
-        : s.matched.length > 0
-          ? `Chosen for your plan, it matches your care team's diet notes on "${s.matched[0]}."`
-          : `Chosen for your plan by your care team.`,
-    }))
+    }
   }
   return result
 }

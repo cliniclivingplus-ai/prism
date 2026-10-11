@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Wand2, Loader2, Search, ChefHat, Image as ImageIcon, LayoutList, Sparkles } from 'lucide-react'
 import { recipeMatchesQuery } from '@/lib/recipeSearch'
+import { categoriesOf, categoryLabel } from '@/lib/recipeCategories'
 
 const C = {
   green: '#538A22', greenDeep: '#2F5214', greenSoft: '#F2F9EC', greenBorder: '#C8E9A8',
@@ -9,7 +10,7 @@ const C = {
   danger: '#B3261E',
 }
 
-type Recipe = { id: string; name: string; meal_type: string; image_url?: string | null }
+type Recipe = { id: string; name: string; meal_type: string; tags?: string[] | null; image_url?: string | null }
 type GuideImage = { id: string; label: string; image_url: string }
 
 // A one-off, single-consultation page: coach describes the condition/goal
@@ -122,7 +123,7 @@ export default function ChecklistCreateForm({ patientId, sessionId, onCreated }:
               <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 4px', fontSize: 12.5, cursor: 'pointer' }}>
                 <input type="checkbox" checked={selectedRecipeIds.has(r.id)} onChange={() => toggle(selectedRecipeIds, setSelectedRecipeIds, r.id)} />
                 <span>{r.name}</span>
-                <span style={{ fontSize: 10.5, color: C.faint, textTransform: 'capitalize' }}>{r.meal_type}</span>
+                <span style={{ fontSize: 10.5, color: C.faint }}>{categoriesOf(r).map(categoryLabel).join(' · ')}</span>
               </label>
             ))}
           </div>

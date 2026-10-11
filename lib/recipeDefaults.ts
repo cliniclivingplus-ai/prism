@@ -26,16 +26,12 @@ export function fillRecipeDefaults(recipe: RecipeFields, override?: Partial<Reci
   const fullText = `${recipe.name} ${ingredientsStr} ${stepsStr}`.toLowerCase()
 
   // 1. Eat time
-  let eatTime = override?.eat_time ?? recipe.eat_time ?? ''
-  if (!eatTime.trim()) {
-    const mt = (override?.meal_type ?? recipe.meal_type ?? '').toLowerCase()
-    if (mt === 'breakfast') eatTime = '~8:00 AM'
-    else if (mt === 'lunch') eatTime = '~1:00 PM'
-    else if (mt === 'dinner') eatTime = '~7:30 PM'
-    else if (mt === 'snack') eatTime = '~4:00 PM'
-    else if (mt === 'dessert') eatTime = '~8:30 PM'
-    else eatTime = '~1:00 PM'
-  }
+  // No time is invented any more. Recipes are organised by collection, not
+  // by meal, and the coach decides what to serve when by the slot they pick
+  // it into — so a time derived from the recipe would have been a guess
+  // dressed as a fact, and every recipe would have claimed "~1:00 PM".
+  // A coach's own eat_time is still shown; otherwise the card omits it.
+  const eatTime = override?.eat_time ?? recipe.eat_time ?? ''
 
   // 2. Prep time
   let prepTime = override?.prep_time ?? recipe.prep_time ?? ''

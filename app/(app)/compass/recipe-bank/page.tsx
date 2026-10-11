@@ -20,7 +20,12 @@ type Recipe = {
 
 import { RECIPE_CATEGORIES, recipeInCategory, categoriesOf, categoryLabel } from '@/lib/recipeCategories'
 
-const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert'] as const
+// recipe_bank.meal_type is NOT NULL in the database, but the clinic no
+// longer sorts recipes by meal — collections do that, and the coach chooses
+// the time of day when picking a recipe into a week. New recipes get this
+// placeholder, and nothing reads it: the matcher offers every recipe for
+// every slot (see lib/pdf/matchRecipes.ts).
+const UNSORTED_MEAL_TYPE = 'lunch'
 
 const inputStyle = {
   width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.line}`,
@@ -50,7 +55,9 @@ export default function RecipeBankPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [name, setName] = useState('')
-  const [mealType, setMealType] = useState<typeof MEAL_TYPES[number]>('breakfast')
+  // Recipes are organised by collection, not by meal: a coach decides what
+  // to serve when at the moment they pick it into a week.
+  const [newCategories, setNewCategories] = useState<string[]>([])
   const [proteinLabel, setProteinLabel] = useState('')
   const [ingredients, setIngredients] = useState('')
   const [steps, setSteps] = useState('')
@@ -119,7 +126,8 @@ export default function RecipeBankPage() {
       const r = await fetch('/api/compass/recipe-bank', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(), meal_type: mealType, protein_label: proteinLabel.trim(), ingredients: ingredients.trim(), steps: steps.trim(), tags: tags.trim(),
+          name: name.trim(), meal_type: UNSORTED_MEAL_TYPE, protein_label: proteinLabel.trim(), ingredients: ingredients.trim(), steps: steps.trim(),
+          tags: [...newCategories, ...tags.split(',').map((t) => t.trim()).filter(Boolean)].join(', '),
           eat_time: eatTime.trim(), prep_time: prepTime.trim(), cook_time: cookTime.trim(), difficulty: difficulty.trim(), health_score: healthScore.trim(),
           tools: tools.trim(), notes: notes.trim(), servings: servings.trim(), benefits: benefits.trim(),
           image_url, image_storage_path,
@@ -267,10 +275,25 @@ export default function RecipeBankPage() {
             <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="Sprouts Moringa Cheela + Vegetable Korma" />
           </div>
           <div>
-            <label style={labelStyle}>Meal</label>
-            <select style={inputStyle} value={mealType} onChange={(e) => setMealType(e.target.value as typeof mealType)}>
-              {MEAL_TYPES.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+            <label style={labelStyle}>Collections</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '4px 0' }}>
+              {RECIPE_CATEGORIES.map((c) => {
+                const on = newCategories.includes(c.slug)
+                return (
+                  <button key={c.slug} type="button"
+                    onClick={() => setNewCategories((prev) => (on ? prev.filter((x) => x !== c.slug) : [...prev, c.slug]))}
+                    style={{
+                      padding: '4px 10px', borderRadius: 999, cursor: 'pointer', fontSize: 11.5,
+                      fontWeight: on ? 700 : 500,
+                      border: `1px solid ${on ? C.green : C.line}`,
+                      background: on ? C.green : '#fff',
+                      color: on ? '#fff' : C.ink,
+                    }}>
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
           <div>
             <label style={labelStyle}>Protein (optional)</label>
@@ -406,12 +429,13 @@ export default function RecipeBankPage() {
             <ChefHat size={16} /> No recipes match this filter. Pick “All recipes” to see everything.
           </div>
         ) : (
-        MEAL_TYPES.map((mt) => {
-          const list = visibleRecipes.filter((r) => r.meal_type === mt)
-          if (!list.length) return null
+        (() => {
+          const list = visibleRecipes
           return (
-            <div key={mt} style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.greenDeep, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>{mt}</div>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.greenDeep, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+                {list.length} recipe{list.length === 1 ? '' : 's'}
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {list.map((r) => {
                   if (editingId === r.id && editDraft) {
@@ -419,9 +443,28 @@ export default function RecipeBankPage() {
                       <div key={r.id} style={{ background: C.card, border: `1px solid ${C.green}`, borderRadius: 12, padding: '14px 16px' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
                           <input style={inputStyle} value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} placeholder="Name" />
-                          <select style={inputStyle} value={editDraft.meal_type} onChange={(e) => setEditDraft({ ...editDraft, meal_type: e.target.value })}>
-                            {MEAL_TYPES.map((m) => <option key={m} value={m}>{m}</option>)}
-                          </select>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                            {RECIPE_CATEGORIES.map((c) => {
+                              const current = editDraft.tags.split(',').map((t) => t.trim()).filter(Boolean)
+                              const on = current.includes(c.slug)
+                              return (
+                                <button key={c.slug} type="button"
+                                  onClick={() => setEditDraft({
+                                    ...editDraft,
+                                    tags: (on ? current.filter((x) => x !== c.slug) : [...current, c.slug]).join(', '),
+                                  })}
+                                  style={{
+                                    padding: '3px 9px', borderRadius: 999, cursor: 'pointer', fontSize: 11,
+                                    fontWeight: on ? 700 : 500,
+                                    border: `1px solid ${on ? C.green : C.line}`,
+                                    background: on ? C.green : '#fff',
+                                    color: on ? '#fff' : C.ink,
+                                  }}>
+                                  {c.label}
+                                </button>
+                              )
+                            })}
+                          </div>
                           <input style={inputStyle} value={editDraft.protein_label} onChange={(e) => setEditDraft({ ...editDraft, protein_label: e.target.value })} placeholder="Protein (optional)" />
                         </div>
                         <div style={{ marginBottom: 10 }}>
@@ -554,7 +597,7 @@ export default function RecipeBankPage() {
               </div>
             </div>
           )
-        })
+        })()
         )
       )}
     </div>
