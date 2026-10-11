@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { Wand2, Loader2, Search, ChefHat, Image as ImageIcon, LayoutList, Sparkles } from 'lucide-react'
+import { recipeMatchesQuery } from '@/lib/recipeSearch'
 
 const C = {
   green: '#538A22', greenDeep: '#2F5214', greenSoft: '#F2F9EC', greenBorder: '#C8E9A8',
@@ -34,7 +35,7 @@ export default function ChecklistCreateForm({ patientId, sessionId, onCreated }:
 
   const filteredRecipes = useMemo(() => {
     const q = recipeSearch.trim().toLowerCase()
-    return q ? recipes.filter((r) => r.name.toLowerCase().includes(q)) : recipes
+    return q ? recipes.filter((r) => recipeMatchesQuery(r, q)) : recipes
   }, [recipes, recipeSearch])
   const filteredImages = useMemo(() => {
     const q = imageSearch.trim().toLowerCase()

@@ -46,6 +46,24 @@ function extractKeywords(text: string): string[] {
   )]
 }
 
+// A plan that says "low FODMAP" anywhere must be offered the recipes the
+// clinic curated for exactly that. Keyword scoring alone could not deliver
+// it: "low" is dropped as too short, so "fodmap" counted for a single point
+// and a recipe matching three incidental words outranked one that genuinely
+// is low-FODMAP.
+const LOW_FODMAP_MENTION = /fodmap/i
+
+export function planMentionsLowFodmap(primaryConcern: string, dietProtocol: string[]): boolean {
+  return LOW_FODMAP_MENTION.test([primaryConcern, ...dietProtocol].join(' '))
+}
+
+// Tag-driven on purpose: a recipe counts as low-FODMAP because a coach
+// tagged it so, never because the word turned up somewhere in its text.
+// Both spellings already in the bank ("low-fodmap", "lowfodmap") qualify.
+export function isLowFodmapRecipe(recipe: Pick<BankRecipe, 'tags'>): boolean {
+  return (recipe.tags || []).some((t) => t.toLowerCase().replace(/[^a-z]/g, '').includes('fodmap'))
+}
+
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert'] as const
 
 export function selectRecipesForPatient(
@@ -56,6 +74,7 @@ export function selectRecipesForPatient(
   const concernKeywords = extractKeywords(opts.primaryConcern)
   const dietKeywords = opts.dietProtocol.flatMap(extractKeywords)
   const keywords = [...new Set([...concernKeywords, ...dietKeywords])]
+  const lowFodmapPlan = planMentionsLowFodmap(opts.primaryConcern, opts.dietProtocol)
 
   const result = {} as Record<(typeof MEAL_TYPES)[number], RecipeMatch[]>
   for (const meal of MEAL_TYPES) {
@@ -64,16 +83,25 @@ export function selectRecipesForPatient(
       .map((r) => {
         const haystack = `${r.name} ${r.tags.join(' ')} ${r.ingredients}`.toLowerCase()
         const matched = keywords.filter((k) => new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(haystack))
-        return { recipe: r, matched }
+        // Only set when the plan actually calls for low FODMAP; for every
+        // other patient these recipes compete on keywords like any other.
+        const fodmapFirst = lowFodmapPlan && isLowFodmapRecipe(r)
+        return { recipe: r, matched, fodmapFirst }
       })
-      .sort((a, b) => b.matched.length - a.matched.length)
+      // Low-FODMAP first when the plan asks for it, then keyword relevance
+      // within each group.
+      .sort((a, b) => Number(b.fodmapFirst) - Number(a.fodmapFirst) || b.matched.length - a.matched.length)
 
-    const matchingScored = scored.filter((s) => s.matched.length > 0)
+    // A low-FODMAP recipe earns its place on the tag alone; everything else
+    // still has to match something real in the patient's own notes.
+    const matchingScored = scored.filter((s) => s.matched.length > 0 || s.fodmapFirst)
     const finalScored = matchingScored.length > 0 ? matchingScored : scored
 
     result[meal] = finalScored.slice(0, perMealLimit).map((s) => ({
       recipe: s.recipe,
-      why: opts.primaryConcern && s.matched.some((k) => concernKeywords.includes(k))
+      why: s.fodmapFirst
+        ? 'Chosen for your plan because it is built to be low-FODMAP.'
+        : opts.primaryConcern && s.matched.some((k) => concernKeywords.includes(k))
         ? `Chosen for your plan, it fits what your coach noted about "${s.matched.find((m) => concernKeywords.includes(m))}."`
         : s.matched.length > 0
           ? `Chosen for your plan, it matches your care team's diet notes on "${s.matched[0]}."`

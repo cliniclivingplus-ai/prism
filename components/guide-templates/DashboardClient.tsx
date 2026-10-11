@@ -33,6 +33,7 @@ import TemplateSelectorModal from '@/components/TemplateSelectorModal'
 import { CareServiceLinkButton, CareServiceLinkFields, isVisibleCareService } from '@/components/CareServiceLink'
 import { useKeywordLinkBank } from '@/lib/hooks/useKeywordLinkBank'
 import { autoLinkText } from '@/lib/autoLinkKeywords'
+import { recipeMatchesQuery } from '@/lib/recipeSearch'
 import { INLINE_LINK_RE, linksIn, reattachLinks } from '@/lib/linkText'
 
 const LIFESTYLE_PERIODS = ['Morning', 'Afternoon', 'Evening']
@@ -3601,7 +3602,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       {DAY_MEAL_SLOTS.map((slot) => {
                         const allOptions = data.recipeBank
                         const query = (recipeSearch[slot] || '').trim().toLowerCase()
-                        const options = query ? allOptions.filter((r) => r.name.toLowerCase().includes(query)) : allOptions
+                        const options = query ? allOptions.filter((r) => recipeMatchesQuery(r, query)) : allOptions
                         const checkedIds = new Set(
                           curatedSlotIds(slot, selWeek).filter((id) => !recipeOverrides[id]?.hidden)
                         )

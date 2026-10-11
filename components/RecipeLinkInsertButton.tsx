@@ -1,10 +1,13 @@
 'use client'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ChefHat, X } from 'lucide-react'
+import { recipeMatchesQuery } from '@/lib/recipeSearch'
 
 const C = { accent: '#2563EB', accentSoft: '#EFF4FF', line: '#ECEBE3', muted: '#8A9284', ink: '#1A2417' }
 
-type BankRecipeLite = { id: string; name: string }
+// tags: searched as well as the name, so "low fodmap" finds the recipes
+// tagged for it (see lib/recipeSearch.ts).
+type BankRecipeLite = { id: string; name: string; tags?: string[] | null }
 
 // Sibling to LinkInsertButton, for the one case a coach can't just paste a
 // URL for: linking a lifestyle line ("Okra water in the morning") to one of
@@ -58,7 +61,7 @@ export default function RecipeLinkInsertButton({ getTextarea, value, onChange, r
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const list = q ? recipeBank.filter((r) => r.name.toLowerCase().includes(q)) : recipeBank
+    const list = q ? recipeBank.filter((r) => recipeMatchesQuery(r, q)) : recipeBank
     return list.slice(0, 40)
   }, [query, recipeBank])
 
