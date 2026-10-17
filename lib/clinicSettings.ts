@@ -16,6 +16,7 @@ export const FOUNDER_NOTE_TOKENS = ['{first_name}', '{goal}'] as const
 
 // The clinic's standard welcome note. Used until a coach saves their own.
 export const DEFAULT_FOUNDER_NOTE_TEMPLATE = [
+  `🔴🔴🔴`,
   `{first_name}, wishing you Most and More.`,
   `This plan wasn't pulled from a template. It was built around your life: your mornings, your meals, your cravings, your goals.`,
   `From today, picture us lining the route of your race. Every balanced plate, every glass of water, every craving you outsmart, we're cheering. Quietly, constantly, even on the days you can't hear us. And when a day goes sideways, we're right there saying, "Keep going. You've got this."`,
@@ -53,14 +54,21 @@ export function renderFounderNote(template: string, firstName: string, goalLabel
     out = out.replace(/\{first_name\}/g, name)
   } else {
     // No name on the record: drop the greeting rather than address the
-    // patient as "Hello" or leave a stray comma, then restore the capital
-    // the name was carrying.
+    // patient as "Hello" or leave a stray comma, and restore the capital
+    // the name was carrying — on the paragraph the name was in, which is
+    // not always the first one (the note may open with a flourish above it).
     out = out
-      .replace(/\{first_name\}\s*,\s*/g, '')
-      .replace(/\{first_name\}/g, '')
-      .replace(/^\s*,\s*/, '')
-      .trim()
-    out = out.charAt(0).toUpperCase() + out.slice(1)
+      .split('\n\n')
+      .map((para) => {
+        if (!para.includes('{first_name}')) return para
+        const stripped = para
+          .replace(/\{first_name\}\s*,\s*/g, '')
+          .replace(/\{first_name\}/g, '')
+          .replace(/^\s*,\s*/, '')
+          .trim()
+        return stripped.charAt(0).toUpperCase() + stripped.slice(1)
+      })
+      .join('\n\n')
   }
   return out.trim()
 }
