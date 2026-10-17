@@ -5,4 +5,4 @@
 // 13 template files.
 export const FOUNDER_PHOTO_URL = 'https://jtidesyasvaiztbxkcgz.supabase.co/storage/v1/object/public/coach-photos/founder-roshni-sanghvi-1792236853937.jpg'
 
-export const FOUNDER_INTRO = 'Registered holistic nutritionist specializing in disease reversal and gut health, with 12,000+ client transformations.'
+export const FOUNDER_INTRO = 'Functional Medicine and integrative health coach'
