@@ -21,7 +21,12 @@ export const DEFAULT_FOUNDER_NOTE_TEMPLATE = [
   `Wishing you Most and More`,
   `This plan wasn't pulled from a template. It was built around your life: your mornings, your meals, your cravings, your goals.`,
   `From today, picture us lining the route of your race. Every balanced plate, every glass of water, every craving you outsmart, we're cheering. Quietly, constantly, even on the days you can't hear us. And when a day goes sideways, we're right there saying, "Keep going. You've got this."`,
-  `Now picture the finish line: {goal}. We can already see you there.`,
+  // Deliberately the clinic's own wording rather than {goal}: that field
+  // holds the patient's presenting problem ("Functional dyspepsia with
+  // upper abdominal bloating..."), so splicing it in here told patients to
+  // picture their symptoms as the finish line. A coach who wants the goal
+  // in their own note can still use the {goal} placeholder.
+  `Now picture the finish line: feeling energised, your fittest self, enjoying meals without cravings or bloating. We can already see you there.`,
   `And when you cross it? We'll be waiting with confetti in hand, ready to celebrate the new you. 🎉`,
   `A question, a wobble, or a win to share? Message us anytime. We're one tap away.`,
   `Let's go! 💛`,
