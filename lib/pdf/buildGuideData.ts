@@ -60,11 +60,20 @@ function defaultWhyReflection(goalLabel: string): string {
 // verbatim (same "override wins, else compute a real default" pattern as
 // whyReflection/coachQuote above), not a template with placeholders to fill.
 function defaultFounderNote(firstName: string, goalLabel: string): string {
+  // The finish line is this patient's own goal when we know it — that is the
+  // one line in the clinic's welcome note that is about them specifically.
+  const finishLine = goalLabel.trim()
+    ? asPhrase(goalLabel.toLowerCase())
+    : 'feeling energised, your fittest self, enjoying meals without cravings or bloating'
   return [
-    `${firstName},`,
-    `This plan wasn't templated, a coach spent real time on your actual life before a single recommendation in here was chosen.`,
-    `We'll be watching for every small win on the way to ${asPhrase(goalLabel.toLowerCase())}. That's not a formality here, it's the whole point of this place.`,
-    `Come find us when something in here surprises you, or doesn't sit right. We'd love to hear it.`,
+    `${firstName}, welcome to day one of something big. 🌱`,
+    `This plan wasn't pulled from a template. It was built around your life: your mornings, your meals, your cravings, your goals.`,
+    `From today, picture us lining the route of your race. Every balanced plate, every glass of water, every craving you outsmart, we're cheering. Quietly, constantly, even on the days you can't hear us. And when a day goes sideways, we're right there saying, "Keep going. You've got this."`,
+    `Now picture the finish line: ${finishLine}. We can already see you there.`,
+    `And when you cross it? We'll be waiting with confetti in hand, ready to celebrate the new you. 🎉`,
+    `A question, a wobble, or a win to share? Message us anytime. We're one tap away.`,
+    `Let's go! 💛`,
+    `Roshni & the Living Plus team.`,
   ].join('\n\n')
 }
 
