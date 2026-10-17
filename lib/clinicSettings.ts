@@ -16,8 +16,9 @@ export const FOUNDER_NOTE_TOKENS = ['{first_name}', '{goal}'] as const
 
 // The clinic's standard welcome note. Used until a coach saves their own.
 export const DEFAULT_FOUNDER_NOTE_TEMPLATE = [
+  `{first_name},`,
   `🔴🔴🔴`,
-  `{first_name}, wishing you Most and More.`,
+  `Wishing you Most and More`,
   `This plan wasn't pulled from a template. It was built around your life: your mornings, your meals, your cravings, your goals.`,
   `From today, picture us lining the route of your race. Every balanced plate, every glass of water, every craving you outsmart, we're cheering. Quietly, constantly, even on the days you can't hear us. And when a day goes sideways, we're right there saying, "Keep going. You've got this."`,
   `Now picture the finish line: {goal}. We can already see you there.`,
@@ -68,6 +69,9 @@ export function renderFounderNote(template: string, firstName: string, goalLabel
           .trim()
         return stripped.charAt(0).toUpperCase() + stripped.slice(1)
       })
+      // A paragraph that was only the greeting is now empty — drop it
+      // rather than open the note with a blank line.
+      .filter((para) => para.trim())
       .join('\n\n')
   }
   return out.trim()
