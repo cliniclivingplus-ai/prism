@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { supabaseAdmin } from '@/lib/supabase'
+import { readFounderNoteTemplate } from '@/lib/clinicSettings'
 import { buildGuideData, type RoadmapRow } from '@/lib/pdf/buildGuideData'
 import DashboardClient from '@/components/guide-templates/DashboardClient'
 import AlmanacTemplate from '@/components/guide-templates/AlmanacTemplate'
@@ -67,7 +68,8 @@ export default async function RoadmapVersionPage({ params }: { params: Promise<{
     patients: roadmap.patients as any,
     sessions: session,
   }
-  const guideData = buildGuideData(roadmapRow, imageBank ?? [], recipes ?? [])
+  const founderNoteTemplate = await readFounderNoteTemplate()
+  const guideData = buildGuideData(roadmapRow, imageBank ?? [], recipes ?? [], [], founderNoteTemplate)
   const sentinelRoadmapId = `${ARCHIVE_SENTINEL_PREFIX}${versionId}`
 
   const banner = (

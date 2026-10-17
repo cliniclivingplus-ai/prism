@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { supabaseAdmin } from '@/lib/supabase'
+import { readFounderNoteTemplate } from '@/lib/clinicSettings'
 import { buildGuideData } from '@/lib/pdf/buildGuideData'
 import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplements'
 import WeekTemplate from '@/components/guide-templates/WeekTemplate'
@@ -80,7 +81,8 @@ export default async function LiveEditPage({ params }: { params: Promise<{ id: s
   if (error || !roadmap) notFound()
 
   const confirmedSupplements = await resolveConfirmedSupplements(roadmap.patient_id)
-  const guideData = buildGuideData(roadmap, imageBank ?? [], recipeBank ?? [], confirmedSupplements)
+  const founderNoteTemplate = await readFounderNoteTemplate()
+  const guideData = buildGuideData(roadmap, imageBank ?? [], recipeBank ?? [], confirmedSupplements, founderNoteTemplate)
 
   const { data: checkins } = await supabaseAdmin
     .from('roadmap_checkins')

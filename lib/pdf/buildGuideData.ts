@@ -1,5 +1,6 @@
 import type { GuideData, Coach, DayMealSlot } from './ClientGuideDocument'
 import { resolveSaladBowl } from '../saladBowl'
+import { DEFAULT_FOUNDER_NOTE_TEMPLATE, renderFounderNote } from '../clinicSettings'
 import type { GuideImage } from './matchGuideImage'
 import type { BankRecipe } from './matchRecipes'
 import type { ChecklistPageBlock } from '../blocks/types'
@@ -55,28 +56,6 @@ function defaultWhyReflection(goalLabel: string): string {
   return `This plan works if you work it — small, steady changes, not perfection. Stick with it, and here's what you're working toward: ${asSentence(goalLabel)}`
 }
 
-// The founder's note personalizes itself with the patient's name and goal
-// until a coach actually edits it — once edited, it's the coach's own text
-// verbatim (same "override wins, else compute a real default" pattern as
-// whyReflection/coachQuote above), not a template with placeholders to fill.
-function defaultFounderNote(firstName: string, goalLabel: string): string {
-  // The finish line is this patient's own goal when we know it — that is the
-  // one line in the clinic's welcome note that is about them specifically.
-  const finishLine = goalLabel.trim()
-    ? asPhrase(goalLabel.toLowerCase())
-    : 'feeling energised, your fittest self, enjoying meals without cravings or bloating'
-  return [
-    `${firstName}, welcome to day one of something big. 🌱`,
-    `This plan wasn't pulled from a template. It was built around your life: your mornings, your meals, your cravings, your goals.`,
-    `From today, picture us lining the route of your race. Every balanced plate, every glass of water, every craving you outsmart, we're cheering. Quietly, constantly, even on the days you can't hear us. And when a day goes sideways, we're right there saying, "Keep going. You've got this."`,
-    `Now picture the finish line: ${finishLine}. We can already see you there.`,
-    `And when you cross it? We'll be waiting with confetti in hand, ready to celebrate the new you. 🎉`,
-    `A question, a wobble, or a win to share? Message us anytime. We're one tap away.`,
-    `Let's go! 💛`,
-    `Roshni & the Living Plus team.`,
-  ].join('\n\n')
-}
-
 // Shared by the editable preview page and the PDF download route, so both
 // always resolve the same content the same way (WYSIWYG) — guide_overrides
 // wins over the derived defaults when a coach has explicitly edited a field.
@@ -100,7 +79,11 @@ export function buildGuideData(
   roadmap: RoadmapRow,
   imageBank: GuideImage[] = [],
   recipeBank: BankRecipe[] = [],
-  confirmedSupplements: GuideData['confirmedSupplements'] = []
+  confirmedSupplements: GuideData['confirmedSupplements'] = [],
+  // The clinic's own founder's note, as edited in Compass -> Founder's note.
+  // Omitted by callers that have not loaded it; the built-in copy is used
+  // then, so a patient page never depends on the setting being present.
+  founderNoteTemplate: string = DEFAULT_FOUNDER_NOTE_TEMPLATE
 ): GuideData {
   const overrides = roadmap.guide_overrides ?? {}
   // Priority: coach's manual edit > the AI's motivating one-liner from the
@@ -136,7 +119,7 @@ export function buildGuideData(
       }
       return raw
     })(),
-    founderNote: overrides.founder_note || defaultFounderNote(firstName, goalLabel),
+    founderNote: overrides.founder_note || renderFounderNote(founderNoteTemplate, firstName, goalLabel),
     imageBank,
     recipeBank,
     manualRecipes: overrides.manual_recipes ?? {},

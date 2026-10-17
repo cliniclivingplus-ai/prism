@@ -56,13 +56,14 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // getUser() over getSession(): it revalidates the JWT against the auth
-  // server rather than trusting the cookie, which is what you want at the
-  // gate. (getSession() stays fine for reading an already-verified session
-  // further in.) This is the confirmed convention for the merged app.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // getClaims() over getSession(): the JWT signature is still verified (not
+  // just trusted from the cookie), which is what you want at the gate.
+  // getClaims() verifies the JWT signature locally against Supabase's
+  // cached signing keys instead of a round trip to the auth server on
+  // every request (pages, API calls, prefetches). It still refreshes an
+  // expired session, and falls back to a server check for legacy keys.
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const user = claimsData?.claims?.sub ? claimsData.claims : null
 
   const { pathname } = request.nextUrl
 

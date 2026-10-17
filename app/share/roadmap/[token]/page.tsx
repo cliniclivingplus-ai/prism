@@ -2,6 +2,7 @@ import nextDynamic from 'next/dynamic'
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveRoadmapId } from '@/lib/share/publicData'
+import { readFounderNoteTemplate } from '@/lib/clinicSettings'
 import { buildGuideData } from '@/lib/pdf/buildGuideData'
 import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplements'
 import { ensureDailyContent } from '@/lib/pdf/ensureDailyContent'
@@ -51,7 +52,8 @@ export default async function PatientDashboardPage({ params }: { params: Promise
 
   await ensureDailyContent(roadmap)
   const confirmedSupplements = await resolveConfirmedSupplements(roadmap.patient_id)
-  const guideData = buildGuideData(roadmap, imageBank ?? [], recipes ?? [], confirmedSupplements)
+  const founderNoteTemplate = await readFounderNoteTemplate()
+  const guideData = buildGuideData(roadmap, imageBank ?? [], recipes ?? [], confirmedSupplements, founderNoteTemplate)
 
   if (guideData.template === 'almanac') {
     return <AlmanacTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />

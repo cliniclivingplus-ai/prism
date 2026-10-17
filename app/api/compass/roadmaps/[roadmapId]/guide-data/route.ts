@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { readFounderNoteTemplate } from '@/lib/clinicSettings'
 import { buildGuideData } from '@/lib/pdf/buildGuideData'
 import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplements'
 import { ensureDailyContent } from '@/lib/pdf/ensureDailyContent'
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ road
 
   await ensureDailyContent(roadmap)
   const confirmedSupplements = await resolveConfirmedSupplements(roadmap.patient_id)
-  const data = buildGuideData(roadmap, imageBank ?? [], recipeBank ?? [], confirmedSupplements)
+  const founderNoteTemplate = await readFounderNoteTemplate()
+  const data = buildGuideData(roadmap, imageBank ?? [], recipeBank ?? [], confirmedSupplements, founderNoteTemplate)
   return Response.json({ data })
 }

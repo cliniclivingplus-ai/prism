@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { readFounderNoteTemplate } from '@/lib/clinicSettings'
 import { buildGuideData } from '@/lib/pdf/buildGuideData'
 import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplements'
 import { renderGuidePdf } from '@/lib/pdf/renderGuideDocument'
@@ -23,7 +24,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ road
   if (!roadmap) return new Response('Not found', { status: 404 })
 
   const confirmedSupplements = await resolveConfirmedSupplements(roadmap.patient_id)
-  const guideData = buildGuideData(roadmap, imageBank ?? [], recipeBank ?? [], confirmedSupplements)
+  const founderNoteTemplate = await readFounderNoteTemplate()
+  const guideData = buildGuideData(roadmap, imageBank ?? [], recipeBank ?? [], confirmedSupplements, founderNoteTemplate)
   const pdfBuffer = await renderGuidePdf(guideData)
 
   const fileName = `${roadmap.patients?.full_name?.replace(/\s+/g, '-') ?? 'client'}-wellness-guide.pdf`
