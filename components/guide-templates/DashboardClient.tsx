@@ -17,7 +17,7 @@ import type { GuideData, DayMealSlot } from '@/lib/pdf/ClientGuideDocument'
 import { DEFAULT_PLATE_COMPOSITION, type PlateComposition } from '@/lib/dietRules'
 import { splitRecipeLines, parseRecipeStructuredLines } from '@/lib/recipeText'
 import { fillRecipeDefaults } from '@/lib/recipeDefaults'
-import { renderMarkdownBold, splitTextAndImages, normalizeLinks } from '@/lib/renderMarkdownBold'
+import { renderMarkdownBold, splitTextAndImages, normalizeLinks, firstUrl } from '@/lib/renderMarkdownBold'
 import { GROCERY_CATEGORIES } from '@/lib/foodPlates'
 import { buildGroceryList, type GroceryCategory } from '@/lib/groceryList'
 import { splitIntoPeriods, joinPeriods, parseBullets, parseScheduleLines } from '@/lib/periodBullets'
@@ -1237,10 +1237,18 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   const lifestyleTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const mealsTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   // Keyword -> URL bank behind auto-linking (see lib/autoLinkKeywords.ts):
-  // fetched once, grown in-place whenever LinkInsertButton creates a new
-  // link (onLinked below), and re-scanned against each period box on blur
-  // so a coach who types a known phrase gets it linked without asking.
+  // fetched once and grown whenever LinkInsertButton creates a new link.
+  // Lifestyle/meal boxes only look up the selected phrase on demand;
+  // whole-text auto-linking below remains limited to weekly goal editors.
   const { bank: keywordLinkBank, addToBank: addKeywordLink } = useKeywordLinkBank()
+  function findSelectedPhraseUrl(phrase: string): string | undefined {
+    const normalized = phrase.trim().toLowerCase()
+    const saved = keywordLinkBank.find((entry) => entry.keyword_norm.trim().toLowerCase() === normalized)
+    if (saved) return firstUrl(saved.url)
+    const recipe = data.recipeBank.find((entry) => entry.name.trim().toLowerCase() === normalized)
+    if (recipe && shareToken) return `${window.location.origin}/share/roadmap/${shareToken}#recipe-${recipe.id}`
+    return undefined
+  }
   // The only visible confirmation that auto-linking did something — without
   // this, the only sign is brackets appearing in the textarea's raw text,
   // easy to miss. Shown for a few seconds, then clears itself.
@@ -3024,7 +3032,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div style={{ ...editLabelStyle, fontSize: 10.5, marginBottom: 0 }}>{period}</div>
                       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                         <LinkInsertButton getTextarea={() => lifestyleTextareaRefs.current[period]} value={textOnlyValue(lifestyleByPeriod[period])}
-                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} onLinked={addKeywordLink} />
+                          onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} onLinked={addKeywordLink} findSavedUrl={findSelectedPhraseUrl} />
                         <RecipeLinkInsertButton getTextarea={() => lifestyleTextareaRefs.current[period]} value={textOnlyValue(lifestyleByPeriod[period])}
                           onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} recipeBank={data.recipeBank} shareToken={shareToken} />
                         <ProtocolPickerButton value={textOnlyValue(lifestyleByPeriod[period])}
@@ -3037,7 +3045,6 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     </div>
                     <textarea ref={(el) => { lifestyleTextareaRefs.current[period] = el }} style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.55, fontSize: 12.5 }} rows={4}
                       value={textOnlyValue(lifestyleByPeriod[period])} onChange={(e) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(e.target.value, prev[period]) }))}
-                      onBlur={() => autoLinkOnBlur(lifestyleByPeriod[period], (next) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: next })))}
                       placeholder={`One item per line, e.g.\n${period === 'Morning' ? '12-hour overnight fast' : period === 'Afternoon' ? '15 minute walk after lunch' : 'Dinner finished by 8:30pm'}`} />
                     <LinkChips value={lifestyleByPeriod[period]}
                       onChange={(v) => setLifestyleByPeriod((prev) => ({ ...prev, [period]: v }))} />
@@ -3074,7 +3081,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                       <div style={{ ...editLabelStyle, fontSize: 10.5, marginBottom: 0 }}>{period}</div>
                       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                         <LinkInsertButton getTextarea={() => mealsTextareaRefs.current[period]} value={textOnlyValue(mealsByPeriod[period])}
-                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} onLinked={addKeywordLink} />
+                          onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} onLinked={addKeywordLink} findSavedUrl={findSelectedPhraseUrl} />
                         <RecipeLinkInsertButton getTextarea={() => mealsTextareaRefs.current[period]} value={textOnlyValue(mealsByPeriod[period])}
                           onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(v, prev[period]) }))} recipeBank={data.recipeBank} shareToken={shareToken} />
                         <ProtocolPickerButton value={textOnlyValue(mealsByPeriod[period])}
@@ -3087,7 +3094,6 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                     </div>
                     <textarea ref={(el) => { mealsTextareaRefs.current[period] = el }} style={{ ...editInputStyle, resize: 'vertical' as const, lineHeight: 1.55, fontSize: 12.5 }} rows={4}
                       value={textOnlyValue(mealsByPeriod[period])} onChange={(e) => setMealsByPeriod((prev) => ({ ...prev, [period]: mergeImagesBack(e.target.value, prev[period]) }))}
-                      onBlur={() => autoLinkOnBlur(mealsByPeriod[period], (next) => setMealsByPeriod((prev) => ({ ...prev, [period]: next })))}
                       placeholder={`One item per line, e.g.\n${period === 'Breakfast' ? 'A bowl of fruit + a handful of berries' : period === 'Lunch' ? '50% vegetables, 25% lentils, 25% grains' : 'Same plate ratio, finished by 8:30pm'}`} />
                     <LinkChips value={mealsByPeriod[period]}
                       onChange={(v) => setMealsByPeriod((prev) => ({ ...prev, [period]: v }))} />

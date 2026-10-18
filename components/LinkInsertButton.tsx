@@ -8,11 +8,9 @@ const C = { accent: '#2563EB', accentSoft: '#EFF4FF', line: '#ECEBE3', danger: '
 // into an inline link — [phrase](url), the same narrow markdown grammar
 // renderMarkdownBold already turns into a real <a> everywhere lifestyle/meal
 // guideline text is shown (Week-family templates, the dashboard, etc).
-// Deliberately no AI involved and no auto-generated URL: there is no real
-// source URL anywhere in this app's data to link to automatically (see
-// interpret/route.ts's KB search, which only has document titles), so the
-// coach supplies the link themselves, same as inserting a hyperlink in Word.
-export default function LinkInsertButton({ getTextarea, value, onChange, onLinked }: {
+// A saved URL can be suggested for the exact selection; the coach confirms
+// it or supplies their own. Opening the popup never changes the text.
+export default function LinkInsertButton({ getTextarea, value, onChange, onLinked, findSavedUrl }: {
   // A lazy getter rather than a ref object directly: the caller keeps one
   // ref map for several periods (Morning/Afternoon/Evening, etc), and
   // reading `.current` has to happen inside an event handler, never during
@@ -26,6 +24,7 @@ export default function LinkInsertButton({ getTextarea, value, onChange, onLinke
   // (see lib/hooks/useKeywordLinkBank.ts) without a page reload. The
   // route itself is the source of truth; this is just a same-page cache bump.
   onLinked?: (phrase: string, url: string) => void
+  findSavedUrl?: (phrase: string) => string | undefined
 }) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState('')
@@ -55,11 +54,11 @@ export default function LinkInsertButton({ getTextarea, value, onChange, onLinke
     // selection (browser-dependent) — left in, that newline lands inside
     // the [label](url) brackets and breaks every downstream parser that
     // splits this text back into one bullet per line.
-    while (end > start && (value[end - 1] === '\n' || value[end - 1] === '\r')) end--
-    while (start < end && (value[start] === '\n' || value[start] === '\r')) start++
-    const hasSelection = !!el && start !== end
+    while (end > start && /\s/.test(value[end - 1])) end--
+    while (start < end && /\s/.test(value[start])) start++
+    const hasSelection = !!el && start !== end && !/[\r\n]/.test(value.slice(start, end))
     setSelection(hasSelection ? { start, end } : null)
-    setUrl('')
+    setUrl(hasSelection ? findSavedUrl?.(value.slice(start, end)) ?? '' : '')
     setError('')
     setOpen(true)
   }
@@ -76,8 +75,7 @@ export default function LinkInsertButton({ getTextarea, value, onChange, onLinke
     setUrl('')
     requestAnimationFrame(() => getTextarea()?.focus())
 
-    // Grows the shared keyword -> URL bank so this exact phrase auto-links
-    // itself next time any coach types it elsewhere. Fire-and-forget: a
+    // Remember the URL for the next explicit selection of this phrase. A
     // failed save here shouldn't block the link the coach just made.
     fetch('/api/compass/keyword-links', {
       method: 'POST',
@@ -99,6 +97,7 @@ export default function LinkInsertButton({ getTextarea, value, onChange, onLinke
             <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>Select a phrase in the text box first, then click Link again.</p>
           ) : (
             <>
+              <p style={{ fontSize: 12, color: C.muted, margin: '0 0 8px' }}>Link: {value.slice(selection.start, selection.end)}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input
                   ref={inputRef}
