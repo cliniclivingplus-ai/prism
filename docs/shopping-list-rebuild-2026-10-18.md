@@ -41,6 +41,11 @@ when a coach explicitly saves a shopping list; PDF exports then use that saved
 list. Background legacy AI cleanup is disabled in editor mode. Opening an
 editor or extracting a draft does not write patient data.
 
+The coach editor uses compact collapsed categories with item counts. Opening
+a category shows plain item rows; a pencil reveals controls for one item at
+a time. Category renaming is also opt-in. This presentation change retains
+the same draft, extraction, category moves and confirmed save behavior.
+
 ## Verification
 
 `node scripts/tests/verify-shopping-list.mjs` checks selection/hidden recipes,
