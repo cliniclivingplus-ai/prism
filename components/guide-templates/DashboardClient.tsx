@@ -3949,7 +3949,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           {/* Grocery list — unified shopping list derived from all matched recipes */}
           {editable ? (<div id="grocery" {...hiddenAttrs('grocery')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('grocery') }}>
             <SectionToggle hidden={isHidden('grocery')} onToggle={() => toggleSection('grocery')} />
-            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(editWeeks.filter((week) => !hiddenSections.includes(`week-${week.week_number}`)), data.recipeBank, weeklyManualRecipes, manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(editWeeks.filter((week) => !isHidden(`week-${week.week_number}`)), data.recipeBank, weeklyManualRecipes, manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
           </div>) : (<div id="grocery" {...hiddenAttrs('grocery')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('grocery') }}>
             {editable && <SectionToggle hidden={isHidden('grocery')} onToggle={() => toggleSection('grocery')} />}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>

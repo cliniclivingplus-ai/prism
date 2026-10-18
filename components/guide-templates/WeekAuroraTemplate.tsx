@@ -1878,7 +1878,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
 
       {/* Shopping list */}
       {editable ? (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
-            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !hiddenSections.includes(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !isHidden(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
           </section>) : (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <Eyebrow>What to buy</Eyebrow>

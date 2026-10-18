@@ -1843,7 +1843,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
 
         {/* Shopping list */}
         {editable ? (<Card id="grocery" hidden={isHidden('grocery')}>
-            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !hiddenSections.includes(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !isHidden(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
           </Card>) : (<Card id="grocery" hidden={isHidden('grocery')}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
             <div>
