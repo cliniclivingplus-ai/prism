@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Loader2, Trash2, ChefHat, UploadCloud, FileText, Download, Pencil, Check, X } from 'lucide-react'
+import { Plus, Loader2, Trash2, ChefHat, UploadCloud, FileText, Download, Pencil, Check, X, Search } from 'lucide-react'
 import { RECIPE_IMPORT_TEMPLATE } from '@/lib/parseRecipeBank'
 import { splitRecipeLines } from '@/lib/recipeText'
 import { RecipeIngredientsRenderer, RecipeDirectionsRenderer } from '@/components/RecipeContentRenderer'
+import { filterRecipeBank } from '@/lib/recipeBankSearch'
 
 const C = {
   green: '#538A22', greenDeep: '#2F5214', greenSoft: '#F2F9EC', greenBorder: '#C8E9A8',
@@ -39,19 +40,7 @@ export default function RecipeBankPage() {
   const [category, setCategory] = useState<string>('all')
   const [search, setSearch] = useState('')
 
-  // The category narrows by collection; the box searches name, ingredients
-  // and tags, so "low fodmap" or "paneer" both work.
-  const visibleRecipes = recipes.filter((r) => {
-    if (category !== 'all' && !recipeInCategory(r, category)) return false
-    const q = search.trim().toLowerCase()
-    if (!q) return true
-    const flat = q.replace(/[^a-z0-9]/g, '')
-    return (
-      r.name.toLowerCase().includes(q) ||
-      (r.ingredients || '').toLowerCase().includes(q) ||
-      (r.tags || []).some((t) => t.toLowerCase().replace(/[^a-z0-9]/g, '').includes(flat))
-    )
-  })
+  const visibleRecipes = filterRecipeBank(recipes, category, search)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [name, setName] = useState('')
@@ -229,6 +218,47 @@ export default function RecipeBankPage() {
         Real recipes coaches add once — the patient dashboard shows matching ones as clickable cards under each meal, with the real ingredients and steps you enter here. Nothing here is AI-generated.
       </p>
 
+      <section aria-label="Find recipes" style={{ background: C.card, border: `1px solid ${C.greenBorder}`, borderRadius: 12, padding: '16px 18px', marginBottom: 18 }}>
+        <label htmlFor="recipe-bank-search" style={labelStyle}>Search recipes</label>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 }}>
+          <Search size={18} color={C.green} aria-hidden="true" />
+          <input id="recipe-bank-search" type="search" value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by recipe, ingredient or category…"
+            style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+          {(search || category !== 'all') && (
+            <button type="button" onClick={() => { setSearch(''); setCategory('all') }}
+              style={{ border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 12px', background: '#fff', color: C.greenDeep, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              Clear filters
+            </button>
+          )}
+        </div>
+        <div style={labelStyle}>Category</div>
+        <div role="group" aria-label="Recipe category" style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+          {[{ slug: 'all', label: `All recipes (${recipes.length})` }, ...RECIPE_CATEGORIES.map((c) => ({
+            slug: c.slug, label: `${c.label} (${recipes.filter((r) => recipeInCategory(r, c.slug)).length})`,
+          }))].map((c) => {
+            const active = category === c.slug
+            return (
+              <button key={c.slug} type="button" aria-pressed={active} onClick={() => setCategory(c.slug)}
+                style={{ padding: '6px 13px', borderRadius: 999, cursor: 'pointer', fontSize: 12.5,
+                  fontWeight: active ? 700 : 500, border: `1px solid ${active ? C.green : C.line}`,
+                  background: active ? C.green : '#fff', color: active ? '#fff' : C.ink }}>
+                {c.label}
+              </button>
+            )
+          })}
+        </div>
+        {!loading && !loadError && (
+          <div role="status" style={{ marginTop: 12, color: C.muted, fontSize: 12.5 }}>
+            {visibleRecipes.length} recipe{visibleRecipes.length === 1 ? '' : 's'} found
+            {category !== 'all' ? ` in ${categoryLabel(category)}` : ''}{search.trim() ? ` for “${search.trim()}”` : ''}.
+            {' '}Open a recipe with Edit to make changes.
+          </div>
+        )}
+      </section>
+
+      <details style={{ marginBottom: 20 }}>
+        <summary style={{ cursor: 'pointer', color: C.greenDeep, fontSize: 13, fontWeight: 700, padding: '10px 0', marginBottom: 8 }}>Add or import recipes</summary>
       <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
           <button onClick={() => fileRef.current?.click()} disabled={importing}
@@ -385,33 +415,7 @@ export default function RecipeBankPage() {
         </div>
       </div>
 
-      {!loading && !loadError && recipes.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
-            {[{ slug: 'all', label: `All recipes (${recipes.length})` }, ...RECIPE_CATEGORIES.map((c) => ({
-              slug: c.slug,
-              label: `${c.label} (${recipes.filter((r) => recipeInCategory(r, c.slug)).length})`,
-            }))].map((c) => {
-              const active = category === c.slug
-              return (
-                <button key={c.slug} onClick={() => setCategory(c.slug)}
-                  style={{
-                    padding: '6px 13px', borderRadius: 999, cursor: 'pointer', fontSize: 12.5,
-                    fontWeight: active ? 700 : 500,
-                    border: `1px solid ${active ? C.green : C.line}`,
-                    background: active ? C.green : '#fff',
-                    color: active ? '#fff' : C.ink,
-                  }}>
-                  {c.label}
-                </button>
-              )
-            })}
-          </div>
-          <input value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search recipes by name, ingredient or tag…"
-            style={{ ...inputStyle, marginTop: 10, maxWidth: 420 }} />
-        </div>
-      )}
+      </details>
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.muted, fontSize: 13 }}>
@@ -426,7 +430,7 @@ export default function RecipeBankPage() {
       ) : (
         visibleRecipes.length === 0 ? (
           <div style={{ color: C.muted, fontSize: 13, padding: '12px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ChefHat size={16} /> No recipes match this filter. Pick “All recipes” to see everything.
+            <ChefHat size={16} /> No recipes match. Try another search or use Clear filters above.
           </div>
         ) : (
         (() => {
@@ -446,12 +450,12 @@ export default function RecipeBankPage() {
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
                             {RECIPE_CATEGORIES.map((c) => {
                               const current = editDraft.tags.split(',').map((t) => t.trim()).filter(Boolean)
-                              const on = current.includes(c.slug)
+                              const on = recipeInCategory({ tags: current }, c.slug)
                               return (
                                 <button key={c.slug} type="button"
                                   onClick={() => setEditDraft({
                                     ...editDraft,
-                                    tags: (on ? current.filter((x) => x !== c.slug) : [...current, c.slug]).join(', '),
+                                    tags: (on ? current.filter((tag) => !recipeInCategory({ tags: [tag] }, c.slug)) : [...current, c.slug]).join(', '),
                                   })}
                                   style={{
                                     padding: '3px 9px', borderRadius: 999, cursor: 'pointer', fontSize: 11,
