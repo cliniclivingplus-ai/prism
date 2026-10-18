@@ -1,4 +1,6 @@
 'use client'
+import RecipeShoppingListEditor from '@/components/RecipeShoppingListEditor'
+import { shoppingRecipes } from '@/lib/shoppingRecipes'
 
 // A fifth, single-week patient-facing presentation of the exact same
 // GuideData every other template uses — same real data, same visual
@@ -809,6 +811,7 @@ export default function WeekTemplate({ shareToken, data, initialCheckins, editab
   // same "override wins" pattern as lifestyle/meals/schedule above.
   const [groceryOverride, setGroceryOverride] = useState<GroceryCategory[] | null>(data.groceryListOverride)
   useEffect(() => {
+    if (editable) return
     if (!week || groceryOverride) return
     const wn = week.week_number
     if (aiGroceryCache[wn]) return
@@ -824,7 +827,7 @@ export default function WeekTemplate({ shareToken, data, initialCheckins, editab
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [week, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [editable, week, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
   const weekGroceryRecipes = useMemo(() => {
     if (!week) return []
     return getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
@@ -2054,7 +2057,9 @@ function clpToggleGroceryCat(head){
       )}
 
       {/* Shopping list */}
-      <section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
+      {editable ? (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !hiddenSections.includes(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+          </section>) : (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
             <div>
@@ -2145,7 +2150,7 @@ function clpToggleGroceryCat(head){
           )}
           </div>
         </div>
-      </section>
+      </section>)}
 
       {/* Make your own salad bowl — clinic standard chart, editable per patient */}
       <section id="saladbowl" style={{ background: PALETTE.paper1, padding: '4rem 1.5rem', ...hiddenStyle('saladbowl') }}>

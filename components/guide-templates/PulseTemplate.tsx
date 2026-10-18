@@ -1,4 +1,6 @@
 'use client'
+import RecipeShoppingListEditor from '@/components/RecipeShoppingListEditor'
+import { shoppingRecipes } from '@/lib/shoppingRecipes'
 
 // A third, read-only patient-facing presentation of the exact same GuideData
 // Classic (DashboardClient.tsx) and Almanac (AlmanacTemplate.tsx) use — same
@@ -750,6 +752,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
   // on it — the regex-based list shows immediately and this quietly
   // replaces it when ready, or stays as-is if the call fails.
   useEffect(() => {
+    if (editable) return
     if (openGroceryWeek == null || groceryOverride || aiGroceryCache[openGroceryWeek]) return
     const weekRecipes = getSlotRecipes(openGroceryWeek, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
     const candidateItems = buildGroceryList(weekRecipes).flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
@@ -763,7 +766,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [openGroceryWeek, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [editable, openGroceryWeek, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
 
   const [openService, setOpenService] = useState<number | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
@@ -1839,7 +1842,9 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
         )}
 
         {/* Shopping list */}
-        <Card id="grocery" hidden={isHidden('grocery')}>
+        {editable ? (<Card id="grocery" hidden={isHidden('grocery')}>
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !hiddenSections.includes(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+          </Card>) : (<Card id="grocery" hidden={isHidden('grocery')}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
             <div>
               <Eyebrow>What to buy</Eyebrow>
@@ -1921,7 +1926,7 @@ export default function PulseTemplate({ shareToken, data, initialCheckins, edita
               </div>
             )
           })()}
-        </Card>
+        </Card>)}
 
         {/* Supplements — editable inline now (previously only on the Classic
             editor): each cell is an InlineEditableText, same click-to-edit

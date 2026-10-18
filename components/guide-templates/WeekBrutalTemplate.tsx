@@ -1,4 +1,6 @@
 'use client'
+import RecipeShoppingListEditor from '@/components/RecipeShoppingListEditor'
+import { shoppingRecipes } from '@/lib/shoppingRecipes'
 
 // A "Brutal" skin of WeekTemplate — identical data plumbing, sections and
 // interactions (same GuideData, same checkins/daily-metrics/grocery APIs,
@@ -761,6 +763,7 @@ export default function WeekBrutalTemplate({ shareToken, data, initialCheckins, 
 
   const [groceryOverride, setGroceryOverride] = useState<GroceryCategory[] | null>(data.groceryListOverride)
   useEffect(() => {
+    if (editable) return
     if (!week || groceryOverride) return
     const wn = week.week_number
     if (aiGroceryCache[wn]) return
@@ -776,7 +779,7 @@ export default function WeekBrutalTemplate({ shareToken, data, initialCheckins, 
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [week, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [editable, week, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
   const weekGroceryRecipes = useMemo(() => {
     if (!week) return []
     return getSlotRecipes(week.week_number, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.')
@@ -1878,7 +1881,9 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
       )}
 
       {/* Shopping list */}
-      <section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
+      {editable ? (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !hiddenSections.includes(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+          </section>) : (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <Eyebrow>What to buy</Eyebrow>
           <SecTitle icon={<ShoppingCart size={26} />} sectionId="grocery" open={isSectionOpen('grocery')} onToggle={() => toggleSection('grocery')}>Your Shopping List</SecTitle>
@@ -1959,7 +1964,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
           )}
           </div>
         </div>
-      </section>
+      </section>)}
 
       {/* Make your own salad bowl — clinic standard chart, editable per patient */}
       <section id="saladbowl" style={{ background: PALETTE.paper1, padding: '4rem 1.5rem', ...hiddenStyle('saladbowl') }}>

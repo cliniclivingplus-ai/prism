@@ -704,6 +704,29 @@ const GROCERY_CATEGORIES: { head: string; items: string[] }[] = [
 ]
 
 function groceryPages(data: GuideData): ReactElement[] {
+  // A coach-saved shopping list must be identical in the PDF and dashboard.
+  // Legacy plans without an override retain their existing PDF content.
+  if (Array.isArray(data.groceryListOverride)) {
+    const columns = data.groceryListOverride.flatMap((category) => {
+      const parts: { head: string; items: string[] }[] = []
+      for (let i = 0; i < category.items.length; i += 16) parts.push({ head: category.head + (i ? ' (continued)' : ''), items: category.items.slice(i, i + 16) })
+      return parts
+    })
+    const pages: ReactElement[] = []
+    for (let i = 0; i < Math.max(1, columns.length); i += 3) pages.push(
+      <PageShell key={`saved-grocery-${i}`} eyebrow="GROCERY LIST">
+        <Text style={shared.title}>Your shopping list</Text>
+        {columns.length === 0 && <Text style={shared.p}>No shopping items in this plan.</Text>}
+        <View style={grid.cols3}>
+          {columns.slice(i, i + 3).map((category, index) => <View key={index} style={grid.col}>
+            <Text style={grid.colHead}>{category.head}</Text>
+            {category.items.map((item, itemIndex) => <View key={itemIndex} style={grid.checkRow}><CheckboxSquare /><Text style={grid.checkText}>{item}</Text></View>)}
+          </View>)}
+        </View>
+      </PageShell>,
+    )
+    return pages
+  }
   return [
     <PageShell key="grocery1" eyebrow={"GROCERY\nLIST"}>
       <Text style={shared.title}>Your shopping list</Text>

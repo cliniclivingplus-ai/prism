@@ -1,4 +1,6 @@
 'use client'
+import RecipeShoppingListEditor from '@/components/RecipeShoppingListEditor'
+import { shoppingRecipes } from '@/lib/shoppingRecipes'
 
 // An alternate, read-only patient-facing presentation of the exact same
 // GuideData the Classic template (DashboardClient.tsx) uses — same real
@@ -756,6 +758,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
   // on it — the regex-based list shows immediately and this quietly
   // replaces it when ready, or stays as-is if the call fails.
   useEffect(() => {
+    if (editable) return
     if (openGroceryWeek == null || groceryOverride || aiGroceryCache[openGroceryWeek]) return
     const weekRecipes = getSlotRecipes(openGroceryWeek, DAY_MEAL_SLOTS, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank, 'Picked for your plan.').flatMap((s) => s.matches).map((mm) => mm.recipe)
     const candidateItems = buildGroceryList(weekRecipes).flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
@@ -769,7 +772,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
       })
       .catch(() => { /* keep the regex-based list on failure */ })
     return () => { cancelled = true }
-  }, [openGroceryWeek, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
+  }, [editable, openGroceryWeek, groceryOverride, aiGroceryCache, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, data.recipeBank])
 
   // What's included in your care — same coach-entered tiles as Classic,
   // editable via a local copy patched to guide_overrides.care_services
@@ -1992,7 +1995,9 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
       {/* Shopping list — same recipe-derived, categorized ingredients as
           Classic (src/lib/groceryList.ts), broken out per week; expands
           inline instead of a popup. */}
-      <section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
+      {editable ? (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !hiddenSections.includes(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+          </section>) : (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
             <div>
@@ -2076,7 +2081,7 @@ export default function AlmanacTemplate({ shareToken, data, initialCheckins, edi
             )
           })()}
         </div>
-      </section>
+      </section>)}
 
       {/* Make your own salad bowl — clinic standard chart, editable per patient */}
       <section id="saladbowl" style={{ background: PALETTE.paper1, padding: '4rem 1.5rem', ...hiddenStyle('saladbowl') }}>

@@ -40,6 +40,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ro
   if (Array.isArray(body.weekly_schedule)) update.weekly_schedule = body.weekly_schedule
   if (body.guide_overrides && typeof body.guide_overrides === 'object') {
     const incoming = { ...body.guide_overrides }
+    if ('grocery_list_override' in incoming && incoming.grocery_list_override !== null) {
+      const list = incoming.grocery_list_override
+      if (!Array.isArray(list) || list.length > 100 || list.some((category: unknown) => {
+        if (!category || typeof category !== 'object') return true
+        const cat = category as Record<string, unknown>
+        return typeof cat.head !== 'string' || !cat.head.trim() || cat.head.length > 150 || !Array.isArray(cat.items) || cat.items.length > 1000 || cat.items.some((item: unknown) => typeof item !== 'string' || item.length > 500)
+      })) return NextResponse.json({ error: 'Shopping list must contain named categories and text items.' }, { status: 400 })
+    }
     // Freeform canvas blocks (the roadmap's "Custom blocks" section) go
     // through the same strict validateBlock() guard as every other block
     // in this app, before ever being persisted — unlike the rest of
@@ -56,11 +64,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ro
         .map((b: unknown) => validateBlock(b, allowedRecipeIds, allowedImageIds))
         .filter((b: unknown) => b !== null)
     }
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: existingError } = await supabaseAdmin
       .from('roadmaps')
       .select('guide_overrides, daily_schedule, lifestyle_guidelines, meal_guidelines')
       .eq('id', roadmapId)
       .single()
+    if (existingError || !existing) return NextResponse.json({ error: 'Could not load the plan to save changes.' }, { status: 500 })
     update.guide_overrides = { ...(existing?.guide_overrides ?? {}), ...incoming }
 
     // A coach's save always writes every field (see DashboardClient's

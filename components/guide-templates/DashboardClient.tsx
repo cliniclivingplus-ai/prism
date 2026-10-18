@@ -1,4 +1,6 @@
 'use client'
+import RecipeShoppingListEditor from '@/components/RecipeShoppingListEditor'
+import { shoppingRecipes } from '@/lib/shoppingRecipes'
 import { useState, useMemo, useEffect, useRef, Fragment, type ReactNode } from 'react'
 import { CheckCircle2, Circle, MapPin, Utensils, Pill, ShoppingCart, HeartPulse, HelpCircle, Phone, Clock, X, ChefHat, Download, Sparkles, Star, Save, Check, Loader2, ExternalLink, Flame, CalendarCheck, Target, TrendingUp, ChevronDown, ChevronRight, Video, MessageCircle, Users, Activity, Stethoscope, Plus, Trash2, Eye, EyeOff, LinkIcon, Droplet, Sun, type IconComponent } from '@/lib/kawaii/icons'
 import { UploadCloud, Compass, RefreshCw } from 'lucide-react'
@@ -2141,6 +2143,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
 
   // Automatically trigger AI deduplication pass for the unified full plan grocery list
   useEffect(() => {
+    if (editable) return
     if (aiGroceryCache[FULL_PLAN_GROCERY_CACHE_KEY] || patientGroceryCategories.length === 0) return
     const candidateItems = patientGroceryCategories.flatMap((cat) => cat.items.map((name) => ({ name, category: cat.head })))
     if (candidateItems.length === 0) return
@@ -2153,7 +2156,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
       })
       .catch(() => { /* keep regex list on failure */ })
     return () => { cancelled = true }
-  }, [patientGroceryCategories, aiGroceryCache])
+  }, [editable, patientGroceryCategories, aiGroceryCache])
 
   // The regex cleanup in groceryList.ts is instant but rule-based — an AI
   // pass catches what fixed rules can't (spelling variants, oddly-worded
@@ -2162,6 +2165,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   // regex-based list above shows immediately and this quietly replaces it
   // when ready, or stays as-is if the call fails.
   useEffect(() => {
+    if (editable) return
     if (openGroceryWeek == null) return
     const weekRecipes = getSlotRecipes(openGroceryWeek)
       .flatMap((s) => s.matches)
@@ -2190,7 +2194,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
       .finally(() => { if (!cancelled) setAiGroceryLoadingWeek((prev) => (prev === openGroceryWeek ? null : prev)) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openGroceryWeek, recipeOverrides])
+  }, [editable, openGroceryWeek, recipeOverrides])
 
   const combinedImages = new Map(mealImages)
   allWeekSlotRecipes.forEach((s) => s.matches.forEach((m) => {
@@ -3943,7 +3947,10 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           </div>
 
           {/* Grocery list — unified shopping list derived from all matched recipes */}
-          <div id="grocery" {...hiddenAttrs('grocery')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('grocery') }}>
+          {editable ? (<div id="grocery" {...hiddenAttrs('grocery')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('grocery') }}>
+            <SectionToggle hidden={isHidden('grocery')} onToggle={() => toggleSection('grocery')} />
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(editWeeks.filter((week) => !hiddenSections.includes(`week-${week.week_number}`)), data.recipeBank, weeklyManualRecipes, manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+          </div>) : (<div id="grocery" {...hiddenAttrs('grocery')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('grocery') }}>
             {editable && <SectionToggle hidden={isHidden('grocery')} onToggle={() => toggleSection('grocery')} />}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
               <div style={sectionTitleStyle}><ShoppingCart size={18} color={C.accent} /> Your shopping list</div>
@@ -4018,7 +4025,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
                 </div>
               </div>
             )}
-          </div>
+          </div>)}
 
           {/* Make your own salad bowl — clinic standard chart, editable per patient */}
           <div id="saladbowl" {...hiddenAttrs('saladbowl')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('saladbowl') }}>

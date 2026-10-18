@@ -1,4 +1,6 @@
 'use client'
+import RecipeShoppingListEditor from '@/components/RecipeShoppingListEditor'
+import { shoppingRecipes } from '@/lib/shoppingRecipes'
 
 // A sixth, read-only patient-facing presentation of the exact same GuideData
 // every other template uses — same real data, a chart/icon-forward visual
@@ -1739,7 +1741,9 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
         )}
 
         {/* Shopping list */}
-        <Card id="grocery" hidden={isHidden('grocery')}>
+        {editable ? (<Card id="grocery" hidden={isHidden('grocery')}>
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !hiddenSections.includes(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+          </Card>) : (<Card id="grocery" hidden={isHidden('grocery')}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div>
               <Eyebrow>What to buy</Eyebrow>
@@ -1821,7 +1825,7 @@ export default function VitalsTemplate({ shareToken, data, initialCheckins, edit
               </div>
             )
           })()}
-        </Card>
+        </Card>)}
 
         {/* Make your own salad bowl — clinic standard chart, editable per patient */}
         <Card id="saladbowl" hidden={isHidden('saladbowl')}>

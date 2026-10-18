@@ -17,7 +17,7 @@ export const GROCERY_CATEGORY_ORDER = [
   'Other',
 ]
 
-const CATEGORY_KEYWORDS: { head: string; keywords: string[] }[] = [
+export const CATEGORY_KEYWORDS: { head: string; keywords: string[] }[] = [
   { head: 'Fruit', keywords: ['apple', 'banana', 'papaya', 'pear', 'orange', 'berry', 'strawberry', 'blueberry', 'raspberry', 'cranberry', 'mulberry', 'gooseberry', 'goji berry', 'pomegranate', 'kiwi', 'mango', 'grape', 'lemon', 'lime', 'sweet lime', 'mosambi', 'avocado', 'date', 'medjool date', 'raisin', 'fig', 'melon', 'watermelon', 'muskmelon', 'passionfruit', 'peach', 'plum', 'apricot', 'guava', 'pineapple', 'cherry', 'jackfruit', 'chikoo', 'sapota', 'custard apple', 'dragon fruit', 'amla'] },
   { head: 'Cruciferous vegetables', keywords: ['broccoli', 'cauliflower', 'kale', 'cabbage', 'brussels sprout', 'bok choy', 'arugula', 'rocket', 'radish', 'mooli', 'turnip', 'kohlrabi', 'mustard green', 'watercress', 'horseradish'] },
   { head: 'Green vegetables & leafy greens', keywords: ['spinach', 'palak', 'lettuce', 'zucchini', 'green bean', 'french bean', 'string bean', 'asparagus', 'cucumber', 'celery', 'pea', 'peas', 'green pepper', 'methi', 'fenugreek', 'tindora', 'ivy gourd', 'drumstick', 'chayote', 'microgreen', 'leafy green', 'basil leaf', 'swiss chard', 'coriander', 'cilantro', 'mint', 'curry leaf', 'curry leaves', 'parsley', 'leek', 'gourd', 'bottle gourd', 'bitter gourd', 'ridge gourd', 'ash gourd', 'lauki', 'torai', 'karela', 'okra', 'bhindi', 'spring onion', 'scallion'] },

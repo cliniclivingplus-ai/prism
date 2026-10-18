@@ -335,6 +335,16 @@ should fail) before depending on it.
 
 ## 9. Incident log
 
+### 2026-10-18 — Shopping list extraction, categories and edits unreliable
+
+Classic extraction raced stale AI cleanup, fell back to generic items and
+showed no item editing controls. Several templates extracted from the whole
+bank. A shared editor now extracts only selected visible recipe ingredients,
+preserves distinct product forms, deduplicates preparation variants and saves
+with confirmed errors/retry. Saved lists also feed the PDF. Existing patient
+lists are not bulk regenerated. See `docs/shopping-list-rebuild-2026-10-18.md`;
+commit history is scoped by `components/RecipeShoppingListEditor.tsx`.
+
 ### 2026-10-18 — Broken PDF symbols remained in Recipe Bank
 
 The first display cleanup (`5b203c7`) missed word-led bullets and inline
