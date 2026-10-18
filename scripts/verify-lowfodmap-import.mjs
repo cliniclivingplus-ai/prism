@@ -28,6 +28,8 @@ function load(file) {
   return compiledModule.exports
 }
 const snapshot = load('lib/pdf/recipeCatalogueSnapshot.json')
+const latestCutoff = existsSync('lib/pdf/recipeCatalogueSnackDessertSnapshot.json')
+  ? load('lib/pdf/recipeCatalogueSnackDessertSnapshot.json').cutoff : snapshot.cutoff
 const before = load('.lowfodmap-import/bank-before.json')
 const plan = load('.lowfodmap-import/plan.json')
 const { recipeCatalogueForPlan } = load('lib/pdf/recipeCatalogue.ts')
@@ -52,16 +54,19 @@ if (process.argv.includes('--live')) {
   if (roadmapError) throw Error(roadmapError.message)
   console.log(`Existing roadmaps covered by catalogue protection: ${count}`)
   const applied = load('.lowfodmap-import/applied.json')
-  assert.equal(after.length, before.length + applied.inserted.length)
+  // Later imports can extend the live bank. Inspect the protected catalogue
+  // for plans made immediately after this import when checking its records.
+  const lowFodmapCatalogue = recipeCatalogueForPlan(new Date(Date.parse(snapshot.cutoff) + 1).toISOString(), after)
+  assert.equal(lowFodmapCatalogue.length, before.length + applied.inserted.length)
   for (const change of plan.changes) {
-    const row = after.find((r) => change.id ? r.id === change.id : r.name === change.row.name)
+    const row = lowFodmapCatalogue.find((r) => change.id ? r.id === change.id : r.name === change.row.name)
     assert.ok(row, `Missing ${change.row.name}`)
     for (const [key, value] of Object.entries(change.row)) assert.equal(JSON.stringify(row[key]), JSON.stringify(value), `${row.name}: ${key}`)
   }
 }
 const restored = recipeCatalogueForPlan(snapshot.cutoff, after)
 assert.equal(JSON.stringify(restored), JSON.stringify(before), 'Every old bank field and its order must be unchanged')
-assert.strictEqual(recipeCatalogueForPlan(new Date(Date.parse(snapshot.cutoff) + 1).toISOString(), after), after)
+assert.strictEqual(recipeCatalogueForPlan(new Date(Date.parse(latestCutoff) + 1).toISOString(), after), after)
 const keys = ['id', 'name', 'meal_type', 'protein_label', 'ingredients', 'steps', 'tags']
 const project = (rows) => rows.map((r) => Object.fromEntries(keys.map((k) => [k, r[k]])))
 assert.equal(JSON.stringify(recipeCatalogueForPlan('2020-01-01', project(after))), JSON.stringify(project(before)))

@@ -11,6 +11,8 @@ export const RECIPE_CATEGORIES = [
   { slug: 'south-indian', label: 'South Indian' },
   { slug: 'north-indian', label: 'North Indian' },
   { slug: 'smoothies', label: 'Smoothies' },
+  { slug: 'snacks', label: 'Snacks' },
+  { slug: 'desserts', label: 'Desserts' },
   { slug: 'low-fodmap', label: 'Low FODMAP' },
   { slug: 'gut-healing', label: 'Gut healing' },
   { slug: 'diabetes', label: 'Diabetes' },
@@ -27,6 +29,8 @@ const BY_SLUG = new Map(RECIPE_CATEGORIES.map((c) => [c.slug, c.label]))
 // collection, so older recipes filter alongside the new ones.
 const normalise = (tag: string) => tag.toLowerCase().replace(/[^a-z]/g, '')
 const BY_NORMALISED = new Map(RECIPE_CATEGORIES.map((c) => [normalise(c.slug), c.slug]))
+BY_NORMALISED.set('snack', 'snacks')
+BY_NORMALISED.set('dessert', 'desserts')
 
 export function categoriesOf(recipe: { tags?: string[] | null }): RecipeCategorySlug[] {
   const found = new Set<RecipeCategorySlug>()
