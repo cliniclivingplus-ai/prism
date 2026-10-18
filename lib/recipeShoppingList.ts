@@ -146,9 +146,19 @@ export function extractRecipeShoppingList(recipes: ShoppingRecipe[]): { categori
 // duplicate entries are removed; this does not regenerate their saved list.
 export function normalizeShoppingDraft(categories: GroceryCategory[]): GroceryCategory[] {
   const seen = new Set<string>()
-  return categories.map((cat) => ({ head: cat.head.trim(), items: cat.items.map((item) => item.trim()).filter((item) => {
-    const key = shoppingItemKey(item)
-    if (!key || seen.has(key)) return false
-    seen.add(key); return true
-  }) })).filter((cat) => cat.head && cat.items.length)
+  const merged = new Map<string, GroceryCategory>()
+  for (const category of categories) {
+    const head = category.head.trim()
+    if (!head) continue
+    const groupKey = keyText(head)
+    const group = merged.get(groupKey) || { head, items: [] }
+    for (const raw of category.items) {
+      const item = raw.trim()
+      const key = shoppingItemKey(item)
+      if (!key || seen.has(key)) continue
+      seen.add(key); group.items.push(item)
+    }
+    merged.set(groupKey, group)
+  }
+  return [...merged.values()].filter((category) => category.items.length)
 }

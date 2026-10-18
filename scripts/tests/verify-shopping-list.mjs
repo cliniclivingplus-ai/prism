@@ -46,6 +46,7 @@ assert.ok(!items(sourceExample).some((food) => /base|menu|rolling/.test(food)))
 assert.equal(JSON.stringify(items(extract([{ ingredients: '1 carrot + 1 potato' }])).sort()), JSON.stringify(['carrot', 'potato']))
 const clean = normalize([{ head: 'Other vegetables', items: ['Potato', 'potato fry', ''] }, { head: 'Pantry', items: ['Chilli powder', 'Green chilli', 'Green chilli'] }])
 assert.equal(JSON.stringify(clean), JSON.stringify([{ head: 'Other vegetables', items: ['Potato'] }, { head: 'Pantry', items: ['Chilli powder', 'Green chilli'] }]))
+assert.equal(JSON.stringify(normalize([{ head: 'Fruit', items: ['Apple'] }, { head: 'fruit', items: ['Banana', 'Apple'] }])), JSON.stringify([{ head: 'Fruit', items: ['Apple', 'Banana'] }]))
 
 const { shoppingRecipes } = load('lib/shoppingRecipes.ts')
 const bank = ['a', 'b', 'unused'].map((id) => ({ id, name: id, ingredients: id, tags: [] }))
