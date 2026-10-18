@@ -22,3 +22,4 @@ supabase/.temp/
 .cookbook-images/
 .lowfodmap-import/
 .snack-dessert-import/
+.recipe-cleanup/

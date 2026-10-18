@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Plus, Loader2, Trash2, ChefHat, UploadCloud, FileText, Download, Pencil, Check, X, Search } from 'lucide-react'
 import { RECIPE_IMPORT_TEMPLATE } from '@/lib/parseRecipeBank'
 import { splitRecipeLines } from '@/lib/recipeText'
-import { cleanRecipeBankDisplayText } from '@/lib/recipeBankDisplayText'
+import { cleanRecipeBankDisplayText, recipeBankTextNeedsReview } from '@/lib/recipeBankDisplayText'
 import { RecipeIngredientsRenderer, RecipeDirectionsRenderer } from '@/components/RecipeContentRenderer'
 import { filterRecipeBank } from '@/lib/recipeBankSearch'
 
@@ -583,13 +583,18 @@ export default function RecipeBankPage() {
                         </div>
                       </div>
                       <RecipeIngredientsRenderer
-                        rawText={cleanRecipeBankDisplayText(r.ingredients, 'ingredients')}
+                        rawText={cleanRecipeBankDisplayText(r.ingredients, 'ingredients', r.id)}
                         colors={{ accent: C.green, text: C.muted }}
                       />
                       <RecipeDirectionsRenderer
-                        rawText={cleanRecipeBankDisplayText(r.steps, 'steps')}
+                        rawText={cleanRecipeBankDisplayText(r.steps, 'steps', r.id)}
                         colors={{ accent: C.green, text: C.ink }}
                       />
+                      {recipeBankTextNeedsReview(cleanRecipeBankDisplayText(r.ingredients, 'ingredients', r.id) + cleanRecipeBankDisplayText(r.steps, 'steps', r.id)) && (
+                        <p style={{ fontSize: 12, color: C.danger, margin: '10px 0' }}>
+                          Source text needs review. Verify any unclear quantities or instructions before using this recipe.
+                        </p>
+                      )}
                       {r.tags.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
                           {r.tags.map((t) => <span key={t} style={{ fontSize: 10.5, fontWeight: 600, color: C.greenDeep, background: C.greenSoft, border: `1px solid ${C.greenBorder}`, borderRadius: 10, padding: '2px 8px' }}>{t}</span>)}

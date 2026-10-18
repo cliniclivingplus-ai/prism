@@ -335,6 +335,16 @@ should fail) before depending on it.
 
 ## 9. Incident log
 
+### 2026-10-18 — Broken PDF symbols remained in Recipe Bank
+
+The first display cleanup (`5b203c7`) missed word-led bullets and inline
+corruption. Some original imports also interleaved PDF columns and lost
+fractions. The follow-up strips remaining list markers in bank previews,
+restores 11 source-verified entries, and explicitly labels unrecovered text
+instead of guessing measurements. Stored recipes and shared patient outputs
+are unchanged. See `docs/recipe-bank-text-cleanup-2026-10-18.md`; follow-up
+commit can be found with `git log --oneline -- lib/recipeBankSourceRepairs.json`.
+
 Newest first. One entry per production problem.
 
 ### 2026-10-03 — "Unsupported Unicode escape sequence" on a Blood Panel upload

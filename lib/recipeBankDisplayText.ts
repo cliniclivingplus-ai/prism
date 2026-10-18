@@ -1,11 +1,25 @@
-// Old PDF imports sometimes decoded list bullets as U+FFFD. Only remove
-// unambiguous markers: a known symbol-font bullet, an ingredient marker
-// before an explicit quantity, or a direction marker before an action.
-// Never strip unknown glyphs inside quantities/words (e.g. "� cup", "2�3").
-export function cleanRecipeBankDisplayText(text: string, kind: 'ingredients' | 'steps'): string {
-  return text.split('\n').map((line) => {
-    const withoutBullet = line.replace(/^(\s*)[\uF0B7\uF0A7]\s*/, '$1')
-    if (kind === 'ingredients') return withoutBullet.replace(/^(\s*)\uFFFD\s+(?=\d)/, '$1')
-    return withoutBullet.replace(/^(\s*)\uFFFD\s+(?=(?:Soak|Using|Use|Peel|Chop|Mix|Spread|Once|Add|Heat|Cook|Stir|Blend|Grind|Wash|Rinse|Drain|Place|Pour|Bring|Boil|Steam|Bake|Roast|Remove|Allow|Let|Serve|Combine|Transfer|Preheat|Prepare|Cut|Take|Put|Keep|Sprinkle|Garnish|Cover|Simmer|Fold|Whisk|Beat|Roll|Knead|Squeeze|Set|Turn|Repeat)\b)/i, '$1')
+import sourceRepairs from './recipeBankSourceRepairs.json'
+
+type Field = 'ingredients' | 'steps'
+type SourceRepair = { original: Record<Field, string>; cleaned: Record<Field, string> }
+const repairs: Record<string, SourceRepair> = sourceRepairs
+
+// Bank preview only: stored recipes and patient pages retain their data.
+// Source corrections stop applying after a coach changes the original field.
+export function cleanRecipeBankDisplayText(text: string, kind: Field, id?: string): string {
+  const repair = id ? repairs[id] : undefined
+  if (repair?.original[kind] === text) return repair.cleaned[kind]
+  return text.split('\n').map((rawLine) => {
+    let line = rawLine.replace(/^(\s*)[\uF0B7\uF0A7]\s*/, '$1')
+    // A glyph before a unit may be a missing fraction. Never invent one.
+    line = line.replace(/\uFFFD(?=\s*(?:cups?|tsp|tbsp|teaspoons?|tablespoons?|grams?|g|kg|ml|litres?|liters?)\b)/gi, '[quantity unclear]')
+    line = line.replace(/^(\s*)\uFFFD\s+/, '$1')
+    // Inline glyphs may be punctuation, fractions or letters. Retain the
+    // uncertainty explicitly instead of silently changing recipe meaning.
+    return line.replace(/[\uFFFD\uF0B7\uF0A7]/g, '[source text unclear]')
   }).join('\n')
+}
+
+export function recipeBankTextNeedsReview(text: string): boolean {
+  return /\[(?:quantity|source text) unclear\]/.test(text)
 }
