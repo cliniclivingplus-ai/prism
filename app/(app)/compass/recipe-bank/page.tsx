@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Plus, Loader2, Trash2, ChefHat, UploadCloud, FileText, Download, Pencil, Check, X, Search } from 'lucide-react'
 import { RECIPE_IMPORT_TEMPLATE } from '@/lib/parseRecipeBank'
 import { splitRecipeLines } from '@/lib/recipeText'
+import { cleanRecipeBankDisplayText } from '@/lib/recipeBankDisplayText'
 import { RecipeIngredientsRenderer, RecipeDirectionsRenderer } from '@/components/RecipeContentRenderer'
 import { filterRecipeBank } from '@/lib/recipeBankSearch'
 
@@ -582,11 +583,11 @@ export default function RecipeBankPage() {
                         </div>
                       </div>
                       <RecipeIngredientsRenderer
-                        rawText={r.ingredients}
+                        rawText={cleanRecipeBankDisplayText(r.ingredients, 'ingredients')}
                         colors={{ accent: C.green, text: C.muted }}
                       />
                       <RecipeDirectionsRenderer
-                        rawText={r.steps}
+                        rawText={cleanRecipeBankDisplayText(r.steps, 'steps')}
                         colors={{ accent: C.green, text: C.ink }}
                       />
                       {r.tags.length > 0 && (
