@@ -3,6 +3,7 @@ import { resolveSaladBowl } from '../saladBowl'
 import { DEFAULT_FOUNDER_NOTE_TEMPLATE, renderFounderNote } from '../clinicSettings'
 import type { GuideImage } from './matchGuideImage'
 import type { BankRecipe } from './matchRecipes'
+import { recipeCatalogueForPlan } from './recipeCatalogue'
 import type { ChecklistPageBlock } from '../blocks/types'
 import { parseNutritionistGuidelines } from './parseNutritionistGuidelines'
 import { buildDeterministicChecklist, type ChecklistItem } from '../dailyChecklist'
@@ -121,7 +122,7 @@ export function buildGuideData(
     })(),
     founderNote: overrides.founder_note || renderFounderNote(founderNoteTemplate, firstName, goalLabel),
     imageBank,
-    recipeBank,
+    recipeBank: recipeCatalogueForPlan(roadmap.created_at, recipeBank),
     manualRecipes: overrides.manual_recipes ?? {},
     weeklyManualRecipes: overrides.weekly_manual_recipes ?? {},
     theme: overrides.theme || 'classic',
