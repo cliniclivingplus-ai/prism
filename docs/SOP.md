@@ -335,6 +335,18 @@ should fail) before depending on it.
 
 ## 9. Incident log
 
+### 2026-10-19 — Dashboard loading and typing/scrolling lag on another laptop
+
+The shopping editor received a newly computed recipe array during unrelated
+typing, repeating ingredient extraction. Recipe matching also compiled search
+patterns inside its per-recipe loop. The performance update memoizes actual
+recipe inputs and rendered recipe content, reuses search patterns/lookups,
+splits layout/editor code at supported client boundaries, defers off-screen
+images and parallelizes independent reads. Existing save functions and data
+remain unchanged; no patient-data cache or bulk update was introduced.
+See `docs/dashboard-performance-2026-10-19.md`; the commit is discoverable via
+`components/guide-templates/GuideTemplateRenderer.tsx` history.
+
 ### 2026-10-18 — Shopping list extraction, categories and edits unreliable
 
 Classic extraction raced stale AI cleanup, fell back to generic items and

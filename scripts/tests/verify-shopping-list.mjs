@@ -65,7 +65,7 @@ const mockedReact = { ...react, useMemo: (fn) => fn(), useState: (initial) => {
   if (!(index in hooks)) hooks[index] = typeof initial === 'function' ? initial() : initial
   return [hooks[index], (next) => { hooks[index] = typeof next === 'function' ? next(hooks[index]) : next }]
 } }
-const Editor = load('components/RecipeShoppingListEditor.tsx', { react: mockedReact }).default
+const Editor = load('components/RecipeShoppingListEditor.tsx', { react: mockedReact }).RecipeShoppingListEditor
 globalThis.fetch = async (_url, options) => {
   savedBody = JSON.parse(options.body)
   return { ok: !failSave, json: async () => failSave ? { error: 'Test save failed' } : savedBody }

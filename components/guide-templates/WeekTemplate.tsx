@@ -1036,6 +1036,8 @@ function clpToggleGroceryCat(head){
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const shoppingListRecipes = useMemo(() => shoppingRecipes(weeklySchedule.filter((week) => !(hiddenSections ?? []).includes(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides), [weeklySchedule, hiddenSections, data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides])
+
   return (
     <div id="week-export-root" style={{ background: PALETTE.paper1, minHeight: '100vh', fontFamily: "'Work Sans', sans-serif", color: PALETTE.ink, WebkitFontSmoothing: 'antialiased' }}>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -2058,7 +2060,7 @@ function clpToggleGroceryCat(head){
 
       {/* Shopping list */}
       {editable ? (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
-            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !isHidden(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingListRecipes} savedList={groceryOverride} onSaved={setGroceryOverride} />
           </section>) : (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>

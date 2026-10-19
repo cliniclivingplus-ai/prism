@@ -987,6 +987,8 @@ function clpToggleGroceryCat(head){
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const shoppingListRecipes = useMemo(() => shoppingRecipes(weeklySchedule.filter((week) => !(data.hiddenSections ?? []).includes(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides), [weeklySchedule, data.hiddenSections, data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides])
+
   return (
     <div id="week-care-export-root" style={{ background: PALETTE.paper1, minHeight: '100vh', fontFamily: "'Inter', sans-serif", color: PALETTE.ink, WebkitFontSmoothing: 'antialiased' }}>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1407,7 +1409,7 @@ return (
 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
 {images.map((img, i) => (
 // eslint-disable-next-line @next/next/no-img-element
-<img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+<img loading="lazy" decoding="async" key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
 ))}
 </div>
 )}
@@ -1465,7 +1467,7 @@ return (
 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
 {images.map((img, i) => (
 // eslint-disable-next-line @next/next/no-img-element
-<img key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
+<img loading="lazy" decoding="async" key={i} src={img.url} alt={img.alt} style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 10, display: 'block' }} />
 ))}
 </div>
 )}
@@ -1881,7 +1883,7 @@ style={{ fontSize: '0.88rem', lineHeight: 1.5, flex: 1 }} />
 
       {/* Shopping list */}
       {editable ? (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
-            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !isHidden(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingListRecipes} savedList={groceryOverride} onSaved={setGroceryOverride} />
           </section>) : (<section id="grocery" style={{ background: PALETTE.paper2, padding: '4rem 1.5rem', ...hiddenStyle('grocery') }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <Eyebrow>What to buy</Eyebrow>

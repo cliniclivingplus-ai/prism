@@ -1,4 +1,4 @@
-import nextDynamic from 'next/dynamic'
+import GuideTemplateRenderer from '@/components/guide-templates/GuideTemplateRenderer'
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveRoadmapId } from '@/lib/share/publicData'
@@ -7,19 +7,6 @@ import { buildGuideData } from '@/lib/pdf/buildGuideData'
 import { resolveConfirmedSupplements } from '@/lib/pdf/resolveConfirmedSupplements'
 import { ensureDailyContent } from '@/lib/pdf/ensureDailyContent'
 
-const DashboardClient = nextDynamic(() => import('@/components/guide-templates/DashboardClient'))
-const AlmanacTemplate = nextDynamic(() => import('@/components/guide-templates/AlmanacTemplate'))
-const PulseTemplate = nextDynamic(() => import('@/components/guide-templates/PulseTemplate'))
-const OnyxTemplate = nextDynamic(() => import('@/components/guide-templates/OnyxTemplate'))
-const WeekTemplate = nextDynamic(() => import('@/components/guide-templates/WeekTemplate'))
-const VitalsTemplate = nextDynamic(() => import('@/components/guide-templates/VitalsTemplate'))
-const WeekBrutalTemplate = nextDynamic(() => import('@/components/guide-templates/WeekBrutalTemplate'))
-const WeekEarthTemplate = nextDynamic(() => import('@/components/guide-templates/WeekEarthTemplate'))
-const WeekEditorialTemplate = nextDynamic(() => import('@/components/guide-templates/WeekEditorialTemplate'))
-const WeekNeonTemplate = nextDynamic(() => import('@/components/guide-templates/WeekNeonTemplate'))
-const WeekBloomTemplate = nextDynamic(() => import('@/components/guide-templates/WeekBloomTemplate'))
-const WeekCareTemplate = nextDynamic(() => import('@/components/guide-templates/WeekCareTemplate'))
-const WeekAuroraTemplate = nextDynamic(() => import('@/components/guide-templates/WeekAuroraTemplate'))
 
 export const revalidate = 60
 export const dynamic = 'force-dynamic'
@@ -50,46 +37,12 @@ export default async function PatientDashboardPage({ params }: { params: Promise
 
   if (error || !roadmap) notFound()
 
-  await ensureDailyContent(roadmap)
-  const confirmedSupplements = await resolveConfirmedSupplements(roadmap.patient_id)
-  const founderNoteTemplate = await readFounderNoteTemplate()
+  const [, confirmedSupplements, founderNoteTemplate] = await Promise.all([
+    ensureDailyContent(roadmap),
+    resolveConfirmedSupplements(roadmap.patient_id),
+    readFounderNoteTemplate(),
+  ])
   const guideData = buildGuideData(roadmap, imageBank ?? [], recipes ?? [], confirmedSupplements, founderNoteTemplate)
 
-  if (guideData.template === 'almanac') {
-    return <AlmanacTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'pulse') {
-    return <PulseTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'onyx') {
-    return <OnyxTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'week') {
-    return <WeekTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'week-brutal') {
-    return <WeekBrutalTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'week-earth') {
-    return <WeekEarthTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'week-editorial') {
-    return <WeekEditorialTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'week-neon') {
-    return <WeekNeonTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'week-bloom') {
-    return <WeekBloomTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'week-care') {
-    return <WeekCareTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'week-aurora') {
-    return <WeekAuroraTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  if (guideData.template === 'vitals') {
-    return <VitalsTemplate shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
-  }
-  return <DashboardClient shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
+  return <GuideTemplateRenderer shareToken={token} data={guideData} initialCheckins={checkins ?? []} />
 }

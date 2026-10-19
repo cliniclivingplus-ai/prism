@@ -74,6 +74,12 @@ export function selectRecipesForPatient(
   const concernKeywords = extractKeywords(opts.primaryConcern)
   const dietKeywords = opts.dietProtocol.flatMap(extractKeywords)
   const keywords = [...new Set([...concernKeywords, ...dietKeywords])]
+  // The same patterns are tested against every recipe. Compile once per
+  // selection rather than thousands of times while the browser renders.
+  const keywordPatterns = keywords.map((keyword) => ({
+    keyword,
+    pattern: new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`),
+  }))
   const lowFodmapPlan = planMentionsLowFodmap(opts.primaryConcern, opts.dietProtocol)
 
   // Recipes are no longer typed by meal. The clinic organises the bank by
@@ -84,7 +90,7 @@ export function selectRecipesForPatient(
   const scored = bank
     .map((r) => {
       const haystack = `${r.name} ${r.tags.join(' ')} ${r.ingredients}`.toLowerCase()
-      const matched = keywords.filter((k) => new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(haystack))
+      const matched = keywordPatterns.filter(({ pattern }) => pattern.test(haystack)).map(({ keyword }) => keyword)
       const fodmapFirst = lowFodmapPlan && isLowFodmapRecipe(r)
       return { recipe: r, matched, fodmapFirst }
     })

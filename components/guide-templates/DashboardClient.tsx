@@ -4,7 +4,8 @@ import { shoppingRecipes } from '@/lib/shoppingRecipes'
 import { useState, useMemo, useEffect, useRef, Fragment, type ReactNode } from 'react'
 import { CheckCircle2, Circle, MapPin, Utensils, Pill, ShoppingCart, HeartPulse, HelpCircle, Phone, Clock, X, ChefHat, Download, Sparkles, Star, Save, Check, Loader2, ExternalLink, Flame, CalendarCheck, Target, TrendingUp, ChevronDown, ChevronRight, Video, MessageCircle, Users, Activity, Stethoscope, Plus, Trash2, Eye, EyeOff, LinkIcon, Droplet, Sun, type IconComponent } from '@/lib/kawaii/icons'
 import { UploadCloud, Compass, RefreshCw } from 'lucide-react'
-import CloneRoadmapModal from '@/components/CloneRoadmapModal'
+import nextDynamic from 'next/dynamic'
+const CloneRoadmapModal = nextDynamic(() => import('@/components/CloneRoadmapModal'))
 import { type ChecklistItem } from '@/lib/dailyChecklist'
 import { Splash } from '@/lib/kawaii/Mascot'
 import { KAWAII } from '@/lib/kawaii/tokens'
@@ -72,11 +73,11 @@ function LinkChips({ value, onChange }: { value: string; onChange: (next: string
     </div>
   )
 }
-import { Rnd } from 'react-rnd'
+const Rnd = nextDynamic(() => import('react-rnd').then((module) => module.Rnd))
 import { Copy, Wand2, Send, AlertTriangle } from 'lucide-react'
 import { BlockCard, BlockBody, computeCanvasHeight, CANVAS_WIDTH, toBlockTheme, type RecipeLookup, type ImageLookup } from '@/lib/blocks/BlockRenderer'
 import type { ChecklistPageBlock, BlockType, BlockLayout } from '@/lib/blocks/types'
-import { BlockInspector } from '@/components/checklist-editor/BlockInspector'
+const BlockInspector = nextDynamic(() => import('@/components/checklist-editor/BlockInspector').then((module) => module.BlockInspector))
 import { CanvasBlocksSection } from './CanvasBlocksSection'
 import { PALETTES, PALETTE_LIST } from './palettes'
 
@@ -2196,15 +2197,18 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editable, openGroceryWeek, recipeOverrides])
 
-  const combinedImages = new Map(mealImages)
-  allWeekSlotRecipes.forEach((s) => s.matches.forEach((m) => {
-    if (!combinedImages.has(m.recipe.id)) {
-      if (m.recipe.image_url) { combinedImages.set(m.recipe.id, m.recipe.image_url); return }
-      const img = matchGuideImageDistinct(`${m.recipe.name} ${m.recipe.tags.join(' ')}`, data.imageBank, new Set())
-      combinedImages.set(m.recipe.id, img?.image_url ?? null)
-    }
-  }))
-  Object.entries(customUploadedRecipeImages).forEach(([id, url]) => combinedImages.set(id, url))
+  const combinedImages = useMemo(() => {
+    const images = new Map(mealImages)
+    allWeekSlotRecipes.forEach((s) => s.matches.forEach((m) => {
+      if (!images.has(m.recipe.id)) {
+        if (m.recipe.image_url) { images.set(m.recipe.id, m.recipe.image_url); return }
+        const img = matchGuideImageDistinct(`${m.recipe.name} ${m.recipe.tags.join(' ')}`, data.imageBank, new Set())
+        images.set(m.recipe.id, img?.image_url ?? null)
+      }
+    }))
+    Object.entries(customUploadedRecipeImages).forEach(([id, url]) => images.set(id, url))
+    return images
+  }, [mealImages, allWeekSlotRecipes, data.imageBank, customUploadedRecipeImages])
 
   // Downloads exactly what's rendered on screen — everything in this
   // component is inline-styled (no external stylesheet to lose), so cloning
@@ -2333,6 +2337,8 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
   }, [])
 
   const isKawaii = theme === 'kawaii'
+  const shoppingListRecipes = useMemo(() => shoppingRecipes(editWeeks.filter((week) => !(hiddenSections ?? []).includes(`week-${week.week_number}`)), data.recipeBank, weeklyManualRecipes, manualRecipes, weekMealMatches, recipeOverrides), [editWeeks, hiddenSections, data.recipeBank, weeklyManualRecipes, manualRecipes, weekMealMatches, recipeOverrides])
+
   return (
     <div id="dashboard-export-root" style={{ background: C.bg, minHeight: '100vh' }}>
       {isKawaii && <link rel="preconnect" href="https://fonts.googleapis.com" />}
@@ -3949,7 +3955,7 @@ export default function DashboardClient({ roadmapId, shareToken, patientId, data
           {/* Grocery list — unified shopping list derived from all matched recipes */}
           {editable ? (<div id="grocery" {...hiddenAttrs('grocery')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('grocery') }}>
             <SectionToggle hidden={isHidden('grocery')} onToggle={() => toggleSection('grocery')} />
-            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(editWeeks.filter((week) => !isHidden(`week-${week.week_number}`)), data.recipeBank, weeklyManualRecipes, manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingListRecipes} savedList={groceryOverride} onSaved={setGroceryOverride} />
           </div>) : (<div id="grocery" {...hiddenAttrs('grocery')} style={{ ...cardStyle, scrollMarginTop: SECTION_SCROLL_MARGIN, ...hiddenStyle('grocery') }}>
             {editable && <SectionToggle hidden={isHidden('grocery')} onToggle={() => toggleSection('grocery')} />}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>

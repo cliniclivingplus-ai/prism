@@ -1,11 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { ChevronDown, Pencil, Trash2, Check } from 'lucide-react'
 import { GROCERY_CATEGORY_ORDER, type GroceryCategory } from '@/lib/groceryList'
 import { extractRecipeShoppingList, normalizeShoppingDraft, type ShoppingRecipe } from '@/lib/recipeShoppingList'
 
-export default function RecipeShoppingListEditor({ roadmapId, recipes, savedList, onSaved }: {
+export function RecipeShoppingListEditor({ roadmapId, recipes, savedList, onSaved }: {
   roadmapId?: string
   recipes: ShoppingRecipe[]
   savedList: GroceryCategory[] | null
@@ -110,3 +110,5 @@ export default function RecipeShoppingListEditor({ roadmapId, recipes, savedList
     </details>}
   </div>
 }
+
+export default memo(RecipeShoppingListEditor)

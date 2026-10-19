@@ -831,6 +831,8 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const shoppingListRecipes = useMemo(() => shoppingRecipes(weeklySchedule.filter((week) => !(hiddenSections ?? []).includes(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides), [weeklySchedule, hiddenSections, data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides])
+
   return (
     <div id="onyx-export-root" style={{ background: ONYX.bg, minHeight: '100vh', fontFamily: "'Inter', sans-serif", color: ONYX.ink, WebkitFontSmoothing: 'antialiased' }}>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1782,7 +1784,7 @@ export default function OnyxTemplate({ shareToken, data, initialCheckins, editab
 
         {/* Shopping list */}
         {editable ? (<Card id="grocery" hidden={isHidden('grocery')}>
-            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingRecipes(weeklySchedule.filter((week) => !isHidden(`week-${week.week_number}`)), data.recipeBank, data.weeklyManualRecipes, data.manualRecipes, weekMealMatches, recipeOverrides)} savedList={groceryOverride} onSaved={setGroceryOverride} />
+            <RecipeShoppingListEditor roadmapId={roadmapId} recipes={shoppingListRecipes} savedList={groceryOverride} onSaved={setGroceryOverride} />
           </Card>) : (<Card id="grocery" hidden={isHidden('grocery')}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
             <div>

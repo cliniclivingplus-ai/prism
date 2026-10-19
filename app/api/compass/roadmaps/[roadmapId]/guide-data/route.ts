@@ -25,9 +25,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ road
   if (error) return Response.json({ error: error.message }, { status: 500 })
   if (!roadmap) return Response.json({ error: 'Not found' }, { status: 404 })
 
-  await ensureDailyContent(roadmap)
-  const confirmedSupplements = await resolveConfirmedSupplements(roadmap.patient_id)
-  const founderNoteTemplate = await readFounderNoteTemplate()
+  const [, confirmedSupplements, founderNoteTemplate] = await Promise.all([
+    ensureDailyContent(roadmap),
+    resolveConfirmedSupplements(roadmap.patient_id),
+    readFounderNoteTemplate(),
+  ])
   const data = buildGuideData(roadmap, imageBank ?? [], recipeBank ?? [], confirmedSupplements, founderNoteTemplate)
   return Response.json({ data })
 }

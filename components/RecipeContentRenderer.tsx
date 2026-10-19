@@ -1,6 +1,21 @@
 'use client'
-import React from 'react'
+import React, { memo, useMemo } from 'react'
 import { parseRecipeStructuredLines } from '@/lib/recipeText'
+
+type ContentProps = {
+  rawText: string
+  colors: RecipeRenderColors
+  style?: { fontSize?: string | number; lineHeight?: number | string; opacity?: number }
+}
+
+// Callers create fresh color/style objects during unrelated form edits.
+// Compare their actual primitive values so unchanged recipe lists can skip
+// hundreds of list-item reconciliations without hiding real text/theme edits.
+export function sameRecipeContent(before: ContentProps, after: ContentProps): boolean {
+  return before.rawText === after.rawText &&
+    (Object.keys({ ...before.colors, ...after.colors }) as (keyof RecipeRenderColors)[]).every((key) => before.colors[key] === after.colors[key]) &&
+    before.style?.fontSize === after.style?.fontSize && before.style?.lineHeight === after.style?.lineHeight && before.style?.opacity === after.style?.opacity
+}
 
 export type RecipeRenderColors = {
   accent: string
@@ -11,7 +26,7 @@ export type RecipeRenderColors = {
   stepBadgeColor?: string
 }
 
-export function RecipeIngredientsRenderer({
+function RecipeIngredientsContent({
   rawText,
   colors,
   style,
@@ -20,7 +35,7 @@ export function RecipeIngredientsRenderer({
   colors: RecipeRenderColors
   style?: { fontSize?: string | number; lineHeight?: number | string; opacity?: number }
 }) {
-  const items = parseRecipeStructuredLines(rawText)
+  const items = useMemo(() => parseRecipeStructuredLines(rawText), [rawText])
   const textColor = colors.text ?? 'currentColor'
   const bulletColor = colors.bulletColor ?? colors.accent
   const headerBg = colors.accentSoft || `${colors.accent}1F`
@@ -64,7 +79,7 @@ export function RecipeIngredientsRenderer({
   )
 }
 
-export function RecipeDirectionsRenderer({
+function RecipeDirectionsContent({
   rawText,
   colors,
   style,
@@ -73,18 +88,24 @@ export function RecipeDirectionsRenderer({
   colors: RecipeRenderColors
   style?: { fontSize?: string | number; lineHeight?: number | string; opacity?: number }
 }) {
-  const items = parseRecipeStructuredLines(rawText)
+  const items = useMemo(() => {
+    let step = 0
+    const numbered = []
+    for (const item of parseRecipeStructuredLines(rawText)) {
+      step = item.type === 'header' ? 0 : step + 1
+      numbered.push({ ...item, step })
+    }
+    return numbered
+  }, [rawText])
   const textColor = colors.text ?? 'currentColor'
   const badgeBg = colors.stepBadgeBg || colors.accentSoft || `${colors.accent}1F`
   const badgeColor = colors.stepBadgeColor || colors.accent
   const headerBg = colors.accentSoft || `${colors.accent}1F`
-  let stepNum = 0
 
   return (
     <ol style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 10 }}>
       {items.map((item, i) => {
         if (item.type === 'header') {
-          stepNum = 0
           return (
             <li key={i} style={{ listStyle: 'none', marginTop: i === 0 ? 4 : 18, marginBottom: 4 }}>
               <div
@@ -109,11 +130,10 @@ export function RecipeDirectionsRenderer({
             </li>
           )
         }
-        stepNum++
         return (
           <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: '50%', background: badgeBg, color: badgeColor, fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {stepNum}
+              {item.step}
             </span>
             <span style={{ fontSize: style?.fontSize ?? 12.5, color: textColor, opacity: style?.opacity ?? 1, lineHeight: style?.lineHeight ?? 1.5, paddingTop: 1 }}>{item.text}</span>
           </li>
@@ -122,3 +142,6 @@ export function RecipeDirectionsRenderer({
     </ol>
   )
 }
+
+export const RecipeIngredientsRenderer = memo(RecipeIngredientsContent, sameRecipeContent)
+export const RecipeDirectionsRenderer = memo(RecipeDirectionsContent, sameRecipeContent)
