@@ -10,10 +10,22 @@
 const HF_MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
 const HF_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}/pipeline/feature-extraction`
 
+// Why the last embedding attempt failed, so callers can tell a coach that
+// knowledge-base search is down instead of quietly answering without it.
+// Observed live: the HF account ran out of credits and every call returned
+// 402, which this module swallowed — vector search was dead for weeks while
+// the chat carried on looking normal.
+export type EmbeddingStatus = 'ok' | 'no-key' | 'no-credits' | 'auth' | 'error'
+let lastStatus: EmbeddingStatus = 'ok'
+export function lastEmbeddingStatus(): EmbeddingStatus {
+  return lastStatus
+}
+
 export async function embedText(text: string): Promise<number[] | null> {
   const apiKey = process.env.HUGGINGFACE_API_KEY
   if (!apiKey) {
-    console.log('No HF API key — skipping vector search')
+    lastStatus = 'no-key'
+    console.error('[embeddings] no HUGGINGFACE_API_KEY — knowledge-base vector search is OFF')
     return null
   }
 
@@ -32,7 +44,10 @@ export async function embedText(text: string): Promise<number[] | null> {
     })
 
     if (!res.ok) {
-      console.log('HF API error:', res.status, await res.text())
+      const detail = await res.text()
+      lastStatus = res.status === 402 ? 'no-credits' : res.status === 401 || res.status === 403 ? 'auth' : 'error'
+      // Loud on purpose: this disables knowledge-base search for everyone.
+      console.error(`[embeddings] HF ${res.status} — knowledge-base vector search is OFF (${lastStatus}): ${detail.slice(0, 200)}`)
       return null
     }
 
@@ -40,16 +55,20 @@ export async function embedText(text: string): Promise<number[] | null> {
 
     // HF returns nested array for feature-extraction
     if (Array.isArray(data) && Array.isArray(data[0])) {
+      lastStatus = 'ok'
       return data[0] as number[]
     }
     if (Array.isArray(data)) {
+      lastStatus = 'ok'
       return data as number[]
     }
 
-    console.log('Unexpected HF response shape:', JSON.stringify(data).slice(0, 100))
+    lastStatus = 'error'
+    console.error('[embeddings] unexpected HF response shape:', JSON.stringify(data).slice(0, 100))
     return null
   } catch (err) {
-    console.log('HF embedding error:', err instanceof Error ? err.message : err)
+    lastStatus = 'error'
+    console.error('[embeddings] request failed — knowledge-base vector search is OFF:', err instanceof Error ? err.message : err)
     return null
   }
 }

@@ -37,6 +37,9 @@ export default function CaseWorkspace({
   const [input, setInput] = useState('')
   const [thinking, setThinking] = useState(false)
   const [chatError, setChatError] = useState('')
+  // Set when the server reports that knowledge-base search is unavailable,
+  // so a coach is told rather than left assuming answers are grounded in it.
+  const [kbSearchDown, setKbSearchDown] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -141,6 +144,7 @@ export default function CaseWorkspace({
         body: JSON.stringify({ mode: 'chat', patientId: resolvedPatientId, patientName, transcript, geminiSummary, checklist, messages: [] }),
       })
       const j = await r.json()
+      setKbSearchDown(!!j.kbSearchDown)
       if (j.error || !j.reply) { setChatError(j.error || 'The clinical co-pilot could not open the discussion.'); return }
       const opener: Msg[] = [{ role: 'assistant', content: j.reply, sources: Array.isArray(j.sources) ? j.sources : [], generalAnswer: !!j.generalAnswer, kbMiss: !!j.kbMiss }]
       setMessages(opener); persist(opener)
@@ -162,6 +166,7 @@ export default function CaseWorkspace({
         body: JSON.stringify({ mode: 'chat', patientId: resolvedPatientId, patientName, transcript, geminiSummary, checklist, messages: next }),
       })
       const j = await r.json()
+      setKbSearchDown(!!j.kbSearchDown)
       if (j.error || !j.reply) { setChatError(j.error || 'The clinical co-pilot could not respond.'); return }
       const withReply = [...next, { role: 'assistant' as const, content: j.reply, sources: Array.isArray(j.sources) ? j.sources : [], generalAnswer: !!j.generalAnswer, kbMiss: !!j.kbMiss, recipeAdded: !!j.recipeAdded, recipeName: j.recipeName || '', lifestyleAdded: !!j.lifestyleAdded, lifestyleCount: j.lifestyleCount || 0 }]
       setMessages(withReply); persist(withReply)
@@ -352,6 +357,14 @@ export default function CaseWorkspace({
           {thinking && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: C.faint, fontSize: 12.5 }}>
               <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Thinking through the case…
+            </div>
+          )}
+          {kbSearchDown && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: C.amberSoft, border: '1px solid #F0D9B5', borderRadius: 10, padding: '9px 12px' }}>
+              <AlertCircle size={13} color="#9A6316" style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, color: '#7A5012' }}>
+                Knowledge base search is unavailable, so replies are not grounded in the clinic&apos;s documents right now. The embedding service needs attention.
+              </span>
             </div>
           )}
           {chatError && !thinking && (

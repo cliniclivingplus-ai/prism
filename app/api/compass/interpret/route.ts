@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 import { supabaseAdmin } from '@/lib/supabase'
+import { distilAgreedPlan, agreedPlanBlock, isEmptyPlan } from '@/lib/chatPlan'
 import { supabaseBlood } from '@/lib/supabase'
 import { supabaseMrx } from '@/lib/supabase'
 import { groqChatCompletion } from '@/lib/groq'
@@ -83,6 +84,19 @@ export async function POST(req: NextRequest) {
     const multiSessionNotesBlock = sessionNarrativeParts.join('\n\n')
     const qaPairs: { question: string; answer: string }[] = sessionsList.flatMap((s) => (s.qa_pairs || []) as { question: string; answer: string }[])
     const roadmapInstructions = session.roadmap_instructions ?? ''
+
+    // What the coach settled while talking to the clinical co-pilot. Until
+    // now that conversation reached generation only as loose Q&A text, so a
+    // plan agreed in the chat might or might not survive into the dashboard.
+    // Distilled into decisions here and handed to every step below as the
+    // coach's own instructions.
+    const agreedPlan = await distilAgreedPlan(qaPairs as { question?: string; answer?: string; mode?: string }[], patient.full_name)
+    const agreedBlock = agreedPlanBlock(agreedPlan)
+    const agreedInstructions = agreedBlock
+      ? `AGREED IN THE COACH'S DISCUSSION (these are decisions already made — follow them exactly, do not water them down, reword them away or replace them with your own suggestions):
+${agreedBlock}`
+      : ''
+    console.log(`[interpret] agreed plan from discussion: ${isEmptyPlan(agreedPlan) ? 'none' : `${agreedPlan.lifestyle.length} lifestyle, ${agreedPlan.meals.length} meals, ${agreedPlan.weeklyFocus.length} weekly, ${agreedPlan.supplements.length} supplements`}`)
     const reportsBlock = (reports ?? []).length
       ? (reports ?? []).map((r) => `${r.report_type}:\n${r.patient_summary}`).join('\n\n')
       : ''
@@ -309,6 +323,7 @@ ${patientFacts}
 
 NUTRITIONIST INSTRUCTIONS:
 ${roadmapInstructions || 'Focus on root cause healing based on their specific condition.'}
+${agreedInstructions}
 
 KB CLINICAL KNOWLEDGE:
 ${kbContext || 'Use clinical expertise.'}
@@ -329,7 +344,7 @@ Use "you" throughout. Reference their real details. No generic health advice.` }
     // so a roadmap generated fresh and one backfilled later get identically
     // grounded content — regardless of which template (Week-family or
     // Classic/Almanac/Pulse/Onyx/Vitals) is picked.
-    const { lifestyle_guidelines: genLifestyle, meal_guidelines: genMeals, daily_schedule } = await generateDailyContent(patientFacts, kbContext)
+    const { lifestyle_guidelines: genLifestyle, meal_guidelines: genMeals, daily_schedule } = await generateDailyContent(patientFacts, kbContext, undefined, undefined, undefined, { lifestyle: agreedPlan.lifestyle, meals: agreedPlan.meals, block: agreedInstructions })
 
     // Resolve effective diet and lifestyle guidelines (prioritizing explicit body params,
     // then existing roadmap overrides/stored columns if regenerating, then Step 3 AI generation).
@@ -382,6 +397,8 @@ ${patientFacts}
 
 KB:
 ${kbContext || 'Use expertise.'}
+
+${agreedInstructions}
 
 Write 4 clinical notes, each section starting with EXACTLY one of these four header lines (plain text, no markdown bold, no extra words on the header line itself):
 • Biomarkers:
@@ -483,6 +500,7 @@ ${kbContext || 'Use expertise.'}
 
 NUTRITIONIST INSTRUCTIONS:
 ${roadmapInstructions || 'Address root causes from facts, then build on improvements, then optimise and sustain.'}
+${agreedInstructions}
 
 This is part of a longer ${totalWeeks}-week plan, split into chunks. This chunk covers ONLY weeks ${startWeek} to ${endWeek} — ${weeksInChunk} items total. ${phaseGuidance(startWeek, endWeek)}
 ${usedThemes.length > 0 ? `\nTHEMES ALREADY COVERED BY EARLIER WEEKS OF THIS SAME PLAN — do not repeat any of these, and do not write a close variant of one (e.g. "X and Y" when "X" already appeared):\n${recentThemes(usedThemes).map((t) => `- ${t}`).join('\n')}\nEvery week in this chunk must address a genuinely different physiological system or mechanism from all of the above.\n` : ''}

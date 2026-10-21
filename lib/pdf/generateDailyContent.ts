@@ -27,12 +27,21 @@ export async function generateDailyContent(
   kbContext: string,
   customLifestyle?: string,
   customMealGuidelines?: string,
-  customMealRecipes?: string
+  customMealRecipes?: string,
+  // What the coach settled while talking to the clinical co-pilot. Agreed
+  // habits and meals are added to the guidelines the patient actually reads,
+  // not just mentioned to the model, and the schedule is told to place them.
+  agreed?: { lifestyle: string[]; meals: string[]; block: string }
 ) {
   const scheduleExample = await getGoodExample('daily_schedule')
 
-  const lifestyle_guidelines = customLifestyle?.trim() || STANDARD_LIFESTYLE_GUIDELINES
-  const meal_guidelines = customMealGuidelines?.trim() || STANDARD_MEAL_GUIDELINES
+  const withAgreed = (base: string, items: string[]) => {
+    const extra = items.map((i) => i.trim()).filter(Boolean)
+    return extra.length ? [base.trim(), ...extra].join('\n') : base
+  }
+
+  const lifestyle_guidelines = withAgreed(customLifestyle?.trim() || STANDARD_LIFESTYLE_GUIDELINES, agreed?.lifestyle ?? [])
+  const meal_guidelines = withAgreed(customMealGuidelines?.trim() || STANDARD_MEAL_GUIDELINES, agreed?.meals ?? [])
 
   const scheduleRes = await groqChatCompletion({
     model: 'openai/gpt-oss-20b',
@@ -57,6 +66,8 @@ ${customMealRecipes ? `\nPRESCRIBED MEALS & PREPARATIONS:\n${customMealRecipes}`
 KB CONTEXT:
 ${kbContext || 'Use clinical expertise.'}
 
+${agreed?.block ? `${agreed.block}
+` : ''}
 Write this patient's full daily schedule, from their actual start-of-day wake-up time to sleep.
 
 TIMING & PERSONALIZATION RULES:

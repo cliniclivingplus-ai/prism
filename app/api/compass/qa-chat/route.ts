@@ -16,7 +16,7 @@ export const maxDuration = 60;
 
 import { groqChatCompletion } from '@/lib/groq';
 import { supabaseAdmin } from '@/lib/supabase';
-import { embedText } from '@/lib/embeddings';
+import { embedText, lastEmbeddingStatus } from '@/lib/embeddings';
 import { DIET_RULE, buildPlateRule, DEFAULT_PLATE_COMPOSITION, PlateComposition, findNonVegTerm, stripDietLabels } from '@/lib/dietRules';
 
 const STOP_WORDS = new Set(['the', 'patient', 'is', 'are', 'was', 'with', 'and', 'has', 'have', 'been', 'their', 'they', 'this', 'that', 'from', 'for', 'not', 'but', 'can', 'also', 'more', 'very', 'some', 'into', 'over', 'after', 'what', 'when', 'how', 'why', 'about', 'should', 'would', 'could']);
@@ -707,7 +707,13 @@ Each item must start with "Morning: ", "Afternoon: ", or "Evening: " followed by
         }
 
         const kbMiss = !effectiveSources.length && !generalAnswer;
-        return Response.json({ reply: stripDietLabels(reply), sources: effectiveSources, generalAnswer, kbMiss, checklist: updatedChecklist, recipeAdded, recipeName, lifestyleAdded, lifestyleCount });
+        // Tell the coach when the knowledge base is not actually being
+        // searched. Without this the chat looks normal while answering from
+        // general knowledge only — which is how a dead embeddings key went
+        // unnoticed.
+        const embeddingStatus = lastEmbeddingStatus();
+        const kbSearchDown = embeddingStatus === 'no-credits' || embeddingStatus === 'auth' || embeddingStatus === 'no-key';
+        return Response.json({ reply: stripDietLabels(reply), sources: effectiveSources, generalAnswer, kbMiss, checklist: updatedChecklist, recipeAdded, recipeName, lifestyleAdded, lifestyleCount, kbSearchDown, embeddingStatus });
       } catch (err) { return friendlyError(err); }
     }
 
