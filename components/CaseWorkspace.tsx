@@ -8,7 +8,7 @@ const C = {
   amber: '#D98A2B', amberSoft: '#FBF1E3', ink: '#1A2417', muted: '#6b7280',
   faint: '#8A9284', line: '#ECEBE3', card: '#FFFFFF',
 }
-type KbSource = { title: string; source_type: string }
+type KbSource = { title: string; source_type: string; url?: string; citation?: string }
 type Msg = { role: 'user' | 'assistant'; content: string; sources?: KbSource[]; generalAnswer?: boolean; kbMiss?: boolean; recipeAdded?: boolean; recipeName?: string; lifestyleAdded?: boolean; lifestyleCount?: number }
 // A step is a concrete, RAG-grounded action toward a milestone — validated
 // against this specific patient's known constraints (allergies, intolerances,
@@ -21,8 +21,8 @@ type Milestone = { index: number; text: string; steps: Step[] }
 type ChecklistItem = { index: number; text: string; priority: number; status: 'pending' | 'discussed' | 'deferred'; milestones: Milestone[] }
 
 export default function CaseWorkspace({
-  sessionId, patientId, patientName = 'the patient', transcript = '', geminiSummary = '',
-}: { sessionId: string; patientId?: string; patientName?: string; transcript?: string; geminiSummary?: string }) {
+  sessionId, patientId, patientName = 'the patient', transcript = '', geminiSummary = '', onBusyChange,
+}: { sessionId: string; patientId?: string; patientName?: string; transcript?: string; geminiSummary?: string; onBusyChange?: (busy: boolean) => void }) {
   const [summary, setSummary] = useState('')
   const [goal, setGoal] = useState('')
   const [coachQuote, setCoachQuote] = useState('')
@@ -37,6 +37,9 @@ export default function CaseWorkspace({
   const [input, setInput] = useState('')
   const [thinking, setThinking] = useState(false)
   const [chatError, setChatError] = useState('')
+  const [saveError, setSaveError] = useState('')
+  const savedDiscussion = useRef<ReturnType<typeof pairFor>>([])
+  useEffect(() => { onBusyChange?.(thinking || !!saveError) }, [thinking, saveError, onBusyChange])
   // Set when the server reports that knowledge-base search is unavailable,
   // so a coach is told rather than left assuming answers are grounded in it.
   const [kbSearchDown, setKbSearchDown] = useState(false)
@@ -90,10 +93,11 @@ export default function CaseWorkspace({
         const s = await (await fetch(`/api/compass/sessions/${sessionId}`)).json()
         cached = s?.case_summary || null
         if (Array.isArray(s?.qa_pairs)) {
+          savedDiscussion.current = s.qa_pairs.filter((p: { mode?: string }) => p.mode === 'discussion')
           for (const p of s.qa_pairs) {
             if (p.mode !== 'discussion') continue   // ignore old patient-interview Q&A
             if (p.question) existing.push({ role: 'user', content: p.question })
-            if (p.answer) existing.push({ role: 'assistant', content: p.answer })
+            if (p.answer) existing.push({ role: 'assistant', content: p.answer, sources: p.sources, generalAnswer: p.generalAnswer, kbMiss: p.kbMiss })
           }
         }
         const pid = patientId || s?.patient_id
@@ -130,11 +134,15 @@ export default function CaseWorkspace({
 
   async function persist(next: Msg[]) {
     try {
-      await fetch(`/api/compass/sessions/${sessionId}`, {
+      const pairs = pairFor(next)
+      const response = await fetch(`/api/compass/sessions/${sessionId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qa_pairs: pairFor(next) }),
+        body: JSON.stringify({ discussion_pairs: pairs, expected_discussion: savedDiscussion.current }),
       })
-    } catch {}
+      if (!response.ok) { const result = await response.json(); throw new Error(result.error || 'Could not save discussion.') }
+      savedDiscussion.current = pairs
+      setSaveError('')
+    } catch (error) { setSaveError(error instanceof Error ? error.message : 'Could not save discussion. Keep this tab open and retry before generating.') }
   }
   async function openDiscussion() {
     setOpening(true); setThinking(true)
@@ -147,7 +155,7 @@ export default function CaseWorkspace({
       setKbSearchDown(!!j.kbSearchDown)
       if (j.error || !j.reply) { setChatError(j.error || 'The clinical co-pilot could not open the discussion.'); return }
       const opener: Msg[] = [{ role: 'assistant', content: j.reply, sources: Array.isArray(j.sources) ? j.sources : [], generalAnswer: !!j.generalAnswer, kbMiss: !!j.kbMiss }]
-      setMessages(opener); persist(opener)
+      setMessages(opener); await persist(opener)
       if (Array.isArray(j.checklist) && j.checklist.length) { setChecklist(j.checklist); persistChecklist(j.checklist) }
     } catch { setChatError('Connection issue — try again.') }
     finally { setOpening(false); setThinking(false) }
@@ -169,13 +177,13 @@ export default function CaseWorkspace({
       setKbSearchDown(!!j.kbSearchDown)
       if (j.error || !j.reply) { setChatError(j.error || 'The clinical co-pilot could not respond.'); return }
       const withReply = [...next, { role: 'assistant' as const, content: j.reply, sources: Array.isArray(j.sources) ? j.sources : [], generalAnswer: !!j.generalAnswer, kbMiss: !!j.kbMiss, recipeAdded: !!j.recipeAdded, recipeName: j.recipeName || '', lifestyleAdded: !!j.lifestyleAdded, lifestyleCount: j.lifestyleCount || 0 }]
-      setMessages(withReply); persist(withReply)
+      setMessages(withReply); await persist(withReply)
       if (Array.isArray(j.checklist) && j.checklist.length) { setChecklist(j.checklist); persistChecklist(j.checklist) }
     } catch { setChatError('Connection issue — try again.') }
     finally { setThinking(false) }
   }
   function send(text: string) {
-    const clean = text.trim(); if (!clean || thinking) return
+    const clean = text.trim(); if (!clean || thinking || saveError) return
     setInput('')
     sendMessages([...messages, { role: 'user' as const, content: clean }])
   }
@@ -335,7 +343,7 @@ export default function CaseWorkspace({
                     <ul style={{ margin: '6px 0 0', padding: '8px 12px', listStyle: 'none', background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, fontSize: 12, color: C.ink, lineHeight: 1.6 }}>
                       {m.sources.map((s, si) => (
                         <li key={si} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                          <span style={{ color: C.faint }}>•</span> {s.title}
+                          <span style={{ color: C.faint }}>•</span> {s.citation ? `[${s.citation}] ` : ''}{s.url?.startsWith('https://pubmed.ncbi.nlm.nih.gov/') ? <a href={s.url} target="_blank" rel="noreferrer">{s.title}</a> : s.title}
                         </li>
                       ))}
                     </ul>
@@ -363,10 +371,11 @@ export default function CaseWorkspace({
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: C.amberSoft, border: '1px solid #F0D9B5', borderRadius: 10, padding: '9px 12px' }}>
               <AlertCircle size={13} color="#9A6316" style={{ flexShrink: 0 }} />
               <span style={{ fontSize: 12.5, color: '#7A5012' }}>
-                Knowledge base search is unavailable, so replies are not grounded in the clinic&apos;s documents right now. The embedding service needs attention.
+                No clinic documents were retrieved and vector search is unavailable. Scientific sources, when found, are shown separately below each reply.
               </span>
             </div>
           )}
+          {saveError && <div role="alert" style={{ padding: 12, background: C.amberSoft, fontSize: 13 }}>{saveError} <button onClick={() => persist(messages)}>Retry saving discussion</button></div>}
           {chatError && !thinking && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: C.amberSoft, border: '1px solid #F0D9B5', borderRadius: 10, padding: '9px 12px' }}>
               <AlertCircle size={13} color="#9A6316" style={{ flexShrink: 0 }} />
@@ -385,7 +394,7 @@ export default function CaseWorkspace({
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }}
             placeholder={`Discuss ${patientName}'s case, ask for a mechanism, propose an approach…`}
             style={{ flex: 1, padding: '11px 14px', borderRadius: 11, border: `1px solid ${C.line}`, fontSize: 13.5, lineHeight: 1.5, color: C.ink, fontFamily: 'inherit', outline: 'none', resize: 'none', maxHeight: 220, overflowY: 'auto' }} />
-          <button onClick={() => send(input)} disabled={thinking || !input.trim()}
+          <button onClick={() => send(input)} disabled={thinking || !!saveError || !input.trim()}
             style={{ padding: '11px 16px', borderRadius: 11, border: 'none', background: input.trim() ? C.green : '#C9D4BE', color: '#fff', cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <Send size={16} />
           </button>
@@ -402,18 +411,18 @@ export default function CaseWorkspace({
 }
 
 function pairFor(msgs: Msg[]) {
-  const pairs: { question: string; answer: string; mode: string }[] = []
+  const pairs: { question: string; answer: string; mode: string; sources?: KbSource[]; generalAnswer?: boolean; kbMiss?: boolean }[] = []
   // The AI now opens the discussion itself, so msgs[0] can be an assistant
   // message with no preceding user turn — store it with an empty question so
   // the reload logic (which only pushes a user message when question is
   // truthy) reconstructs it as a lone opening assistant message.
   if (msgs[0]?.role === 'assistant') {
-    pairs.push({ question: '', answer: msgs[0].content, mode: 'discussion' })
+    pairs.push({ question: '', answer: msgs[0].content, mode: 'discussion', sources: msgs[0].sources, generalAnswer: msgs[0].generalAnswer, kbMiss: msgs[0].kbMiss })
   }
   for (let i = 0; i < msgs.length; i++) {
     if (msgs[i].role === 'user') {
       const reply = msgs[i + 1]?.role === 'assistant' ? msgs[i + 1].content : ''
-      pairs.push({ question: msgs[i].content, answer: reply, mode: 'discussion' })
+      pairs.push({ question: msgs[i].content, answer: reply, mode: 'discussion', sources: msgs[i + 1]?.sources, generalAnswer: msgs[i + 1]?.generalAnswer, kbMiss: msgs[i + 1]?.kbMiss })
     }
   }
   return pairs

@@ -13,6 +13,7 @@ export default function SessionDetailClient({
   session: any
   patient: any
 }) {
+  const [discussionBusy, setDiscussionBusy] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
 
   const hasContent =
@@ -86,6 +87,8 @@ export default function SessionDetailClient({
             <Link
               href={`/compass/patients/${patient.id}/sessions/${session.id}/interpret`}
               className="btn-primary"
+              aria-disabled={discussionBusy}
+              onClick={e => { if (discussionBusy) e.preventDefault() }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -99,7 +102,7 @@ export default function SessionDetailClient({
                 fontSize: 14,
               }}
             >
-              <Wand2 size={15} /> Generate Dashboard
+              <Wand2 size={15} /> {discussionBusy ? 'Finish saving discussion first' : 'Generate Dashboard'}
             </Link>
           )}
         </div>
@@ -158,7 +161,7 @@ export default function SessionDetailClient({
       )}
 
       {/* Case workspace */}
-      <CaseWorkspace
+      <CaseWorkspace onBusyChange={setDiscussionBusy}
         sessionId={session.id}
         patientId={patient.id}
         patientName={patient.full_name}

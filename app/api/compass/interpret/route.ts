@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       supabaseAdmin.from('patient_reports').select('report_type, patient_summary').eq('patient_id', patient_id).eq('status', 'ready'),
       supabaseAdmin.from('sessions').select('*').eq('patient_id', patient_id).order('session_date', { ascending: true }),
     ])
+    if (session && session.patient_id !== patient_id) return NextResponse.json({ error: 'Session does not belong to this patient' }, { status: 400 })
     if (!session || !patient) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const sessionsList = (allPatientSessions && allPatientSessions.length > 0) ? allPatientSessions : [session]
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
     // plan agreed in the chat might or might not survive into the dashboard.
     // Distilled into decisions here and handed to every step below as the
     // coach's own instructions.
-    const agreedPlan = await distilAgreedPlan(qaPairs as { question?: string; answer?: string; mode?: string }[], patient.full_name)
+    const agreedPlan = await distilAgreedPlan((session.qa_pairs || []) as { question?: string; answer?: string; mode?: string }[], patient.full_name)
     const agreedBlock = agreedPlanBlock(agreedPlan)
     const agreedInstructions = agreedBlock
       ? `AGREED IN THE COACH'S DISCUSSION (these are decisions already made — follow them exactly, do not water them down, reword them away or replace them with your own suggestions):
@@ -257,18 +258,15 @@ ${agreedBlock}`
         kbContext = chunks.map((c: {content:string}, i: number) => `[KB ${i+1}]: ${c.content.slice(0, 350)}`).join('\n\n')
         kbSources = docIds.map(id => ({ title: docMap[id]?.title ?? 'Unknown', source_type: docMap[id]?.source_type ?? 'unknown', chunk_preview: chunks.find((c: {document_id:string}) => c.document_id === id)?.content?.slice(0, 80) ?? '' }))
         console.log('KB chunks:', chunks.length, 'from', docIds.length, 'books:', kbSources.map(s => s.title.split('(')[0].trim()).join(', '))
-      } else {
-        const { data: fb } = await supabaseAdmin.from('kb_chunks').select('content, document_id').limit(6)
-        if (fb?.length) {
-          const docIds = [...new Set(fb.map((c: {document_id:string}) => c.document_id))]
-          const { data: docs } = await supabaseAdmin.from('kb_documents').select('id, title, source_type').in('id', docIds)
-          const docMap = Object.fromEntries((docs ?? []).map((d: {id:string;title:string;source_type:string}) => [d.id, d]))
-          kbContext = fb.map((c: {content:string}, i: number) => `[KB ${i+1}]: ${c.content.slice(0, 300)}`).join('\n\n')
-          kbSources = docIds.map(id => ({ title: docMap[id]?.title ?? 'Unknown', source_type: docMap[id]?.source_type ?? 'unknown', chunk_preview: fb.find((c: {document_id:string}) => c.document_id === id)?.content?.slice(0, 80) ?? '' }))
-          console.log('KB fallback:', fb.length, 'chunks')
-        }
       }
+
     } catch (e) { console.log('KB error:', e) }
+
+    // Keep the references used in this session's discussion on the new draft.
+    const discussionSources = (session.qa_pairs || []).filter((p: { mode?: string }) => p.mode === 'discussion').flatMap((p: { sources?: { title: string; source_type: string; url?: string }[] }) => Array.isArray(p.sources) ? p.sources : [])
+    for (const source of discussionSources) {
+      if (source.title && !kbSources.some(s => s.title === source.title)) kbSources.push({ ...source, chunk_preview: '' })
+    }
 
     // ── STEP 1: Extract specific patient facts ────────────────
     // This is the key step — pull exact facts before generating

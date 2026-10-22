@@ -21,7 +21,7 @@ export function lastEmbeddingStatus(): EmbeddingStatus {
   return lastStatus
 }
 
-export async function embedText(text: string): Promise<number[] | null> {
+export async function embedText(text: string, timeoutMs = 8000): Promise<number[] | null> {
   const apiKey = process.env.HUGGINGFACE_API_KEY
   if (!apiKey) {
     lastStatus = 'no-key'
@@ -40,7 +40,7 @@ export async function embedText(text: string): Promise<number[] | null> {
         inputs: text.slice(0, 512), // MiniLM max tokens
         options: { wait_for_model: true },
       }),
-      signal: AbortSignal.timeout(8000), // 8s timeout
+      signal: AbortSignal.timeout(timeoutMs), // 8s timeout
     })
 
     if (!res.ok) {
